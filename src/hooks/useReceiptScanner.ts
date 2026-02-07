@@ -1,22 +1,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { fileToBase64 } from "@/lib/receiptStorage";
+import { getBackendClient } from "@/lib/backendClient";
 
 export interface ScannedReceiptData {
   merchant: string;
   amount: number;
   category: string;
   description: string;
-}
-
-async function getSupabaseClient() {
-  try {
-    const mod = await import("@/integrations/supabase/client");
-    return mod.supabase;
-  } catch (e) {
-    console.error("Supabase client import failed:", e);
-    throw new Error("Le backend n'est pas prêt. Rafraîchis la page.");
-  }
 }
 
 export function useReceiptScanner() {
@@ -26,7 +17,7 @@ export function useReceiptScanner() {
     setIsScanning(true);
 
     try {
-      const supabase = await getSupabaseClient();
+      const supabase = getBackendClient();
 
       // Convert file to base64
       const base64 = await fileToBase64(file);
