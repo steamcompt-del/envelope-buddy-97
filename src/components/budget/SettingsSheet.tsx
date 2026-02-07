@@ -168,31 +168,6 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
           
           <Separator />
           
-          {/* Allocation Template */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Modèle d'allocations
-            </h3>
-            
-            <p className="text-sm text-muted-foreground">
-              Définissez des montants par défaut pour allouer vos revenus en un clic chaque mois.
-            </p>
-            
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                setTimeout(() => onOpenAllocationTemplate?.(), 100);
-              }}
-              variant="outline"
-              className="w-full rounded-xl gap-2"
-            >
-              <Wand2 className="w-4 h-4" />
-              Gérer le modèle
-            </Button>
-          </div>
-          
-          <Separator />
-          
           {/* Envelope breakdown */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
