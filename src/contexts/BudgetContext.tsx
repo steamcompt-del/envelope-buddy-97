@@ -216,6 +216,21 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state]);
 
+  // Ensure the current month exists in state (otherwise UI shows a fallback month but actions become no-ops)
+  useEffect(() => {
+    setState(prev => {
+      if (prev.months[prev.currentMonthKey]) return prev;
+      const newMonth = createEmptyMonth(prev.currentMonthKey, prev.envelopeTemplates);
+      return {
+        ...prev,
+        months: {
+          ...prev.months,
+          [prev.currentMonthKey]: newMonth,
+        },
+      };
+    });
+  }, [state.currentMonthKey]);
+
   // Get current month data
   const currentMonth = state.months[state.currentMonthKey] || createEmptyMonth(state.currentMonthKey, state.envelopeTemplates);
 
