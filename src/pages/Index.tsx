@@ -10,7 +10,7 @@ import { AddExpenseDrawer } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
-import { AllocationTemplateDialog } from '@/components/budget/AllocationTemplateDialog';
+
 import { FabButton } from '@/components/budget/FabButton';
 import { mockScanReceipt } from '@/lib/mockReceiptScanner';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ export default function Index() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [incomeListOpen, setIncomeListOpen] = useState(false);
-  const [allocationTemplateOpen, setAllocationTemplateOpen] = useState(false);
+  
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   
   // File input for FAB scan
@@ -127,10 +127,9 @@ export default function Index() {
         open={settingsOpen} 
         onOpenChange={setSettingsOpen}
         onOpenIncomeList={() => setIncomeListOpen(true)}
-        onOpenAllocationTemplate={() => setAllocationTemplateOpen(true)}
       />
       <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
-      <AllocationTemplateDialog open={allocationTemplateOpen} onOpenChange={setAllocationTemplateOpen} />
+      
       
       {selectedEnvelopeId && (
         <EnvelopeDetailsDialog
