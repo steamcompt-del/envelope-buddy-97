@@ -141,12 +141,12 @@ function BudgetApp() {
   );
 }
 
-const Index = () => {
+function Index() {
   return (
     <BudgetProvider>
       <BudgetApp />
     </BudgetProvider>
   );
-};
+}
 
 export default Index;
