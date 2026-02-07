@@ -79,7 +79,7 @@ interface BudgetContextType {
   transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => void;
   
   // Transaction actions
-  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string) => void;
+  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string) => { alert?: { envelopeName: string; percent: number; isOver: boolean } };
   updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => void;
   deleteTransaction: (id: string) => void;
   
@@ -507,7 +507,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Transaction actions
-  const addTransaction = useCallback((envelopeId: string, amount: number, description: string, merchant?: string) => {
+  const addTransaction = useCallback((envelopeId: string, amount: number, description: string, merchant?: string): { alert?: { envelopeName: string; percent: number; isOver: boolean } } => {
     const transaction: Transaction = {
       id: crypto.randomUUID(),
       envelopeId,
@@ -517,9 +517,28 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       merchant,
     };
     
+    let alertInfo: { envelopeName: string; percent: number; isOver: boolean } | undefined;
+    
     setState(prev => {
       const month = prev.months[prev.currentMonthKey];
       if (!month) return prev;
+      
+      // Check for budget alert
+      const envelope = month.envelopes.find(e => e.id === envelopeId);
+      if (envelope && envelope.allocated > 0) {
+        const newSpent = envelope.spent + amount;
+        const percentUsed = (newSpent / envelope.allocated) * 100;
+        const previousPercent = (envelope.spent / envelope.allocated) * 100;
+        
+        // Alert if crossing 80% threshold or going over 100%
+        if ((previousPercent < 80 && percentUsed >= 80) || (previousPercent < 100 && percentUsed >= 100)) {
+          alertInfo = {
+            envelopeName: envelope.name,
+            percent: Math.round(percentUsed),
+            isOver: percentUsed >= 100,
+          };
+        }
+      }
       
       return {
         ...prev,
@@ -537,6 +556,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
         },
       };
     });
+    
+    return { alert: alertInfo };
   }, []);
 
   const updateTransaction = useCallback((id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => {

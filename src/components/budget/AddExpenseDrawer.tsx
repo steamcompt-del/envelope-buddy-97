@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Camera, Loader2, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface AddExpenseDrawerProps {
   open: boolean;
@@ -46,7 +47,21 @@ export function AddExpenseDrawer({
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
     
-    addTransaction(selectedEnvelope, parsedAmount, description || 'Dépense', merchant || undefined);
+    const result = addTransaction(selectedEnvelope, parsedAmount, description || 'Dépense', merchant || undefined);
+    
+    // Show budget alert if threshold crossed
+    if (result.alert) {
+      if (result.alert.isOver) {
+        toast.error(`⚠️ ${result.alert.envelopeName} : Budget dépassé ! (${result.alert.percent}%)`, {
+          duration: 5000,
+        });
+      } else {
+        toast.warning(`⚠️ ${result.alert.envelopeName} : ${result.alert.percent}% du budget utilisé`, {
+          duration: 4000,
+        });
+      }
+    }
+    
     resetForm();
     onOpenChange(false);
   };
