@@ -403,7 +403,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       if (!month) return prev;
       
       const envelope = month.envelopes.find(e => e.id === id);
-      const refundAmount = envelope ? envelope.allocated - envelope.spent : 0;
+      // Refund the full allocated amount (spent money is also returned since transactions are deleted)
+      const refundAmount = envelope ? envelope.allocated : 0;
       
       return {
         ...prev,
@@ -413,7 +414,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
           ...prev.months,
           [prev.currentMonthKey]: {
             ...month,
-            toBeBudgeted: month.toBeBudgeted + Math.max(0, refundAmount),
+            toBeBudgeted: month.toBeBudgeted + refundAmount,
             envelopes: month.envelopes.filter(e => e.id !== id),
             transactions: month.transactions.filter(t => t.envelopeId !== id),
           },
