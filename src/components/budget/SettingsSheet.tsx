@@ -13,25 +13,32 @@ import {
   TrendingUp, 
   TrendingDown,
   Wallet,
-  PieChart
+  PieChart,
+  Wand2
 } from 'lucide-react';
 
 interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenIncomeList?: () => void;
+  onOpenAllocationTemplate?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: SettingsSheetProps) {
-  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth } = useBudget();
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllocationTemplate }: SettingsSheetProps) {
+  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, currentMonthKey } = useBudget();
   
   // Calculate totals
   const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
   const totalSpent = envelopes.reduce((sum, env) => sum + env.spent, 0);
   const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
   
+  // Format month display
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const [year, month] = currentMonthKey.split('-').map(Number);
+  const monthDisplay = `${monthNames[month - 1]} ${year}`;
+  
   const handleResetMonth = () => {
-    if (confirm('Êtes-vous sûr de vouloir remettre à zéro les dépenses de toutes les enveloppes ? Cette action est irréversible.')) {
+    if (confirm('Êtes-vous sûr de vouloir remettre à zéro les dépenses et allocations de toutes les enveloppes ? Cette action est irréversible.')) {
       resetMonth();
       onOpenChange(false);
     }
@@ -43,7 +50,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: Settings
         <SheetHeader>
           <SheetTitle>Paramètres & Statistiques</SheetTitle>
           <SheetDescription>
-            Gérez votre budget et consultez vos statistiques
+            {monthDisplay}
           </SheetDescription>
         </SheetHeader>
         
@@ -103,6 +110,31 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: Settings
           
           <Separator />
           
+          {/* Allocation Template */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Modèle d'allocations
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Définissez des montants par défaut pour allouer vos revenus en un clic chaque mois.
+            </p>
+            
+            <Button
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(() => onOpenAllocationTemplate?.(), 100);
+              }}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <Wand2 className="w-4 h-4" />
+              Gérer le modèle
+            </Button>
+          </div>
+          
+          <Separator />
+          
           {/* Envelope breakdown */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -145,20 +177,20 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: Settings
           {/* Monthly Reset */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Nouveau mois
+              Réinitialiser ce mois
             </h3>
             
             <p className="text-sm text-muted-foreground">
-              Remet les dépenses à zéro pour toutes les enveloppes. Les montants alloués restent inchangés.
+              Remet les dépenses et allocations à zéro pour ce mois.
             </p>
             
             <Button
               onClick={handleResetMonth}
               variant="outline"
-              className="w-full rounded-xl gap-2"
+              className="w-full rounded-xl gap-2 text-destructive hover:text-destructive"
             >
               <RefreshCw className="w-4 h-4" />
-              Nouveau mois
+              Réinitialiser {monthDisplay}
             </Button>
           </div>
           
@@ -167,7 +199,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: Settings
           {/* Info */}
           <div className="text-center text-xs text-muted-foreground space-y-1">
             <p>{envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''}</p>
-            <p>{transactions.length} transaction{transactions.length !== 1 ? 's' : ''}</p>
+            <p>{transactions.length} transaction{transactions.length !== 1 ? 's' : ''} ce mois</p>
             <p className="pt-2">Données stockées localement</p>
           </div>
         </div>

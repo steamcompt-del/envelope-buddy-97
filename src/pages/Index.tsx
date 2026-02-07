@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { BudgetProvider, useBudget } from '@/contexts/BudgetContext';
+import { useBudget } from '@/contexts/BudgetContext';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { EnvelopeGrid } from '@/components/budget/EnvelopeGrid';
 import { AddIncomeDialog } from '@/components/budget/AddIncomeDialog';
@@ -10,11 +10,12 @@ import { AddExpenseDrawer } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
+import { AllocationTemplateDialog } from '@/components/budget/AllocationTemplateDialog';
 import { FabButton } from '@/components/budget/FabButton';
 import { mockScanReceipt } from '@/lib/mockReceiptScanner';
 import { toast } from 'sonner';
 
-function BudgetApp() {
+export default function Index() {
   const { envelopes } = useBudget();
   
   // Dialog states
@@ -26,6 +27,7 @@ function BudgetApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [incomeListOpen, setIncomeListOpen] = useState(false);
+  const [allocationTemplateOpen, setAllocationTemplateOpen] = useState(false);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   
   // File input for FAB scan
@@ -125,8 +127,10 @@ function BudgetApp() {
         open={settingsOpen} 
         onOpenChange={setSettingsOpen}
         onOpenIncomeList={() => setIncomeListOpen(true)}
+        onOpenAllocationTemplate={() => setAllocationTemplateOpen(true)}
       />
       <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
+      <AllocationTemplateDialog open={allocationTemplateOpen} onOpenChange={setAllocationTemplateOpen} />
       
       {selectedEnvelopeId && (
         <EnvelopeDetailsDialog
@@ -140,13 +144,3 @@ function BudgetApp() {
     </div>
   );
 }
-
-function Index() {
-  return (
-    <BudgetProvider>
-      <BudgetApp />
-    </BudgetProvider>
-  );
-}
-
-export default Index;
