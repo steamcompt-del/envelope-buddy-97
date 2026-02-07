@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useBudget, Envelope, Transaction } from '@/contexts/BudgetContext';
 import {
   Dialog,
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Upload
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -65,6 +65,11 @@ export function EnvelopeDetailsDialog({
   const [editAmount, setEditAmount] = useState('');
   const [editMerchant, setEditMerchant] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editReceiptUrl, setEditReceiptUrl] = useState<string | null>(null);
+  const [editReceiptPath, setEditReceiptPath] = useState<string | null>(null);
+  const [editReceiptPreview, setEditReceiptPreview] = useState<string | null>(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   
   const envelope = envelopes.find(e => e.id === envelopeId);
   if (!envelope) return null;
@@ -108,6 +113,9 @@ export function EnvelopeDetailsDialog({
     setEditAmount(t.amount.toString().replace('.', ','));
     setEditMerchant(t.merchant || '');
     setEditDescription(t.description);
+    setEditReceiptUrl(t.receiptUrl || null);
+    setEditReceiptPath(t.receiptPath || null);
+    setEditReceiptPreview(null);
   };
   
   const cancelEditTransaction = () => {
@@ -115,6 +123,9 @@ export function EnvelopeDetailsDialog({
     setEditAmount('');
     setEditMerchant('');
     setEditDescription('');
+    setEditReceiptUrl(null);
+    setEditReceiptPath(null);
+    setEditReceiptPreview(null);
   };
   
   const saveEditTransaction = (id: string) => {
@@ -125,6 +136,8 @@ export function EnvelopeDetailsDialog({
       amount: parsedAmount,
       merchant: editMerchant || undefined,
       description: editDescription || 'Dépense',
+      receiptUrl: editReceiptUrl || undefined,
+      receiptPath: editReceiptPath || undefined,
     });
     cancelEditTransaction();
   };
@@ -132,6 +145,63 @@ export function EnvelopeDetailsDialog({
   const handleDeleteTransaction = (id: string) => {
     if (confirm('Supprimer cette dépense ?')) {
       deleteTransaction(id);
+    }
+  };
+
+  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create preview
+    const url = URL.createObjectURL(file);
+    setEditReceiptPreview(url);
+
+    // Upload the new receipt
+    setIsUploadingReceipt(true);
+    try {
+      const { uploadReceipt, deleteReceipt } = await import('@/lib/receiptStorage');
+      
+      // Delete old receipt if exists
+      if (editReceiptPath) {
+        try {
+          await deleteReceipt(editReceiptPath);
+        } catch (error) {
+          console.error('Failed to delete old receipt:', error);
+        }
+      }
+
+      // Upload new receipt
+      const uploadResult = await uploadReceipt(file, editingTransaction || 'temp');
+      setEditReceiptUrl(uploadResult.url);
+      setEditReceiptPath(uploadResult.path);
+    } catch (error) {
+      console.error('Error uploading receipt:', error);
+      const { toast } = await import('sonner');
+      toast.error('Erreur lors de l\'upload du ticket');
+      setEditReceiptPreview(null);
+    } finally {
+      setIsUploadingReceipt(false);
+      if (receiptInputRef.current) {
+        receiptInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveReceipt = async () => {
+    if (!editReceiptPath) return;
+    
+    if (confirm('Supprimer le ticket de caisse ?')) {
+      try {
+        const { deleteReceipt } = await import('@/lib/receiptStorage');
+        await deleteReceipt(editReceiptPath);
+        setEditReceiptUrl(null);
+        setEditReceiptPath(null);
+        setEditReceiptPreview(null);
+      } catch (error) {
+        console.error('Error deleting receipt:', error);
+        const { toast } = await import('sonner');
+        toast.error('Erreur lors de la suppression du ticket');
+      }
     }
   };
   
@@ -269,111 +339,165 @@ export function EnvelopeDetailsDialog({
               <Label className="text-muted-foreground">Transactions récentes</Label>
               <div className="space-y-1">
                 {envelopeTransactions.map((t) => (
-                  editingTransaction === t.id ? (
-                    <div key={t.id} className="p-3 bg-muted rounded-lg space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Montant</Label>
-                          <div className="relative">
+                  <div key={t.id}>
+                    {editingTransaction === t.id ? (
+                      <div className="p-3 bg-muted rounded-lg space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">Montant</Label>
+                            <div className="relative">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={editAmount}
+                                onChange={(e) => setEditAmount(e.target.value)}
+                                className="pr-6 h-8 text-sm rounded-lg"
+                                autoFocus
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">€</span>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Marchand</Label>
                             <Input
                               type="text"
-                              inputMode="decimal"
-                              value={editAmount}
-                              onChange={(e) => setEditAmount(e.target.value)}
-                              className="pr-6 h-8 text-sm rounded-lg"
-                              autoFocus
+                              value={editMerchant}
+                              onChange={(e) => setEditMerchant(e.target.value)}
+                              placeholder="Ex: Carrefour"
+                              className="h-8 text-sm rounded-lg"
                             />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">€</span>
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs">Marchand</Label>
+                          <Label className="text-xs">Description</Label>
                           <Input
                             type="text"
-                            value={editMerchant}
-                            onChange={(e) => setEditMerchant(e.target.value)}
-                            placeholder="Ex: Carrefour"
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            placeholder="Ex: Courses"
                             className="h-8 text-sm rounded-lg"
                           />
                         </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Description</Label>
-                        <Input
-                          type="text"
-                          value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          placeholder="Ex: Courses"
-                          className="h-8 text-sm rounded-lg"
+                        
+                        {/* Receipt management */}
+                        <input
+                          ref={receiptInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleReceiptChange}
+                          className="hidden"
                         />
-                      </div>
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={cancelEditTransaction}
-                          className="h-7 w-7"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDeleteTransaction(t.id)}
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          onClick={() => saveEditTransaction(t.id)}
-                          className="h-7 w-7"
-                          disabled={!editAmount || parseFloat(editAmount.replace(',', '.')) <= 0}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div 
-                      key={t.id} 
-                      className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors group"
-                      onClick={() => startEditTransaction(t)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                        {t.receiptUrl && (
-                          <a 
-                            href={t.receiptUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-shrink-0"
+                        <div className="space-y-2">
+                          {(editReceiptUrl || editReceiptPreview) && (
+                            <div className="relative rounded border border-border overflow-hidden">
+                              <img 
+                                src={editReceiptPreview || editReceiptUrl || ''} 
+                                alt="Ticket" 
+                                className="w-full h-20 object-cover"
+                              />
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="destructive"
+                                className="absolute top-1 right-1 h-6 w-6"
+                                onClick={handleRemoveReceipt}
+                                disabled={isUploadingReceipt}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => receiptInputRef.current?.click()}
+                            disabled={isUploadingReceipt}
+                            className="w-full h-8 rounded-lg text-xs"
                           >
-                            <img 
-                              src={t.receiptUrl} 
-                              alt="Ticket" 
-                              className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
-                            />
-                          </a>
-                        )}
-                        {!t.receiptUrl && (
-                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                            <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-sm font-medium">{t.merchant || t.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(t.date).toLocaleDateString('fr-FR')}
-                          </p>
+                            {isUploadingReceipt ? (
+                              <>Ajout...</>
+                            ) : editReceiptUrl || editReceiptPreview ? (
+                              <>
+                                <Upload className="h-3 w-3 mr-1" />
+                                Changer
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-3 w-3 mr-1" />
+                                Ajouter ticket
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        <div className="flex gap-1 justify-end">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={cancelEditTransaction}
+                            className="h-7 w-7"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteTransaction(t.id)}
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            onClick={() => saveEditTransaction(t.id)}
+                            className="h-7 w-7"
+                            disabled={!editAmount || parseFloat(editAmount.replace(',', '.')) <= 0 || isUploadingReceipt}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <span className="font-medium text-destructive">
-                        -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                      </span>
-                    </div>
-                  )
+                    ) : (
+                      <div 
+                        className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors group"
+                        onClick={() => startEditTransaction(t)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          {t.receiptUrl && (
+                            <a 
+                              href={t.receiptUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex-shrink-0"
+                            >
+                              <img 
+                                src={t.receiptUrl} 
+                                alt="Ticket" 
+                                className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
+                              />
+                            </a>
+                          )}
+                          {!t.receiptUrl && (
+                            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-medium">{t.merchant || t.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(t.date).toLocaleDateString('fr-FR')}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="font-medium text-destructive">
+                          -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
