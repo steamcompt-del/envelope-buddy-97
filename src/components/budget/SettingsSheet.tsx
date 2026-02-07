@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import {
   Sheet,
@@ -6,6 +7,16 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { 
@@ -14,8 +25,10 @@ import {
   TrendingDown,
   Wallet,
   PieChart,
-  Wand2
+  Wand2,
+  Calendar
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SettingsSheetProps {
   open: boolean;
@@ -25,7 +38,8 @@ interface SettingsSheetProps {
 }
 
 export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllocationTemplate }: SettingsSheetProps) {
-  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, currentMonthKey } = useBudget();
+  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey } = useBudget();
+  const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   
   // Calculate totals
   const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
@@ -37,11 +51,25 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
   const [year, month] = currentMonthKey.split('-').map(Number);
   const monthDisplay = `${monthNames[month - 1]} ${year}`;
   
+  // Calculate next month display
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonthDisplay = `${monthNames[nextMonth - 1]} ${nextYear}`;
+  
   const handleResetMonth = () => {
     if (confirm('Êtes-vous sûr de vouloir remettre à zéro les dépenses et allocations de toutes les enveloppes ? Cette action est irréversible.')) {
       resetMonth();
       onOpenChange(false);
     }
+  };
+  
+  const handleStartNewMonth = () => {
+    startNewMonth();
+    setShowNewMonthDialog(false);
+    onOpenChange(false);
+    toast.success(`Nouveau mois démarré : ${nextMonthDisplay}`, {
+      description: 'Toutes les enveloppes ont été remises à zéro.'
+    });
   };
   
   const handleFullReset = () => {
@@ -114,6 +142,28 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
                 </p>
               </div>
             </div>
+          </div>
+          
+          <Separator />
+          
+          {/* Start New Month */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Gestion mensuelle
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Démarrez un nouveau mois en conservant vos enveloppes. Les dépenses seront remises à zéro.
+            </p>
+            
+            <Button
+              onClick={() => setShowNewMonthDialog(true)}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <Calendar className="w-4 h-4" />
+              Démarrer {nextMonthDisplay}
+            </Button>
           </div>
           
           <Separator />
@@ -234,6 +284,26 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
           </div>
         </div>
       </SheetContent>
+      
+      {/* New Month Confirmation Dialog */}
+      <AlertDialog open={showNewMonthDialog} onOpenChange={setShowNewMonthDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Démarrer un nouveau mois ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Attention, cela va créer le mois de <strong>{nextMonthDisplay}</strong> et remettre toutes les dépenses à zéro. 
+              Vos enveloppes seront conservées mais leurs soldes seront réinitialisés. 
+              Le mois actuel ({monthDisplay}) restera accessible dans l'historique.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStartNewMonth}>
+              Démarrer {nextMonthDisplay}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
