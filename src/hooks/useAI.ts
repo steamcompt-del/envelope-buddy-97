@@ -1,25 +1,12 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { getBackendClient } from '@/lib/backendClient';
 
 interface Envelope {
   id: string;
   name: string;
   allocated: number;
   spent: number;
-}
-
-async function getFunctionsClient() {
-  // Avoid crashing the whole app if Cloud env vars haven't been injected yet.
-  // We import lazily so the module isn't evaluated at app start.
-  try {
-    const mod = await import('@/integrations/supabase/client');
-    return mod.supabase;
-  } catch (e) {
-    console.error('Supabase client import failed:', e);
-    throw new Error(
-      "Le backend n'est pas prêt (VITE_SUPABASE_URL manquant). Rafraîchis la page ou redémarre le preview."
-    );
-  }
 }
 
 export function useAI() {
@@ -33,7 +20,7 @@ export function useAI() {
 
     setIsLoading(true);
     try {
-      const supabase = await getFunctionsClient();
+      const supabase = getBackendClient();
 
       const { data, error } = await supabase.functions.invoke('categorize-expense', {
         body: {
@@ -70,7 +57,7 @@ export function useAI() {
   ): Promise<string | null> => {
     setIsLoading(true);
     try {
-      const supabase = await getFunctionsClient();
+      const supabase = getBackendClient();
 
       const { data, error } = await supabase.functions.invoke('suggest-budget', {
         body: { envelopes, totalIncome, monthlyHistory },

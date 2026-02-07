@@ -3,15 +3,7 @@
  * Tickets are stored in the 'receipts' bucket
  */
 
-async function getSupabaseClient() {
-  try {
-    const mod = await import("@/integrations/supabase/client");
-    return mod.supabase;
-  } catch (e) {
-    console.error("Supabase client import failed:", e);
-    throw new Error("Le backend n'est pas prêt. Rafraîchis la page.");
-  }
-}
+import { getBackendClient } from "@/lib/backendClient";
 
 export interface UploadReceiptResult {
   url: string;
@@ -27,7 +19,7 @@ export async function uploadReceipt(
   file: File,
   transactionId: string
 ): Promise<UploadReceiptResult> {
-  const supabase = await getSupabaseClient();
+  const supabase = getBackendClient();
 
   // Generate unique filename
   const fileExt = file.name.split(".").pop() || "jpg";
@@ -62,7 +54,7 @@ export async function uploadReceipt(
  * @param path - The storage path of the receipt
  */
 export async function deleteReceipt(path: string): Promise<void> {
-  const supabase = await getSupabaseClient();
+  const supabase = getBackendClient();
 
   const { error } = await supabase.storage.from("receipts").remove([path]);
 
@@ -77,7 +69,7 @@ export async function deleteReceipt(path: string): Promise<void> {
  * @param path - The storage path of the receipt
  */
 export async function getReceiptUrl(path: string): Promise<string> {
-  const supabase = await getSupabaseClient();
+  const supabase = getBackendClient();
 
   const {
     data: { publicUrl },
