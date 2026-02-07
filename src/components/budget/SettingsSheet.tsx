@@ -68,7 +68,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
     setShowNewMonthDialog(false);
     onOpenChange(false);
     toast.success(`Nouveau mois démarré : ${nextMonthDisplay}`, {
-      description: 'Toutes les enveloppes ont été remises à zéro.'
+      description: 'Les allocations ont été conservées, les dépenses remises à zéro.'
     });
   };
   
