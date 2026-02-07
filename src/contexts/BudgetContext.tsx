@@ -698,25 +698,24 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
         };
       }
       
-      // Get current month's envelopes to preserve allocations
+      // Get current month's envelopes to preserve allocations when possible
       const currentMonthData = prev.months[prev.currentMonthKey];
       const currentEnvelopes = currentMonthData?.envelopes || [];
-      
-      // Calculate total allocated from current month (this becomes the new toBeBudgeted)
-      const totalAllocated = currentEnvelopes.reduce((sum, env) => sum + env.allocated, 0);
-      
-      // Create new month with envelopes preserving name, icon, color, and allocated amounts
-      // Only spent is reset to 0
+
+      const allocatedById = new Map(currentEnvelopes.map(env => [env.id, env.allocated] as const));
+
+      // Create new month from templates to ensure envelopes are always recreated,
+      // while preserving allocated amount from the current month when available.
       const newMonth: MonthlyBudget = {
         monthKey: nextMonthKey,
-        toBeBudgeted: 0, // Start with 0, user needs to add new income
-        envelopes: currentEnvelopes.map(env => ({
-          id: env.id,
-          name: env.name,
-          icon: env.icon,
-          color: env.color,
-          allocated: env.allocated, // Preserve allocation!
-          spent: 0, // Reset spent
+        toBeBudgeted: 0, // Start with 0; user adds new income for the new month
+        envelopes: prev.envelopeTemplates.map(t => ({
+          id: t.id,
+          name: t.name,
+          icon: t.icon,
+          color: t.color,
+          allocated: allocatedById.get(t.id) ?? 0,
+          spent: 0,
         })),
         transactions: [],
         incomes: [],
