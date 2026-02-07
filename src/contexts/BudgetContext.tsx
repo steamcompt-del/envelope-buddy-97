@@ -49,6 +49,8 @@ interface BudgetContextType extends BudgetState {
   
   // Transaction actions
   addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string) => void;
+  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => void;
+  deleteTransaction: (id: string) => void;
   
   // Monthly reset
   resetMonth: () => void;
@@ -267,6 +269,60 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const updateTransaction = useCallback((id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => {
+    setState(prev => {
+      const existingTransaction = prev.transactions.find(t => t.id === id);
+      if (!existingTransaction) return prev;
+      
+      const oldAmount = existingTransaction.amount;
+      const newAmount = updates.amount ?? oldAmount;
+      const oldEnvelopeId = existingTransaction.envelopeId;
+      const newEnvelopeId = updates.envelopeId ?? oldEnvelopeId;
+      
+      return {
+        ...prev,
+        transactions: prev.transactions.map(t =>
+          t.id === id
+            ? { ...t, ...updates }
+            : t
+        ),
+        envelopes: prev.envelopes.map(env => {
+          if (oldEnvelopeId === newEnvelopeId && env.id === oldEnvelopeId) {
+            // Same envelope, just update the amount difference
+            return { ...env, spent: env.spent - oldAmount + newAmount };
+          }
+          if (env.id === oldEnvelopeId) {
+            // Remove from old envelope
+            return { ...env, spent: env.spent - oldAmount };
+          }
+          if (env.id === newEnvelopeId) {
+            // Add to new envelope
+            return { ...env, spent: env.spent + newAmount };
+          }
+          return env;
+        }),
+      };
+    });
+  }, []);
+
+  const deleteTransaction = useCallback((id: string) => {
+    setState(prev => {
+      const transaction = prev.transactions.find(t => t.id === id);
+      if (!transaction) return prev;
+      
+      return {
+        ...prev,
+        transactions: prev.transactions.filter(t => t.id !== id),
+        envelopes: prev.envelopes.map(env =>
+          env.id === transaction.envelopeId
+            ? { ...env, spent: env.spent - transaction.amount }
+            : env
+        ),
+      };
+    });
+  }, []);
+
+
   const resetMonth = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -290,6 +346,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     deallocateFromEnvelope,
     transferBetweenEnvelopes,
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
     resetMonth,
   };
 
