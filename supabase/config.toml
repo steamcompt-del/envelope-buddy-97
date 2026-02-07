@@ -1,0 +1,7 @@
+project_id = "yczbkoirwbugulqdlsag"
+
+[functions.categorize-expense]
+verify_jwt = false
+
+[functions.suggest-budget]
+verify_jwt = false

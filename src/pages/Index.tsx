@@ -10,7 +10,7 @@ import { AddExpenseDrawer } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
-
+import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDialog';
 import { FabButton } from '@/components/budget/FabButton';
 import { mockScanReceipt } from '@/lib/mockReceiptScanner';
 import { toast } from 'sonner';
@@ -27,6 +27,7 @@ export default function Index() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [incomeListOpen, setIncomeListOpen] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   
@@ -127,8 +128,10 @@ export default function Index() {
         open={settingsOpen} 
         onOpenChange={setSettingsOpen}
         onOpenIncomeList={() => setIncomeListOpen(true)}
+        onOpenSuggestions={() => setSuggestionsOpen(true)}
       />
       <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
+      <BudgetSuggestionsDialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen} />
       
       
       {selectedEnvelopeId && (
