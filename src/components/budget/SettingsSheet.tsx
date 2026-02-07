@@ -54,7 +54,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
   
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Paramètres & Statistiques</SheetTitle>
           <SheetDescription>
