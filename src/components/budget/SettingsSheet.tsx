@@ -19,9 +19,10 @@ import {
 interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenIncomeList?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: SettingsSheetProps) {
   const { envelopes, transactions, incomes, toBeBudgeted, resetMonth } = useBudget();
   
   // Calculate totals
@@ -54,7 +55,10 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
             </h3>
             
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 rounded-xl bg-muted">
+              <button 
+                onClick={() => onOpenIncomeList?.()}
+                className="p-4 rounded-xl bg-muted hover:bg-muted/80 transition-colors text-left"
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-4 h-4 text-primary" />
                   <span className="text-sm text-muted-foreground">Revenus</span>
@@ -62,7 +66,8 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                 <p className="text-xl font-bold text-primary">
                   {totalIncome.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                 </p>
-              </div>
+                <p className="text-xs text-muted-foreground mt-1">Cliquer pour modifier</p>
+              </button>
               
               <div className="p-4 rounded-xl bg-muted">
                 <div className="flex items-center gap-2 mb-2">
