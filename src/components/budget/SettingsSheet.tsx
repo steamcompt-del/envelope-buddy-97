@@ -44,6 +44,14 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
     }
   };
   
+  const handleFullReset = () => {
+    if (confirm('⚠️ ATTENTION: Cela supprimera TOUTES les données (tous les mois, revenus, enveloppes, transactions). Êtes-vous sûr ?')) {
+      localStorage.removeItem('budget-envelope-app-state-v2');
+      localStorage.removeItem('budget-envelope-app-state');
+      window.location.reload();
+    }
+  };
+  
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md">
@@ -191,6 +199,28 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllo
             >
               <RefreshCw className="w-4 h-4" />
               Réinitialiser {monthDisplay}
+            </Button>
+          </div>
+          
+          <Separator />
+          
+          {/* Full Reset (danger zone) */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-destructive uppercase tracking-wider">
+              Zone danger
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Supprime toutes les données de l'application (tous les mois).
+            </p>
+            
+            <Button
+              onClick={handleFullReset}
+              variant="destructive"
+              className="w-full rounded-xl gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Tout effacer
             </Button>
           </div>
           
