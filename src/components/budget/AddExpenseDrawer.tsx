@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
+import { useAI } from '@/hooks/useAI';
 import { mockScanReceipt, ScannedReceiptData } from '@/lib/mockReceiptScanner';
 import {
   Drawer,
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Camera, Loader2, Receipt } from 'lucide-react';
+import { Camera, Loader2, Receipt, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -34,12 +35,31 @@ export function AddExpenseDrawer({
   preselectedEnvelopeId 
 }: AddExpenseDrawerProps) {
   const { envelopes, addTransaction } = useBudget();
+  const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [isCategorizing, setIsCategorizing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Auto-categorize when description changes (debounced)
+  useEffect(() => {
+    if (!description || description.length < 3 || selectedEnvelope || envelopes.length === 0) return;
+    
+    const timer = setTimeout(async () => {
+      setIsCategorizing(true);
+      const result = await categorizeExpense(description, envelopes);
+      if (result?.envelopeId) {
+        setSelectedEnvelope(result.envelopeId);
+        toast.success(`Catégorie suggérée : ${result.category}`, { duration: 2000 });
+      }
+      setIsCategorizing(false);
+    }, 800);
+    
+    return () => clearTimeout(timer);
+  }, [description, envelopes, selectedEnvelope, categorizeExpense]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +187,15 @@ export function AddExpenseDrawer({
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="expense-envelope">Enveloppe</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="expense-envelope">Enveloppe</Label>
+                  {(isCategorizing || isCategorizingAI) && (
+                    <span className="text-xs text-primary flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 animate-pulse" />
+                      Catégorisation IA...
+                    </span>
+                  )}
+                </div>
                 <Select value={selectedEnvelope} onValueChange={setSelectedEnvelope}>
                   <SelectTrigger className="rounded-xl">
                     <SelectValue placeholder="Sélectionner" />

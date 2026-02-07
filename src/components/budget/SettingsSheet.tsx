@@ -25,7 +25,8 @@ import {
   TrendingDown,
   Wallet,
   PieChart,
-  Calendar
+  Calendar,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,9 +34,10 @@ interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenIncomeList?: () => void;
+  onOpenSuggestions?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: SettingsSheetProps) {
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions }: SettingsSheetProps) {
   const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey } = useBudget();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   
@@ -161,6 +163,31 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: Settings
             >
               <Calendar className="w-4 h-4" />
               Démarrer {nextMonthDisplay}
+            </Button>
+          </div>
+          
+          <Separator />
+          
+          {/* AI Suggestions */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Conseils IA
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Obtenez des suggestions personnalisées pour optimiser votre budget.
+            </p>
+            
+            <Button
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(() => onOpenSuggestions?.(), 100);
+              }}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Suggestions IA
             </Button>
           </div>
           
