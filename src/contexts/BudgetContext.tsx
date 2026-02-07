@@ -64,6 +64,7 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
+  startNewMonth: () => void; // Start a fresh new month with zeroed envelopes
   
   // Income actions
   addIncome: (amount: number, description: string) => void;
@@ -680,6 +681,50 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Start a new month: creates the next month with envelopes reset to zero spent/allocated
+  const startNewMonth = useCallback(() => {
+    setState(prev => {
+      // Calculate next month key
+      const [year, month] = prev.currentMonthKey.split('-').map(Number);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+      
+      // If next month already exists, just navigate to it
+      if (prev.months[nextMonthKey]) {
+        return {
+          ...prev,
+          currentMonthKey: nextMonthKey,
+        };
+      }
+      
+      // Create new month with envelopes from templates (spent=0, allocated=0)
+      const newMonth: MonthlyBudget = {
+        monthKey: nextMonthKey,
+        toBeBudgeted: 0,
+        envelopes: prev.envelopeTemplates.map(t => ({
+          id: t.id,
+          name: t.name,
+          icon: t.icon,
+          color: t.color,
+          allocated: 0,
+          spent: 0,
+        })),
+        transactions: [],
+        incomes: [],
+      };
+      
+      return {
+        ...prev,
+        currentMonthKey: nextMonthKey,
+        months: {
+          ...prev.months,
+          [nextMonthKey]: newMonth,
+        },
+      };
+    });
+  }, []);
+
   // Legacy reset (kept for compatibility)
   const resetMonth = useCallback(() => {
     setState(prev => {
@@ -720,6 +765,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     setCurrentMonth,
     getAvailableMonths,
     createNewMonth,
+    startNewMonth,
     
     // Actions
     addIncome,
