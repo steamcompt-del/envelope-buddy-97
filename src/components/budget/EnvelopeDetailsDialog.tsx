@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useBudget, Envelope } from '@/contexts/BudgetContext';
+import { useBudget, Envelope, Transaction } from '@/contexts/BudgetContext';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -57,10 +57,14 @@ export function EnvelopeDetailsDialog({
   onTransfer,
   onAddExpense
 }: EnvelopeDetailsDialogProps) {
-  const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope } = useBudget();
+  const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateTransaction, deleteTransaction } = useBudget();
   const [allocateAmount, setAllocateAmount] = useState('');
   const [showAllocate, setShowAllocate] = useState(false);
   const [allocateMode, setAllocateMode] = useState<'add' | 'remove'>('add');
+  const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editMerchant, setEditMerchant] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   
   const envelope = envelopes.find(e => e.id === envelopeId);
   if (!envelope) return null;
@@ -96,6 +100,38 @@ export function EnvelopeDetailsDialog({
     if (confirm(`Supprimer l'enveloppe "${envelope.name}" ?`)) {
       deleteEnvelope(envelopeId);
       onOpenChange(false);
+    }
+  };
+  
+  const startEditTransaction = (t: Transaction) => {
+    setEditingTransaction(t.id);
+    setEditAmount(t.amount.toString().replace('.', ','));
+    setEditMerchant(t.merchant || '');
+    setEditDescription(t.description);
+  };
+  
+  const cancelEditTransaction = () => {
+    setEditingTransaction(null);
+    setEditAmount('');
+    setEditMerchant('');
+    setEditDescription('');
+  };
+  
+  const saveEditTransaction = (id: string) => {
+    const parsedAmount = parseFloat(editAmount.replace(',', '.'));
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+    
+    updateTransaction(id, {
+      amount: parsedAmount,
+      merchant: editMerchant || undefined,
+      description: editDescription || 'Dépense',
+    });
+    cancelEditTransaction();
+  };
+  
+  const handleDeleteTransaction = (id: string) => {
+    if (confirm('Supprimer cette dépense ?')) {
+      deleteTransaction(id);
     }
   };
   
@@ -233,17 +269,91 @@ export function EnvelopeDetailsDialog({
               <Label className="text-muted-foreground">Transactions récentes</Label>
               <div className="space-y-1">
                 {envelopeTransactions.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium">{t.merchant || t.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(t.date).toLocaleDateString('fr-FR')}
-                      </p>
+                  editingTransaction === t.id ? (
+                    <div key={t.id} className="p-3 bg-muted rounded-lg space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Montant</Label>
+                          <div className="relative">
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              className="pr-6 h-8 text-sm rounded-lg"
+                              autoFocus
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">€</span>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Marchand</Label>
+                          <Input
+                            type="text"
+                            value={editMerchant}
+                            onChange={(e) => setEditMerchant(e.target.value)}
+                            placeholder="Ex: Carrefour"
+                            className="h-8 text-sm rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Description</Label>
+                        <Input
+                          type="text"
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder="Ex: Courses"
+                          className="h-8 text-sm rounded-lg"
+                        />
+                      </div>
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={cancelEditTransaction}
+                          className="h-7 w-7"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDeleteTransaction(t.id)}
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          onClick={() => saveEditTransaction(t.id)}
+                          className="h-7 w-7"
+                          disabled={!editAmount || parseFloat(editAmount.replace(',', '.')) <= 0}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <span className="font-medium text-destructive">
-                      -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                    </span>
-                  </div>
+                  ) : (
+                    <div 
+                      key={t.id} 
+                      className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors group"
+                      onClick={() => startEditTransaction(t)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div>
+                          <p className="text-sm font-medium">{t.merchant || t.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(t.date).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="font-medium text-destructive">
+                        -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    </div>
+                  )
                 ))}
               </div>
             </div>
