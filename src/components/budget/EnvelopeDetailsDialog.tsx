@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -342,6 +342,26 @@ export function EnvelopeDetailsDialog({
                     >
                       <div className="flex items-center gap-2">
                         <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        {t.receiptUrl && (
+                          <a 
+                            href={t.receiptUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-shrink-0"
+                          >
+                            <img 
+                              src={t.receiptUrl} 
+                              alt="Ticket" 
+                              className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
+                            />
+                          </a>
+                        )}
+                        {!t.receiptUrl && (
+                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                            <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm font-medium">{t.merchant || t.description}</p>
                           <p className="text-xs text-muted-foreground">

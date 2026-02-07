@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAI } from '@/hooks/useAI';
-import { mockScanReceipt, ScannedReceiptData } from '@/lib/mockReceiptScanner';
+import { useReceiptScanner } from '@/hooks/useReceiptScanner';
+import { uploadReceipt } from '@/lib/receiptStorage';
 import {
   Drawer,
   DrawerContent,
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Camera, Loader2, Receipt, Sparkles } from 'lucide-react';
+import { Camera, Loader2, Receipt, Sparkles, X, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -34,14 +35,18 @@ export function AddExpenseDrawer({
   onOpenChange,
   preselectedEnvelopeId 
 }: AddExpenseDrawerProps) {
-  const { envelopes, addTransaction } = useBudget();
+  const { envelopes, addTransaction, updateTransaction } = useBudget();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
+  const { scanReceipt, isScanning } = useReceiptScanner();
+  
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
   const [isCategorizing, setIsCategorizing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Auto-categorize when description changes (debounced)
@@ -61,13 +66,47 @@ export function AddExpenseDrawer({
     return () => clearTimeout(timer);
   }, [description, envelopes, selectedEnvelope, categorizeExpense]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  // Clean up preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
     
-    const result = addTransaction(selectedEnvelope, parsedAmount, description || 'Dépense', merchant || undefined);
+    // First create the transaction without receipt
+    const result = addTransaction(
+      selectedEnvelope, 
+      parsedAmount, 
+      description || 'Dépense', 
+      merchant || undefined
+    );
+    
+    // Then upload receipt if one was selected
+    if (selectedFile && result.transactionId) {
+      setIsUploading(true);
+      try {
+        const uploadResult = await uploadReceipt(selectedFile, result.transactionId);
+        // Update transaction with receipt URL
+        updateTransaction(result.transactionId, {
+          receiptUrl: uploadResult.url,
+          receiptPath: uploadResult.path,
+        });
+        toast.success('Ticket sauvegardé !');
+      } catch (error) {
+        console.error('Failed to upload receipt:', error);
+        toast.error('Erreur lors de la sauvegarde du ticket');
+      } finally {
+        setIsUploading(false);
+      }
+    }
     
     // Show budget alert if threshold crossed
     if (result.alert) {
@@ -91,6 +130,11 @@ export function AddExpenseDrawer({
     setDescription('');
     setMerchant('');
     setSelectedEnvelope('');
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
   };
   
   const handleScanClick = () => {
@@ -101,14 +145,20 @@ export function AddExpenseDrawer({
     const file = e.target.files?.[0];
     if (!file) return;
     
-    setIsScanning(true);
+    // Store the file for later upload
+    setSelectedFile(file);
     
-    try {
-      // TODO: Remplacer par un appel API OpenAI Vision ici
-      // Ne JAMAIS stocker l'image en localStorage (trop lourd)
-      // On extrait uniquement les données pertinentes
-      const scannedData: ScannedReceiptData = await mockScanReceipt(file);
-      
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(url);
+    
+    // Scan the receipt with AI
+    const scannedData = await scanReceipt(file);
+    
+    if (scannedData) {
       // Auto-fill the form with scanned data
       setAmount(scannedData.amount.toString().replace('.', ','));
       setDescription(scannedData.description);
@@ -121,14 +171,19 @@ export function AddExpenseDrawer({
       if (matchingEnvelope) {
         setSelectedEnvelope(matchingEnvelope.id);
       }
-    } catch (error) {
-      console.error('Error scanning receipt:', error);
-    } finally {
-      setIsScanning(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
     }
   };
   
@@ -161,29 +216,52 @@ export function AddExpenseDrawer({
               className="hidden"
             />
             
-            {/* Scan button */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleScanClick}
-              disabled={isScanning}
-              className={cn(
-                "w-full mb-4 rounded-xl h-14 border-dashed",
-                isScanning && "bg-muted"
-              )}
-            >
-              {isScanning ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyse en cours...
-                </>
-              ) : (
-                <>
-                  <Camera className="w-5 h-5 mr-2" />
-                  Scanner un ticket (Image)
-                </>
-              )}
-            </Button>
+            {/* Preview image or scan button */}
+            {previewUrl ? (
+              <div className="relative mb-4 rounded-xl overflow-hidden border border-border">
+                <img 
+                  src={previewUrl} 
+                  alt="Ticket de caisse" 
+                  className="w-full h-40 object-cover"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+                <div className="absolute bottom-2 left-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-lg text-xs flex items-center gap-1">
+                  <ImageIcon className="w-3 h-3" />
+                  Ticket attaché
+                </div>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleScanClick}
+                disabled={isScanning}
+                className={cn(
+                  "w-full mb-4 rounded-xl h-14 border-dashed",
+                  isScanning && "bg-muted"
+                )}
+              >
+                {isScanning ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Analyse IA en cours...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5 mr-2" />
+                    Scanner un ticket (Image)
+                  </>
+                )}
+              </Button>
+            )}
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -265,10 +343,17 @@ export function AddExpenseDrawer({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={!selectedEnvelope || !amount || parseFloat(amount.replace(',', '.')) <= 0}
+                  disabled={!selectedEnvelope || !amount || parseFloat(amount.replace(',', '.')) <= 0 || isUploading}
                   className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90"
                 >
-                  Dépenser
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Upload...
+                    </>
+                  ) : (
+                    'Dépenser'
+                  )}
                 </Button>
               </div>
             </form>
