@@ -36,6 +36,8 @@ interface BudgetState {
 interface BudgetContextType extends BudgetState {
   // Income actions
   addIncome: (amount: number, description: string) => void;
+  updateIncome: (id: string, amount: number, description: string) => void;
+  deleteIncome: (id: string) => void;
   
   // Envelope actions
   createEnvelope: (name: string, icon: string, color: string) => void;
@@ -112,6 +114,38 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       toBeBudgeted: prev.toBeBudgeted + amount,
       incomes: [...prev.incomes, income],
     }));
+  }, []);
+
+  const updateIncome = useCallback((id: string, newAmount: number, newDescription: string) => {
+    setState(prev => {
+      const existingIncome = prev.incomes.find(inc => inc.id === id);
+      if (!existingIncome) return prev;
+      
+      const amountDiff = newAmount - existingIncome.amount;
+      
+      return {
+        ...prev,
+        toBeBudgeted: prev.toBeBudgeted + amountDiff,
+        incomes: prev.incomes.map(inc =>
+          inc.id === id
+            ? { ...inc, amount: newAmount, description: newDescription }
+            : inc
+        ),
+      };
+    });
+  }, []);
+
+  const deleteIncome = useCallback((id: string) => {
+    setState(prev => {
+      const income = prev.incomes.find(inc => inc.id === id);
+      if (!income) return prev;
+      
+      return {
+        ...prev,
+        toBeBudgeted: prev.toBeBudgeted - income.amount,
+        incomes: prev.incomes.filter(inc => inc.id !== id),
+      };
+    });
   }, []);
 
   const createEnvelope = useCallback((name: string, icon: string, color: string) => {
@@ -247,6 +281,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const value: BudgetContextType = {
     ...state,
     addIncome,
+    updateIncome,
+    deleteIncome,
     createEnvelope,
     updateEnvelope,
     deleteEnvelope,

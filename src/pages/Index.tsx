@@ -9,6 +9,7 @@ import { TransferFundsDialog } from '@/components/budget/TransferFundsDialog';
 import { AddExpenseDrawer } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
+import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
 import { FabButton } from '@/components/budget/FabButton';
 import { mockScanReceipt } from '@/lib/mockReceiptScanner';
 import { toast } from 'sonner';
@@ -24,6 +25,7 @@ function BudgetApp() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [incomeListOpen, setIncomeListOpen] = useState(false);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   
   // File input for FAB scan
@@ -119,7 +121,12 @@ function BudgetApp() {
         onOpenChange={setExpenseOpen}
         preselectedEnvelopeId={selectedEnvelopeId}
       />
-      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsSheet 
+        open={settingsOpen} 
+        onOpenChange={setSettingsOpen}
+        onOpenIncomeList={() => setIncomeListOpen(true)}
+      />
+      <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
       
       {selectedEnvelopeId && (
         <EnvelopeDetailsDialog
