@@ -17,6 +17,8 @@ export interface Transaction {
   description: string;
   date: string;
   merchant?: string;
+  receiptUrl?: string;
+  receiptPath?: string;
 }
 
 export interface Income {
@@ -73,8 +75,8 @@ interface BudgetContextType {
   transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => void;
   
   // Transaction actions
-  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string) => { alert?: { envelopeName: string; percent: number; isOver: boolean } };
-  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => void;
+  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string) => { transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } };
+  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }) => void;
   deleteTransaction: (id: string) => void;
   
   // Monthly reset (deprecated, kept for compatibility)
@@ -510,14 +512,17 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Transaction actions
-  const addTransaction = useCallback((envelopeId: string, amount: number, description: string, merchant?: string): { alert?: { envelopeName: string; percent: number; isOver: boolean } } => {
+  const addTransaction = useCallback((envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string): { transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } } => {
+    const transactionId = crypto.randomUUID();
     const transaction: Transaction = {
-      id: crypto.randomUUID(),
+      id: transactionId,
       envelopeId,
       amount,
       description,
       date: new Date().toISOString(),
       merchant,
+      receiptUrl,
+      receiptPath,
     };
     
     let alertInfo: { envelopeName: string; percent: number; isOver: boolean } | undefined;
@@ -560,10 +565,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       };
     });
     
-    return { alert: alertInfo };
+    return { transactionId, alert: alertInfo };
   }, []);
 
-  const updateTransaction = useCallback((id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => {
+  const updateTransaction = useCallback((id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }) => {
     setState(prev => {
       const month = prev.months[prev.currentMonthKey];
       if (!month) return prev;
