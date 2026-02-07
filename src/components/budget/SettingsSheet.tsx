@@ -25,7 +25,6 @@ import {
   TrendingDown,
   Wallet,
   PieChart,
-  Wand2,
   Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -34,10 +33,9 @@ interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenIncomeList?: () => void;
-  onOpenAllocationTemplate?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenAllocationTemplate }: SettingsSheetProps) {
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList }: SettingsSheetProps) {
   const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey } = useBudget();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   

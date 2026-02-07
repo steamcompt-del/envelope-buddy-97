@@ -26,11 +26,6 @@ export interface Income {
   date: string;
 }
 
-// Allocation template for monthly planning
-export interface AllocationTemplate {
-  envelopeId: string;
-  amount: number;
-}
 
 // Monthly budget data
 export interface MonthlyBudget {
@@ -45,7 +40,6 @@ interface BudgetState {
   currentMonthKey: string;
   months: Record<string, MonthlyBudget>;
   envelopeTemplates: Array<{ id: string; name: string; icon: string; color: string }>;
-  allocationTemplates: AllocationTemplate[];
 }
 
 interface BudgetContextType {
@@ -58,7 +52,6 @@ interface BudgetContextType {
   
   // All months
   months: Record<string, MonthlyBudget>;
-  allocationTemplates: AllocationTemplate[];
   
   // Month navigation
   setCurrentMonth: (monthKey: string) => void;
@@ -83,10 +76,6 @@ interface BudgetContextType {
   addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string) => { alert?: { envelopeName: string; percent: number; isOver: boolean } };
   updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string }) => void;
   deleteTransaction: (id: string) => void;
-  
-  // Template actions
-  saveAllocationTemplate: (templates: AllocationTemplate[]) => void;
-  applyAllocationTemplate: () => void;
   
   // Monthly reset (deprecated, kept for compatibility)
   resetMonth: () => void;
@@ -145,7 +134,6 @@ function getDefaultState(): BudgetState {
       },
     },
     envelopeTemplates: [],
-    allocationTemplates: [],
   };
 }
 
@@ -178,7 +166,6 @@ function migrateLegacyState(legacyState: {
       },
     },
     envelopeTemplates,
-    allocationTemplates: [],
   };
 }
 
@@ -425,7 +412,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       return {
         ...prev,
         envelopeTemplates: prev.envelopeTemplates.filter(t => t.id !== id),
-        allocationTemplates: prev.allocationTemplates.filter(t => t.envelopeId !== id),
         months: {
           ...prev.months,
           [prev.currentMonthKey]: {
@@ -643,43 +629,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Template actions
-  const saveAllocationTemplate = useCallback((templates: AllocationTemplate[]) => {
-    setState(prev => ({
-      ...prev,
-      allocationTemplates: templates,
-    }));
-  }, []);
-
-  const applyAllocationTemplate = useCallback(() => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      let remainingBudget = month.toBeBudgeted;
-      const updatedEnvelopes = month.envelopes.map(env => {
-        const template = prev.allocationTemplates.find(t => t.envelopeId === env.id);
-        if (template && template.amount > 0) {
-          const allocateAmount = Math.min(template.amount, remainingBudget);
-          remainingBudget -= allocateAmount;
-          return { ...env, allocated: env.allocated + allocateAmount };
-        }
-        return env;
-      });
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: remainingBudget,
-            envelopes: updatedEnvelopes,
-          },
-        },
-      };
-    });
-  }, []);
 
   // Start a new month: creates the next month preserving envelope allocations, resetting spent to 0
   const startNewMonth = useCallback(() => {
@@ -766,7 +715,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     
     // All data
     months: state.months,
-    allocationTemplates: state.allocationTemplates,
     
     // Month navigation
     setCurrentMonth,
@@ -787,8 +735,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     addTransaction,
     updateTransaction,
     deleteTransaction,
-    saveAllocationTemplate,
-    applyAllocationTemplate,
     resetMonth,
   };
 
