@@ -106,6 +106,10 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
       </div>
       
       <div className="mt-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">Dépensé</span>
+          <span className="text-xs font-semibold text-foreground">{Math.round(percentUsed)}%</span>
+        </div>
         <Progress 
           value={Math.min(percentUsed, 100)} 
           className="h-2 [&>div]:transition-colors"
