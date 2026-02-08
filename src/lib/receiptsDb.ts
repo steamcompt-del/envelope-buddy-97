@@ -58,7 +58,8 @@ export async function addReceiptDb(
   transactionId: string,
   url: string,
   path: string,
-  fileName?: string
+  fileName?: string,
+  householdId?: string | null
 ): Promise<Receipt> {
   const { data, error } = await supabase
     .from('receipts')
@@ -68,6 +69,7 @@ export async function addReceiptDb(
       url,
       path,
       file_name: fileName || null,
+      household_id: householdId || null,
     })
     .select()
     .single();
