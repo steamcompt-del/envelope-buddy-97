@@ -7,14 +7,14 @@ import { AddIncomeDialog } from '@/components/budget/AddIncomeDialog';
 import { CreateEnvelopeDialog } from '@/components/budget/CreateEnvelopeDialog';
 import { AllocateFundsDialog } from '@/components/budget/AllocateFundsDialog';
 import { TransferFundsDialog } from '@/components/budget/TransferFundsDialog';
-import { AddExpenseDrawer } from '@/components/budget/AddExpenseDrawer';
+import { AddExpenseDrawer, ScannedExpenseData } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
 import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDialog';
 import { FabButton } from '@/components/budget/FabButton';
 import { HouseholdSetupDialog } from '@/components/budget/HouseholdSetupDialog';
-import { mockScanReceipt } from '@/lib/mockReceiptScanner';
+import { useReceiptScanner } from '@/hooks/useReceiptScanner';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -40,9 +40,11 @@ export default function Index() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
+  const [scannedExpenseData, setScannedExpenseData] = useState<ScannedExpenseData | null>(null);
   
   // File input for FAB scan
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const { scanReceipt, isScanning } = useReceiptScanner();
   
   const handleEnvelopeClick = (envelopeId: string) => {
     setSelectedEnvelopeId(envelopeId);
@@ -57,23 +59,36 @@ export default function Index() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    toast.loading('Analyse du ticket en cours...');
+    // Use the real receipt scanner (Gemini AI)
+    const scannedData = await scanReceipt(file);
     
-    try {
-      const scannedData = await mockScanReceipt(file);
-      toast.dismiss();
-      toast.success(`Ticket analysé : ${scannedData.merchant} - ${scannedData.amount}€`);
+    if (scannedData) {
+      // Find matching envelope
+      const matchingEnvelope = envelopes.find(
+        env => env.name.toLowerCase() === scannedData.category.toLowerCase()
+      );
       
-      // Open expense drawer - it will be pre-filled via the component's own scan logic
-      // For now, just open it - user can scan again or fill manually
+      // Set the scanned data and open drawer
+      setScannedExpenseData({
+        amount: scannedData.amount,
+        description: scannedData.description,
+        merchant: scannedData.merchant,
+        envelopeId: matchingEnvelope?.id,
+        receiptFile: file,
+      });
       setExpenseOpen(true);
-    } catch {
-      toast.dismiss();
-      toast.error('Erreur lors de l\'analyse');
     }
     
     if (scanInputRef.current) {
       scanInputRef.current.value = '';
+    }
+  };
+  
+  const handleExpenseDrawerClose = (open: boolean) => {
+    setExpenseOpen(open);
+    if (!open) {
+      // Clear scanned data when drawer closes
+      setScannedExpenseData(null);
     }
   };
   
@@ -142,8 +157,9 @@ export default function Index() {
       />
       <AddExpenseDrawer 
         open={expenseOpen} 
-        onOpenChange={setExpenseOpen}
+        onOpenChange={handleExpenseDrawerClose}
         preselectedEnvelopeId={selectedEnvelopeId}
+        scannedData={scannedExpenseData}
       />
       <SettingsSheet 
         open={settingsOpen} 
