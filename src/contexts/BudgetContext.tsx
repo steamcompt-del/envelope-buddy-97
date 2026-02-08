@@ -17,6 +17,7 @@ import {
   updateTransactionDb,
   deleteTransactionDb,
   startNewMonthDb,
+  deleteAllUserDataDb,
 } from '@/lib/budgetDb';
 
 // Types
@@ -95,6 +96,9 @@ interface BudgetContextType {
   
   // Refresh data
   refreshData: () => Promise<void>;
+  
+  // Delete all data
+  deleteAllUserData: () => Promise<void>;
   
   // Legacy
   resetMonth: () => void;
@@ -352,6 +356,18 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     console.warn('resetMonth is deprecated');
   }, []);
 
+  // Delete all user data
+  const deleteAllUserData = useCallback(async () => {
+    if (!user) return;
+    await deleteAllUserDataDb(user.id);
+    setMonths({});
+    setAvailableMonths([]);
+    // Reset to current month and reload
+    const currentKey = getCurrentMonthKey();
+    setCurrentMonthKey(currentKey);
+    await loadMonthData(true);
+  }, [user, loadMonthData]);
+
   // Refresh data
   const refreshData = useCallback(async () => {
     await loadMonthData(false);
@@ -382,6 +398,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     updateTransaction,
     deleteTransaction,
     resetMonth,
+    deleteAllUserData,
     refreshData,
   };
 

@@ -40,9 +40,10 @@ interface SettingsSheetProps {
 }
 
 export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions }: SettingsSheetProps) {
-  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey } = useBudget();
+  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey, deleteAllUserData } = useBudget();
   const { user, signOut } = useAuth();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Calculate totals
   const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
@@ -75,11 +76,19 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     });
   };
   
-  const handleFullReset = () => {
+  const handleFullReset = async () => {
     if (confirm('⚠️ ATTENTION: Cela supprimera TOUTES les données (tous les mois, revenus, enveloppes, transactions). Êtes-vous sûr ?')) {
-      localStorage.removeItem('budget-envelope-app-state-v2');
-      localStorage.removeItem('budget-envelope-app-state');
-      window.location.reload();
+      setIsDeleting(true);
+      try {
+        await deleteAllUserData();
+        toast.success('Toutes les données ont été supprimées');
+        onOpenChange(false);
+      } catch (error) {
+        console.error('Error deleting data:', error);
+        toast.error('Erreur lors de la suppression');
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
   
@@ -271,9 +280,10 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
               onClick={handleFullReset}
               variant="destructive"
               className="w-full rounded-xl gap-2"
+              disabled={isDeleting}
             >
-              <RefreshCw className="w-4 h-4" />
-              Tout effacer
+              <RefreshCw className={`w-4 h-4 ${isDeleting ? 'animate-spin' : ''}`} />
+              {isDeleting ? 'Suppression...' : 'Tout effacer'}
             </Button>
           </div>
           
