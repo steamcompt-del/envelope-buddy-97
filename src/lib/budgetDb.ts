@@ -10,6 +10,7 @@ interface DbEnvelope {
   name: string;
   icon: string;
   color: string;
+  position: number;
   created_at: string;
 }
 
@@ -63,11 +64,12 @@ export async function fetchMonthData(userId: string, monthKey: string): Promise<
     .eq('month_key', monthKey)
     .single();
 
-  // Fetch all envelopes
+  // Fetch all envelopes (sorted by position)
   const { data: envelopes } = await supabase
     .from('envelopes')
     .select('*')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .order('position', { ascending: true });
 
   // Fetch allocations for this month
   const { data: allocations } = await supabase
@@ -247,9 +249,20 @@ export async function deleteIncomeDb(userId: string, monthKey: string, incomeId:
 
 // Envelope operations
 export async function createEnvelopeDb(userId: string, monthKey: string, name: string, icon: string, color: string): Promise<string> {
+  // Get max position to place new envelope at the end
+  const { data: maxPositionData } = await supabase
+    .from('envelopes')
+    .select('position')
+    .eq('user_id', userId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .single();
+
+  const newPosition = (maxPositionData?.position ?? -1) + 1;
+
   const { data: envelope, error } = await supabase
     .from('envelopes')
-    .insert({ user_id: userId, name, icon, color })
+    .insert({ user_id: userId, name, icon, color, position: newPosition })
     .select('id')
     .single();
 
@@ -265,6 +278,19 @@ export async function createEnvelopeDb(userId: string, monthKey: string, name: s
   });
 
   return envelope.id;
+}
+
+export async function reorderEnvelopesDb(userId: string, orderedIds: string[]): Promise<void> {
+  // Update position for each envelope based on new order
+  const updates = orderedIds.map((id, index) =>
+    supabase
+      .from('envelopes')
+      .update({ position: index })
+      .eq('id', id)
+      .eq('user_id', userId)
+  );
+
+  await Promise.all(updates);
 }
 
 export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string }): Promise<void> {
