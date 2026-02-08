@@ -4,12 +4,16 @@ import { useBudget } from '@/contexts/BudgetContext';
 import { toast } from 'sonner';
 import {
   ShoppingItem,
+  ShoppingListArchive,
   fetchShoppingList,
   addShoppingItem,
   updateShoppingItem,
   deleteShoppingItem,
   clearCheckedItems,
   getFrequentItems,
+  archiveShoppingList,
+  fetchArchives,
+  deleteArchive,
   CreateShoppingItemInput,
 } from '@/lib/shoppingListDb';
 
@@ -17,6 +21,7 @@ export function useShoppingList() {
   const { user } = useAuth();
   const { household } = useBudget();
   const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [archives, setArchives] = useState<ShoppingListArchive[]>([]);
   const [frequentItems, setFrequentItems] = useState<Array<{ name: string; count: number; avgPrice: number }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,12 +32,14 @@ export function useShoppingList() {
     
     setLoading(true);
     try {
-      const [listItems, frequent] = await Promise.all([
+      const [listItems, frequent, archiveList] = await Promise.all([
         fetchShoppingList(householdId),
         getFrequentItems(householdId, 15),
+        fetchArchives(householdId),
       ]);
       setItems(listItems);
       setFrequentItems(frequent);
+      setArchives(archiveList);
     } catch (error) {
       console.error('Error loading shopping list:', error);
       toast.error('Erreur lors du chargement de la liste');
@@ -120,6 +127,33 @@ export function useShoppingList() {
     }
   }, [householdId]);
 
+  const archiveChecked = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const archive = await archiveShoppingList(user.id, householdId, items);
+      if (archive) {
+        setArchives(prev => [archive, ...prev]);
+        setItems(prev => prev.filter(i => !i.isChecked));
+        toast.success('Liste archivée avec succès');
+      }
+    } catch (error) {
+      console.error('Error archiving list:', error);
+      toast.error("Erreur lors de l'archivage");
+    }
+  }, [user, householdId, items]);
+
+  const removeArchive = useCallback(async (archiveId: string) => {
+    try {
+      await deleteArchive(archiveId);
+      setArchives(prev => prev.filter(a => a.id !== archiveId));
+      toast.success('Archive supprimée');
+    } catch (error) {
+      console.error('Error deleting archive:', error);
+      toast.error('Erreur lors de la suppression');
+    }
+  }, []);
+
   const checkedCount = items.filter(i => i.isChecked).length;
   const uncheckedCount = items.filter(i => !i.isChecked).length;
   const estimatedTotal = items
@@ -128,6 +162,7 @@ export function useShoppingList() {
 
   return {
     items,
+    archives,
     frequentItems,
     loading,
     addItem,
@@ -135,6 +170,8 @@ export function useShoppingList() {
     updateItem,
     removeItem,
     clearChecked,
+    archiveChecked,
+    removeArchive,
     refresh: loadData,
     checkedCount,
     uncheckedCount,

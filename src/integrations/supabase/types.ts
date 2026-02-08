@@ -513,6 +513,47 @@ export type Database = {
           },
         ]
       }
+      shopping_list_archives: {
+        Row: {
+          archived_at: string
+          household_id: string | null
+          id: string
+          items: Json
+          items_count: number
+          name: string
+          total_estimated: number | null
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string
+          household_id?: string | null
+          id?: string
+          items?: Json
+          items_count?: number
+          name?: string
+          total_estimated?: number | null
+          user_id: string
+        }
+        Update: {
+          archived_at?: string
+          household_id?: string | null
+          id?: string
+          items?: Json
+          items_count?: number
+          name?: string
+          total_estimated?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_archives_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number

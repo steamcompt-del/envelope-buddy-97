@@ -17,7 +17,10 @@ import {
   Package,
   Edit2,
   Check,
-  X
+  X,
+  Archive,
+  History,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +32,7 @@ interface ShoppingListSheetProps {
 export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps) {
   const {
     items,
+    archives,
     frequentItems,
     loading,
     addItem,
@@ -36,6 +40,8 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
     removeItem,
     updateItem,
     clearChecked,
+    archiveChecked,
+    removeArchive,
     checkedCount,
     uncheckedCount,
     estimatedTotal,
@@ -47,6 +53,8 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState('1');
   const [editPrice, setEditPrice] = useState('0');
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -349,18 +357,104 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
         )}
 
         {/* Footer actions */}
-        {checkedCount > 0 && (
-          <div className="pt-4 border-t">
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={clearChecked}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Supprimer les {checkedCount} article{checkedCount !== 1 ? 's' : ''} coché{checkedCount !== 1 ? 's' : ''}
-            </Button>
-          </div>
-        )}
+        <div className="pt-4 border-t space-y-2">
+          {/* History toggle */}
+          <Button
+            variant="ghost"
+            className="w-full justify-between"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            <span className="flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Historique ({archives.length})
+            </span>
+            <ChevronDown className={cn(
+              "w-4 h-4 transition-transform",
+              showHistory && "rotate-180"
+            )} />
+          </Button>
+
+          {/* Archives list */}
+          {showHistory && archives.length > 0 && (
+            <div className="max-h-48 overflow-y-auto space-y-2 py-2">
+              {archives.map((archive) => (
+                <div
+                  key={archive.id}
+                  className="p-3 rounded-lg bg-muted/50 border border-border"
+                >
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between text-left"
+                    onClick={() => setExpandedArchive(expandedArchive === archive.id ? null : archive.id)}
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{archive.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {archive.itemsCount} article{archive.itemsCount !== 1 ? 's' : ''} · {archive.totalEstimated.toFixed(2)}€
+                      </p>
+                    </div>
+                    <ChevronRight className={cn(
+                      "w-4 h-4 transition-transform text-muted-foreground",
+                      expandedArchive === archive.id && "rotate-90"
+                    )} />
+                  </button>
+                  
+                  {expandedArchive === archive.id && (
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <ul className="space-y-1 text-sm text-muted-foreground">
+                        {archive.items.map((item, idx) => (
+                          <li key={idx} className="flex justify-between">
+                            <span>{item.name} × {item.quantity}</span>
+                            {item.estimatedPrice && (
+                              <span>{(item.estimatedPrice * item.quantity).toFixed(2)}€</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full mt-2 text-destructive hover:text-destructive"
+                        onClick={() => removeArchive(archive.id)}
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Supprimer
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showHistory && archives.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              Aucun historique
+            </p>
+          )}
+
+          {/* Action buttons */}
+          {checkedCount > 0 && (
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={archiveChecked}
+              >
+                <Archive className="w-4 h-4 mr-2" />
+                Archiver
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex-1 text-destructive hover:text-destructive"
+                onClick={clearChecked}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Supprimer
+              </Button>
+            </div>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );
