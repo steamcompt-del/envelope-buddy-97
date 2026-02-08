@@ -79,6 +79,25 @@ export function useShoppingList() {
     }
   }, [items]);
 
+  const updateItem = useCallback(async (itemId: string, updates: { quantity?: number; estimatedPrice?: number | null }) => {
+    try {
+      await updateShoppingItem(itemId, updates);
+      setItems(prev => prev.map(i =>
+        i.id === itemId
+          ? {
+              ...i,
+              quantity: updates.quantity ?? i.quantity,
+              estimatedPrice: updates.estimatedPrice !== undefined ? updates.estimatedPrice : i.estimatedPrice,
+            }
+          : i
+      ));
+      toast.success('Article mis à jour');
+    } catch (error) {
+      console.error('Error updating item:', error);
+      toast.error('Erreur lors de la mise à jour');
+    }
+  }, []);
+
   const removeItem = useCallback(async (itemId: string) => {
     try {
       await deleteShoppingItem(itemId);
@@ -113,6 +132,7 @@ export function useShoppingList() {
     loading,
     addItem,
     toggleItem,
+    updateItem,
     removeItem,
     clearChecked,
     refresh: loadData,
