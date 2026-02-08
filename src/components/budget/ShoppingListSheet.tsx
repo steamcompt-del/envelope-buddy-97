@@ -138,7 +138,7 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-xl flex flex-col">
+      <SheetContent side="bottom" className="h-[85vh] sm:h-[70vh] sm:max-w-lg sm:mx-auto sm:rounded-t-xl rounded-t-xl flex flex-col">
         <SheetHeader className="text-left pb-4">
           <SheetTitle className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
@@ -167,7 +167,7 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
                   placeholder="Ajouter un article..."
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 focus-visible:ring-1 focus-visible:ring-offset-0"
+                  className="flex-1 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary"
                 />
                 <Button type="submit" size="icon" disabled={isAdding || !newItemName.trim()} className="shrink-0">
                   {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
