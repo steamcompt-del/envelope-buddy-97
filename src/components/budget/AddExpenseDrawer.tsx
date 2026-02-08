@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/hooks/useHousehold';
 import { useAI } from '@/hooks/useAI';
-import { useReceiptScanner } from '@/hooks/useReceiptScanner';
+import { useReceiptScanner, ScannedReceiptItem } from '@/hooks/useReceiptScanner';
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { addReceiptDb } from '@/lib/receiptsDb';
+import { addReceiptItems } from '@/lib/receiptItemsDb';
 import {
   Drawer,
   DrawerContent,
@@ -25,6 +27,10 @@ import {
 import { Loader2, Receipt, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { MultiReceiptUploader, PendingReceipt } from './MultiReceiptUploader';
+
+interface PendingReceiptWithItems extends PendingReceipt {
+  scannedItems?: ScannedReceiptItem[];
+}
 
 export interface ScannedExpenseData {
   amount: number;
@@ -49,6 +55,7 @@ export function AddExpenseDrawer({
 }: AddExpenseDrawerProps) {
   const { envelopes, addTransaction } = useBudget();
   const { user } = useAuth();
+  const { household } = useHousehold();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
   const { scanReceipt, isScanning } = useReceiptScanner();
   
@@ -57,7 +64,7 @@ export function AddExpenseDrawer({
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [isCategorizing, setIsCategorizing] = useState(false);
-  const [pendingReceipts, setPendingReceipts] = useState<PendingReceipt[]>([]);
+  const [pendingReceipts, setPendingReceipts] = useState<PendingReceiptWithItems[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   
   // Pre-fill form with scanned data when provided
@@ -71,10 +78,11 @@ export function AddExpenseDrawer({
       }
       // Add the scanned receipt file to pending receipts
       if (scannedData.receiptFile) {
-        const newReceipt: PendingReceipt = {
+        const newReceipt: PendingReceiptWithItems = {
           id: crypto.randomUUID(),
           file: scannedData.receiptFile,
           previewUrl: URL.createObjectURL(scannedData.receiptFile),
+          scannedItems: [],
         };
         setPendingReceipts([newReceipt]);
       }
@@ -120,7 +128,7 @@ export function AddExpenseDrawer({
         merchant || undefined
       );
       
-      // Then upload all receipts
+      // Then upload all receipts and their items
       if (pendingReceipts.length > 0 && result.transactionId) {
         setIsUploading(true);
         try {
@@ -128,13 +136,28 @@ export function AddExpenseDrawer({
             const receipt = pendingReceipts[i];
             const uploadResult = await uploadReceipt(receipt.file, `${result.transactionId}_${i}`);
             // Save receipt to database
-            await addReceiptDb(
+            const savedReceipt = await addReceiptDb(
               user.id,
               result.transactionId,
               uploadResult.url,
               uploadResult.path,
               receipt.file.name
             );
+            
+            // Save receipt items if available
+            if (receipt.scannedItems && receipt.scannedItems.length > 0) {
+              await addReceiptItems(
+                user.id,
+                savedReceipt.id,
+                household?.id || null,
+                receipt.scannedItems.map(item => ({
+                  name: item.name,
+                  quantity: item.quantity,
+                  unitPrice: item.unit_price,
+                  totalPrice: item.total_price,
+                }))
+              );
+            }
           }
           toast.success(`${pendingReceipts.length} ticket${pendingReceipts.length > 1 ? 's' : ''} sauvegardé${pendingReceipts.length > 1 ? 's' : ''} !`);
         } catch (error) {
@@ -176,10 +199,11 @@ export function AddExpenseDrawer({
   };
   
   const handleAddReceipts = useCallback((files: File[]) => {
-    const newReceipts: PendingReceipt[] = files.map((file) => ({
+    const newReceipts: PendingReceiptWithItems[] = files.map((file) => ({
       id: crypto.randomUUID(),
       file,
       previewUrl: URL.createObjectURL(file),
+      scannedItems: [],
     }));
     setPendingReceipts((prev) => [...prev, ...newReceipts]);
   }, []);
@@ -209,6 +233,21 @@ export function AddExpenseDrawer({
       );
       if (matchingEnvelope) {
         setSelectedEnvelope(matchingEnvelope.id);
+      }
+      
+      // Store scanned items with the first pending receipt
+      if (scannedData.items && scannedData.items.length > 0) {
+        setPendingReceipts((prev) => {
+          if (prev.length === 0) return prev;
+          const updated = [...prev];
+          // Find the receipt for this file and add items to it
+          const lastReceipt = updated[updated.length - 1];
+          if (lastReceipt) {
+            lastReceipt.scannedItems = scannedData.items;
+          }
+          return updated;
+        });
+        toast.success(`${scannedData.items.length} article(s) détecté(s) sur le ticket`, { duration: 3000 });
       }
     }
   }, [scanReceipt, envelopes]);

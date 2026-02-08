@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Receipt } from '@/lib/receiptsDb';
 import { Button } from '@/components/ui/button';
-import { ImageIcon, Expand, Trash2, Download, Plus, Loader2 } from 'lucide-react';
+import { ImageIcon, Expand, Trash2, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
+import { ReceiptItemsList } from './ReceiptItemsList';
 
 interface ReceiptGalleryProps {
   receipts: Receipt[];
@@ -12,6 +13,7 @@ interface ReceiptGalleryProps {
   isDeleting?: boolean;
   isAdding?: boolean;
   canEdit?: boolean;
+  showItems?: boolean;
 }
 
 export function ReceiptGallery({
@@ -21,6 +23,7 @@ export function ReceiptGallery({
   isDeleting = false,
   isAdding = false,
   canEdit = false,
+  showItems = false,
 }: ReceiptGalleryProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -132,6 +135,11 @@ export function ReceiptGallery({
           {receipts.length} ticket{receipts.length > 1 ? 's' : ''}
         </div>
       )}
+
+      {/* Receipt items details */}
+      {showItems && receipts.map((receipt) => (
+        <ReceiptItemsList key={receipt.id} receipt={receipt} />
+      ))}
 
       {/* Lightbox */}
       <ReceiptLightbox
