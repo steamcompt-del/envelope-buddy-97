@@ -100,12 +100,7 @@ export async function fetchActivityLog(
 
   const { data, error } = await supabase
     .from('activity_log')
-    .select(`
-      *,
-      profiles:user_id (
-        display_name
-      )
-    `)
+    .select('*')
     .eq('household_id', ctx.householdId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -115,7 +110,7 @@ export async function fetchActivityLog(
     return [];
   }
 
-  return (data || []).map((entry: DbActivityLog & { profiles?: { display_name: string | null } }) => ({
+  return (data || []).map((entry: DbActivityLog) => ({
     id: entry.id,
     userId: entry.user_id,
     action: entry.action,
@@ -123,7 +118,7 @@ export async function fetchActivityLog(
     entityId: entry.entity_id || undefined,
     details: entry.details || undefined,
     createdAt: entry.created_at,
-    userDisplayName: entry.profiles?.display_name || undefined,
+    userDisplayName: undefined, // Will be loaded separately if needed
   }));
 }
 
