@@ -332,7 +332,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
             </h3>
             
             <p className="text-sm text-muted-foreground">
-              Démarrez un nouveau mois en conservant vos enveloppes. Les dépenses seront remises à zéro.
+              Démarrez un nouveau mois vide. Vous devrez créer de nouvelles enveloppes.
             </p>
             
             <Button
