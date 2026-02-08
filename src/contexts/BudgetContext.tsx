@@ -131,19 +131,24 @@ export const defaultEnvelopeTemplates = [
 
 export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [currentMonthKey, setCurrentMonthKey] = useState(getCurrentMonthKey());
   const [months, setMonths] = useState<Record<string, MonthlyBudget>>({});
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const hasLoadedRef = React.useRef(false);
 
   // Load data when user or month changes
-  const loadMonthData = useCallback(async () => {
+  const loadMonthData = useCallback(async (isInitial = false) => {
     if (!user) {
-      setLoading(false);
+      setInitialLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Only show loading spinner on initial load
+    if (isInitial) {
+      setInitialLoading(true);
+    }
+    
     try {
       // Ensure current month exists
       await ensureMonthExists(user.id, currentMonthKey);
@@ -162,12 +167,19 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error loading budget data:', error);
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setInitialLoading(false);
+      }
     }
   }, [user, currentMonthKey]);
 
   useEffect(() => {
-    loadMonthData();
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      loadMonthData(true);
+    } else {
+      loadMonthData(false);
+    }
   }, [loadMonthData]);
 
   // Get current month data
@@ -342,11 +354,11 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh data
   const refreshData = useCallback(async () => {
-    await loadMonthData();
+    await loadMonthData(false);
   }, [loadMonthData]);
 
   const value: BudgetContextType = {
-    loading,
+    loading: initialLoading,
     currentMonthKey,
     toBeBudgeted: currentMonth.toBeBudgeted,
     envelopes: currentMonth.envelopes,
