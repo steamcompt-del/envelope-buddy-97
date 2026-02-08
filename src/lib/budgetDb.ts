@@ -139,18 +139,20 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
   // Map allocations by envelope_id
   const allocationMap = new Map((allocations || []).map(a => [a.envelope_id, a]));
 
-  // Build envelope list with allocations
-  const envelopeList: Envelope[] = (envelopes || []).map((env: DbEnvelope) => {
-    const allocation = allocationMap.get(env.id);
-    return {
-      id: env.id,
-      name: env.name,
-      icon: env.icon,
-      color: env.color,
-      allocated: allocation ? Number(allocation.allocated) : 0,
-      spent: allocation ? Number(allocation.spent) : 0,
-    };
-  });
+  // Build envelope list - ONLY include envelopes that have an allocation for this month
+  const envelopeList: Envelope[] = (envelopes || [])
+    .filter((env: DbEnvelope) => allocationMap.has(env.id))
+    .map((env: DbEnvelope) => {
+      const allocation = allocationMap.get(env.id)!;
+      return {
+        id: env.id,
+        name: env.name,
+        icon: env.icon,
+        color: env.color,
+        allocated: Number(allocation.allocated),
+        spent: Number(allocation.spent),
+      };
+    });
 
   // Build transaction list
   const transactionList: Transaction[] = (transactions || []).map((t: DbTransaction) => ({
