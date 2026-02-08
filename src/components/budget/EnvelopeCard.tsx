@@ -89,16 +89,19 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
         
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-foreground truncate">{name}</h3>
-          <p className="text-sm text-muted-foreground">
-            {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} / {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+          <p className="text-sm text-muted-foreground leading-tight [overflow-wrap:anywhere]">
+            {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} /{' '}
+            {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
         </div>
         
-        <div className="text-right">
-          <p className={cn(
-            "font-semibold text-lg",
-            isOverspent ? "text-destructive" : "text-foreground"
-          )}>
+        <div className="text-right shrink-0">
+          <p
+            className={cn(
+              "font-semibold text-lg leading-tight [overflow-wrap:anywhere]",
+              isOverspent ? "text-destructive" : "text-foreground"
+            )}
+          >
             {remaining.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
           <p className="text-xs text-muted-foreground">restant</p>
