@@ -135,13 +135,14 @@ export function AddExpenseDrawer({
           for (let i = 0; i < pendingReceipts.length; i++) {
             const receipt = pendingReceipts[i];
             const uploadResult = await uploadReceipt(receipt.file, `${result.transactionId}_${i}`);
-            // Save receipt to database
+            // Save receipt to database with household_id
             const savedReceipt = await addReceiptDb(
               user.id,
               result.transactionId,
               uploadResult.url,
               uploadResult.path,
-              receipt.file.name
+              receipt.file.name,
+              household?.id || null
             );
             
             // Save receipt items if available

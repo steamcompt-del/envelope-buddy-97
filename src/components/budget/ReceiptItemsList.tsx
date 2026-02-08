@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
-import { ReceiptItem, fetchItemsForReceipt } from '@/lib/receiptItemsDb';
+import { useState, useEffect, useCallback } from 'react';
+import { ReceiptItem, fetchItemsForReceipt, addReceiptItems } from '@/lib/receiptItemsDb';
 import { Receipt } from '@/lib/receiptsDb';
+import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/hooks/useHousehold';
+import { getBackendClient } from '@/lib/backendClient';
 import { 
   Collapsible, 
   CollapsibleContent, 
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, Package, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronRight, Package, Loader2, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ReceiptItemsListProps {
   receipt: Receipt;
@@ -20,8 +25,11 @@ function formatCurrency(amount: number): string {
 }
 
 export function ReceiptItemsList({ receipt, defaultOpen = false }: ReceiptItemsListProps) {
+  const { user } = useAuth();
+  const { household } = useHousehold();
   const [items, setItems] = useState<ReceiptItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -37,6 +45,62 @@ export function ReceiptItemsList({ receipt, defaultOpen = false }: ReceiptItemsL
         .finally(() => setIsLoading(false));
     }
   }, [isOpen, hasFetched, receipt.id]);
+
+  const handleRescan = useCallback(async () => {
+    if (!user) return;
+    
+    setIsScanning(true);
+    try {
+      // Fetch the image and convert to base64
+      const response = await fetch(receipt.url);
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          // Remove the data URL prefix
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
+
+      // Call the scan-receipt edge function
+      const supabase = getBackendClient();
+      const { data, error } = await supabase.functions.invoke('scan-receipt', {
+        body: {
+          imageBase64: base64,
+          mimeType: blob.type,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.items && data.items.length > 0) {
+        // Save items to database
+        const savedItems = await addReceiptItems(
+          user.id,
+          receipt.id,
+          household?.id || null,
+          data.items.map((item: { name: string; quantity: number; unit_price: number | null; total_price: number }) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            totalPrice: item.total_price,
+          }))
+        );
+        setItems(savedItems);
+        toast.success(`${savedItems.length} article(s) extrait(s) !`);
+      } else {
+        toast.info('Aucun article détecté sur ce ticket');
+      }
+    } catch (error) {
+      console.error('Error rescanning receipt:', error);
+      toast.error('Erreur lors de l\'analyse du ticket');
+    } finally {
+      setIsScanning(false);
+    }
+  }, [user, receipt.id, receipt.url, household?.id]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -66,8 +130,29 @@ export function ReceiptItemsList({ receipt, defaultOpen = false }: ReceiptItemsL
               <span className="text-sm">Chargement...</span>
             </div>
           ) : items.length === 0 ? (
-            <div className="py-3 text-sm text-muted-foreground italic">
-              Aucun détail disponible pour ce ticket
+            <div className="py-3 space-y-3">
+              <p className="text-sm text-muted-foreground italic">
+                Aucun détail disponible pour ce ticket
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRescan}
+                disabled={isScanning}
+                className="w-full"
+              >
+                {isScanning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyse en cours...
+                  </>
+                ) : (
+                  <>
+                    <ScanLine className="w-4 h-4 mr-2" />
+                    Analyser le ticket
+                  </>
+                )}
+              </Button>
             </div>
           ) : (
             <>
