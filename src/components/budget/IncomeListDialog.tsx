@@ -42,17 +42,17 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
     setEditDescription('');
   };
   
-  const saveEdit = (id: string) => {
+  const saveEdit = async (id: string) => {
     const parsedAmount = parseFloat(editAmount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
-    updateIncome(id, parsedAmount, editDescription || 'Revenu');
+    await updateIncome(id, parsedAmount, editDescription || 'Revenu');
     cancelEdit();
   };
   
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Supprimer ce revenu ? Le montant sera déduit de "À budgétiser".')) {
-      deleteIncome(id);
+      await deleteIncome(id);
     }
   };
   

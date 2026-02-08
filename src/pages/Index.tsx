@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
 import { EnvelopeGrid } from '@/components/budget/EnvelopeGrid';
 import { AddIncomeDialog } from '@/components/budget/AddIncomeDialog';
@@ -14,9 +15,11 @@ import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDi
 import { FabButton } from '@/components/budget/FabButton';
 import { mockScanReceipt } from '@/lib/mockReceiptScanner';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 export default function Index() {
-  const { envelopes } = useBudget();
+  const { envelopes, loading } = useBudget();
+  const { user } = useAuth();
   
   // Dialog states
   const [incomeOpen, setIncomeOpen] = useState(false);
@@ -75,6 +78,17 @@ export default function Index() {
     setExpenseOpen(true);
   };
   
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Chargement de votre budget...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <BudgetHeader

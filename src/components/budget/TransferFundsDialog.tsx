@@ -38,14 +38,14 @@ export function TransferFundsDialog({
   const fromEnvelope = envelopes.find(e => e.id === fromId);
   const maxTransfer = fromEnvelope ? fromEnvelope.allocated - fromEnvelope.spent : 0;
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !fromId || !toId) return;
     if (parsedAmount > maxTransfer) return;
     
-    transferBetweenEnvelopes(fromId, toId, parsedAmount);
+    await transferBetweenEnvelopes(fromId, toId, parsedAmount);
     setAmount('');
     setFromId('');
     setToId('');

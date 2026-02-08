@@ -34,14 +34,14 @@ export function AllocateFundsDialog({
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
     if (parsedAmount > toBeBudgeted) return;
     
-    allocateToEnvelope(selectedEnvelope, parsedAmount);
+    await allocateToEnvelope(selectedEnvelope, parsedAmount);
     setAmount('');
     setSelectedEnvelope('');
     onOpenChange(false);

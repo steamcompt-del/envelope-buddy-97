@@ -22,13 +22,13 @@ export function AddIncomeDialog({ open, onOpenChange }: AddIncomeDialogProps) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
-    addIncome(parsedAmount, description || 'Revenu');
+    await addIncome(parsedAmount, description || 'Revenu');
     setAmount('');
     setDescription('');
     onOpenChange(false);

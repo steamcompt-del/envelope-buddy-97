@@ -81,48 +81,53 @@ export function AddExpenseDrawer({
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
     
-    // First create the transaction without receipt
-    const result = addTransaction(
-      selectedEnvelope, 
-      parsedAmount, 
-      description || 'Dépense', 
-      merchant || undefined
-    );
-    
-    // Then upload receipt if one was selected
-    if (selectedFile && result.transactionId) {
-      setIsUploading(true);
-      try {
-        const uploadResult = await uploadReceipt(selectedFile, result.transactionId);
-        // Update transaction with receipt URL
-        updateTransaction(result.transactionId, {
-          receiptUrl: uploadResult.url,
-          receiptPath: uploadResult.path,
-        });
-        toast.success('Ticket sauvegardé !');
-      } catch (error) {
-        console.error('Failed to upload receipt:', error);
-        toast.error('Erreur lors de la sauvegarde du ticket');
-      } finally {
-        setIsUploading(false);
+    try {
+      // First create the transaction without receipt
+      const result = await addTransaction(
+        selectedEnvelope, 
+        parsedAmount, 
+        description || 'Dépense', 
+        merchant || undefined
+      );
+      
+      // Then upload receipt if one was selected
+      if (selectedFile && result.transactionId) {
+        setIsUploading(true);
+        try {
+          const uploadResult = await uploadReceipt(selectedFile, result.transactionId);
+          // Update transaction with receipt URL
+          await updateTransaction(result.transactionId, {
+            receiptUrl: uploadResult.url,
+            receiptPath: uploadResult.path,
+          });
+          toast.success('Ticket sauvegardé !');
+        } catch (error) {
+          console.error('Failed to upload receipt:', error);
+          toast.error('Erreur lors de la sauvegarde du ticket');
+        } finally {
+          setIsUploading(false);
+        }
       }
-    }
-    
-    // Show budget alert if threshold crossed
-    if (result.alert) {
-      if (result.alert.isOver) {
-        toast.error(`⚠️ ${result.alert.envelopeName} : Budget dépassé ! (${result.alert.percent}%)`, {
-          duration: 5000,
-        });
-      } else {
-        toast.warning(`⚠️ ${result.alert.envelopeName} : ${result.alert.percent}% du budget utilisé`, {
-          duration: 4000,
-        });
+      
+      // Show budget alert if threshold crossed
+      if (result.alert) {
+        if (result.alert.isOver) {
+          toast.error(`⚠️ ${result.alert.envelopeName} : Budget dépassé ! (${result.alert.percent}%)`, {
+            duration: 5000,
+          });
+        } else {
+          toast.warning(`⚠️ ${result.alert.envelopeName} : ${result.alert.percent}% du budget utilisé`, {
+            duration: 4000,
+          });
+        }
       }
+      
+      resetForm();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to add expense:', error);
+      toast.error('Erreur lors de l\'ajout de la dépense');
     }
-    
-    resetForm();
-    onOpenChange(false);
   };
   
   const resetForm = () => {
