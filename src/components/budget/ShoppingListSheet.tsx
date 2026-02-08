@@ -107,6 +107,27 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
     )
   );
 
+  // Filter suggestions based on input for autocomplete
+  const autocompleteSuggestions = newItemName.trim().length >= 2
+    ? availableSuggestions.filter(suggestion =>
+        suggestion.name.toLowerCase().includes(newItemName.toLowerCase())
+      ).slice(0, 5)
+    : [];
+
+  const handleSelectSuggestion = async (suggestion: { name: string; avgPrice: number }) => {
+    setIsAdding(true);
+    try {
+      await addItem({ 
+        name: suggestion.name, 
+        estimatedPrice: suggestion.avgPrice > 0 ? suggestion.avgPrice : null,
+        suggestedFromHistory: true 
+      });
+      setNewItemName('');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
@@ -131,18 +152,44 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
           </div>
         ) : (
           <ScrollArea className="h-[calc(85vh-180px)] pr-4">
-            {/* Add item form */}
-            <form onSubmit={handleAddItem} className="flex gap-2 mb-4">
-              <Input
-                placeholder="Ajouter un article..."
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                className="flex-1"
-              />
-              <Button type="submit" size="icon" disabled={isAdding || !newItemName.trim()}>
-                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              </Button>
-            </form>
+            {/* Add item form with autocomplete */}
+            <div className="relative mb-4">
+              <form onSubmit={handleAddItem} className="flex gap-2">
+                <Input
+                  placeholder="Ajouter un article..."
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="submit" size="icon" disabled={isAdding || !newItemName.trim()}>
+                  {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                </Button>
+              </form>
+              
+              {/* Autocomplete dropdown */}
+              {autocompleteSuggestions.length > 0 && (
+                <div className="absolute left-0 right-12 top-full mt-1 z-50 bg-popover border rounded-lg shadow-lg overflow-hidden">
+                  {autocompleteSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.name}
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-muted transition-colors flex items-center justify-between"
+                      onClick={() => handleSelectSuggestion(suggestion)}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-3 h-3 text-primary/60" />
+                        <span>{suggestion.name}</span>
+                      </span>
+                      {suggestion.avgPrice > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          ~{suggestion.avgPrice.toFixed(2)}€
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Suggestions from history */}
             {availableSuggestions.length > 0 && (
