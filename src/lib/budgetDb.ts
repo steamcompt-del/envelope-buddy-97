@@ -7,6 +7,7 @@ const supabase = getBackendClient();
 interface DbEnvelope {
   id: string;
   user_id: string;
+  household_id: string | null;
   name: string;
   icon: string;
   color: string;
@@ -17,6 +18,7 @@ interface DbEnvelope {
 interface DbEnvelopeAllocation {
   id: string;
   user_id: string;
+  household_id: string | null;
   envelope_id: string;
   month_key: string;
   allocated: number;
@@ -27,6 +29,7 @@ interface DbEnvelopeAllocation {
 interface DbTransaction {
   id: string;
   user_id: string;
+  household_id: string | null;
   envelope_id: string;
   amount: number;
   description: string;
@@ -40,6 +43,7 @@ interface DbTransaction {
 interface DbIncome {
   id: string;
   user_id: string;
+  household_id: string | null;
   month_key: string;
   amount: number;
   description: string;
@@ -50,48 +54,86 @@ interface DbIncome {
 interface DbMonthlyBudget {
   id: string;
   user_id: string;
+  household_id: string | null;
   month_key: string;
   to_be_budgeted: number;
   created_at: string;
 }
 
-export async function fetchMonthData(userId: string, monthKey: string): Promise<MonthlyBudget> {
-  // Fetch monthly budget
-  const { data: monthlyBudget } = await supabase
+// Context for queries - either household or user-based
+interface QueryContext {
+  userId: string;
+  householdId?: string;
+}
+
+// Helper to build query with household or user filter
+function addContextFilter<T extends { eq: (col: string, val: string) => T }>(
+  query: T,
+  ctx: QueryContext
+): T {
+  if (ctx.householdId) {
+    return query.eq('household_id', ctx.householdId);
+  }
+  return query.eq('user_id', ctx.userId);
+}
+
+export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promise<MonthlyBudget> {
+  // Build base queries
+  let monthlyBudgetQuery = supabase
     .from('monthly_budgets')
     .select('*')
-    .eq('user_id', userId)
-    .eq('month_key', monthKey)
-    .single();
-
-  // Fetch all envelopes (sorted by position)
-  const { data: envelopes } = await supabase
+    .eq('month_key', monthKey);
+  
+  let envelopesQuery = supabase
     .from('envelopes')
     .select('*')
-    .eq('user_id', userId)
     .order('position', { ascending: true });
-
-  // Fetch allocations for this month
-  const { data: allocations } = await supabase
+  
+  let allocationsQuery = supabase
     .from('envelope_allocations')
     .select('*')
-    .eq('user_id', userId)
     .eq('month_key', monthKey);
-
-  // Fetch transactions for this month
-  const { data: transactions } = await supabase
+  
+  let transactionsQuery = supabase
     .from('transactions')
     .select('*')
-    .eq('user_id', userId)
     .gte('date', `${monthKey}-01`)
     .lt('date', getNextMonthKey(monthKey) + '-01');
-
-  // Fetch incomes for this month
-  const { data: incomes } = await supabase
+  
+  let incomesQuery = supabase
     .from('incomes')
     .select('*')
-    .eq('user_id', userId)
     .eq('month_key', monthKey);
+
+  // Apply context filter
+  if (ctx.householdId) {
+    monthlyBudgetQuery = monthlyBudgetQuery.eq('household_id', ctx.householdId);
+    envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
+    allocationsQuery = allocationsQuery.eq('household_id', ctx.householdId);
+    transactionsQuery = transactionsQuery.eq('household_id', ctx.householdId);
+    incomesQuery = incomesQuery.eq('household_id', ctx.householdId);
+  } else {
+    monthlyBudgetQuery = monthlyBudgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+    envelopesQuery = envelopesQuery.eq('user_id', ctx.userId).is('household_id', null);
+    allocationsQuery = allocationsQuery.eq('user_id', ctx.userId).is('household_id', null);
+    transactionsQuery = transactionsQuery.eq('user_id', ctx.userId).is('household_id', null);
+    incomesQuery = incomesQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  // Execute all queries
+  const [
+    { data: monthlyBudget },
+    { data: envelopes },
+    { data: allocations },
+    { data: transactions },
+    { data: incomes },
+  ] = await Promise.all([
+    monthlyBudgetQuery.single(),
+    envelopesQuery,
+    allocationsQuery,
+    transactionsQuery,
+    incomesQuery,
+  ]);
 
   // Map allocations by envelope_id
   const allocationMap = new Map((allocations || []).map(a => [a.envelope_id, a]));
@@ -138,27 +180,40 @@ export async function fetchMonthData(userId: string, monthKey: string): Promise<
   };
 }
 
-export async function fetchAvailableMonths(userId: string): Promise<string[]> {
-  const { data } = await supabase
+export async function fetchAvailableMonths(ctx: QueryContext): Promise<string[]> {
+  let query = supabase
     .from('monthly_budgets')
     .select('month_key')
-    .eq('user_id', userId)
     .order('month_key', { ascending: false });
 
+  if (ctx.householdId) {
+    query = query.eq('household_id', ctx.householdId);
+  } else {
+    query = query.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data } = await query;
   return (data || []).map((m: { month_key: string }) => m.month_key);
 }
 
-export async function ensureMonthExists(userId: string, monthKey: string): Promise<void> {
-  const { data: existing } = await supabase
+export async function ensureMonthExists(ctx: QueryContext, monthKey: string): Promise<void> {
+  let query = supabase
     .from('monthly_budgets')
     .select('id')
-    .eq('user_id', userId)
-    .eq('month_key', monthKey)
-    .single();
+    .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    query = query.eq('household_id', ctx.householdId);
+  } else {
+    query = query.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: existing } = await query.single();
 
   if (!existing) {
     await supabase.from('monthly_budgets').insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       month_key: monthKey,
       to_be_budgeted: 0,
     });
@@ -166,12 +221,13 @@ export async function ensureMonthExists(userId: string, monthKey: string): Promi
 }
 
 // Income operations
-export async function addIncomeDb(userId: string, monthKey: string, amount: number, description: string): Promise<string> {
+export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: number, description: string): Promise<string> {
   // Insert income
   const { data: income, error: incomeError } = await supabase
     .from('incomes')
     .insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       month_key: monthKey,
       amount,
       description,
@@ -182,12 +238,18 @@ export async function addIncomeDb(userId: string, monthKey: string, amount: numb
   if (incomeError) throw incomeError;
 
   // Update toBeBudgeted
-  const { data: current } = await supabase
+  let budgetQuery = supabase
     .from('monthly_budgets')
     .select('to_be_budgeted, id')
-    .eq('user_id', userId)
-    .eq('month_key', monthKey)
-    .single();
+    .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+  } else {
+    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: current } = await budgetQuery.single();
 
   if (current) {
     await supabase
@@ -198,7 +260,8 @@ export async function addIncomeDb(userId: string, monthKey: string, amount: numb
     await supabase
       .from('monthly_budgets')
       .insert({
-        user_id: userId,
+        user_id: ctx.userId,
+        household_id: ctx.householdId || null,
         month_key: monthKey,
         to_be_budgeted: amount,
       });
@@ -207,7 +270,7 @@ export async function addIncomeDb(userId: string, monthKey: string, amount: numb
   return income.id;
 }
 
-export async function updateIncomeDb(userId: string, monthKey: string, incomeId: string, newAmount: number, newDescription: string, oldAmount: number): Promise<void> {
+export async function updateIncomeDb(ctx: QueryContext, monthKey: string, incomeId: string, newAmount: number, newDescription: string, oldAmount: number): Promise<void> {
   await supabase
     .from('incomes')
     .update({ amount: newAmount, description: newDescription })
@@ -215,54 +278,80 @@ export async function updateIncomeDb(userId: string, monthKey: string, incomeId:
 
   const diff = newAmount - oldAmount;
   if (diff !== 0) {
-    const { data: current } = await supabase
+    let budgetQuery = supabase
       .from('monthly_budgets')
-      .select('to_be_budgeted')
-      .eq('user_id', userId)
-      .eq('month_key', monthKey)
-      .single();
-
-    await supabase
-      .from('monthly_budgets')
-      .update({ to_be_budgeted: (Number(current?.to_be_budgeted) || 0) + diff })
-      .eq('user_id', userId)
+      .select('to_be_budgeted, id')
       .eq('month_key', monthKey);
+
+    if (ctx.householdId) {
+      budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+    } else {
+      budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+    }
+
+    const { data: current } = await budgetQuery.single();
+
+    if (current) {
+      await supabase
+        .from('monthly_budgets')
+        .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + diff })
+        .eq('id', current.id);
+    }
   }
 }
 
-export async function deleteIncomeDb(userId: string, monthKey: string, incomeId: string, amount: number): Promise<void> {
+export async function deleteIncomeDb(ctx: QueryContext, monthKey: string, incomeId: string, amount: number): Promise<void> {
   await supabase.from('incomes').delete().eq('id', incomeId);
 
-  const { data: current } = await supabase
+  let budgetQuery = supabase
     .from('monthly_budgets')
-    .select('to_be_budgeted')
-    .eq('user_id', userId)
-    .eq('month_key', monthKey)
-    .single();
-
-  await supabase
-    .from('monthly_budgets')
-    .update({ to_be_budgeted: Math.max(0, (Number(current?.to_be_budgeted) || 0) - amount) })
-    .eq('user_id', userId)
+    .select('to_be_budgeted, id')
     .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+  } else {
+    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: current } = await budgetQuery.single();
+
+  if (current) {
+    await supabase
+      .from('monthly_budgets')
+      .update({ to_be_budgeted: Math.max(0, (Number(current.to_be_budgeted) || 0) - amount) })
+      .eq('id', current.id);
+  }
 }
 
 // Envelope operations
-export async function createEnvelopeDb(userId: string, monthKey: string, name: string, icon: string, color: string): Promise<string> {
-  // Get max position to place new envelope at the end
-  const { data: maxPositionData } = await supabase
+export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name: string, icon: string, color: string): Promise<string> {
+  // Get max position
+  let posQuery = supabase
     .from('envelopes')
     .select('position')
-    .eq('user_id', userId)
     .order('position', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
 
+  if (ctx.householdId) {
+    posQuery = posQuery.eq('household_id', ctx.householdId);
+  } else {
+    posQuery = posQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: maxPositionData } = await posQuery.single();
   const newPosition = (maxPositionData?.position ?? -1) + 1;
 
   const { data: envelope, error } = await supabase
     .from('envelopes')
-    .insert({ user_id: userId, name, icon, color, position: newPosition })
+    .insert({ 
+      user_id: ctx.userId, 
+      household_id: ctx.householdId || null,
+      name, 
+      icon, 
+      color, 
+      position: newPosition 
+    })
     .select('id')
     .single();
 
@@ -270,7 +359,8 @@ export async function createEnvelopeDb(userId: string, monthKey: string, name: s
 
   // Create allocation for current month
   await supabase.from('envelope_allocations').insert({
-    user_id: userId,
+    user_id: ctx.userId,
+    household_id: ctx.householdId || null,
     envelope_id: envelope.id,
     month_key: monthKey,
     allocated: 0,
@@ -280,14 +370,12 @@ export async function createEnvelopeDb(userId: string, monthKey: string, name: s
   return envelope.id;
 }
 
-export async function reorderEnvelopesDb(userId: string, orderedIds: string[]): Promise<void> {
-  // Update position for each envelope based on new order
+export async function reorderEnvelopesDb(ctx: QueryContext, orderedIds: string[]): Promise<void> {
   const updates = orderedIds.map((id, index) =>
     supabase
       .from('envelopes')
       .update({ position: index })
       .eq('id', id)
-      .eq('user_id', userId)
   );
 
   await Promise.all(updates);
@@ -297,41 +385,54 @@ export async function updateEnvelopeDb(envelopeId: string, updates: { name?: str
   await supabase.from('envelopes').update(updates).eq('id', envelopeId);
 }
 
-export async function deleteEnvelopeDb(userId: string, monthKey: string, envelopeId: string, allocated: number): Promise<void> {
-  // Refund allocated amount to toBeBudgeted
+export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, allocated: number): Promise<void> {
+  // Refund allocated amount
   if (allocated > 0) {
-    const { data: current } = await supabase
+    let budgetQuery = supabase
       .from('monthly_budgets')
-      .select('to_be_budgeted')
-      .eq('user_id', userId)
-      .eq('month_key', monthKey)
-      .single();
-
-    await supabase
-      .from('monthly_budgets')
-      .update({ to_be_budgeted: (Number(current?.to_be_budgeted) || 0) + allocated })
-      .eq('user_id', userId)
+      .select('to_be_budgeted, id')
       .eq('month_key', monthKey);
+
+    if (ctx.householdId) {
+      budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+    } else {
+      budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+    }
+
+    const { data: current } = await budgetQuery.single();
+
+    if (current) {
+      await supabase
+        .from('monthly_budgets')
+        .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + allocated })
+        .eq('id', current.id);
+    }
   }
 
-  // Delete envelope (cascades to allocations and transactions)
   await supabase.from('envelopes').delete().eq('id', envelopeId);
 }
 
-export async function allocateToEnvelopeDb(userId: string, monthKey: string, envelopeId: string, amount: number): Promise<void> {
+export async function allocateToEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
   // Deduct from toBeBudgeted
-  const { data: current } = await supabase
+  let budgetQuery = supabase
     .from('monthly_budgets')
-    .select('to_be_budgeted')
-    .eq('user_id', userId)
-    .eq('month_key', monthKey)
-    .single();
-
-  await supabase
-    .from('monthly_budgets')
-    .update({ to_be_budgeted: (Number(current?.to_be_budgeted) || 0) - amount })
-    .eq('user_id', userId)
+    .select('to_be_budgeted, id')
     .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+  } else {
+    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: current } = await budgetQuery.single();
+
+  if (current) {
+    await supabase
+      .from('monthly_budgets')
+      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) - amount })
+      .eq('id', current.id);
+  }
 
   // Add to envelope allocation
   const { data: allocation } = await supabase
@@ -348,7 +449,8 @@ export async function allocateToEnvelopeDb(userId: string, monthKey: string, env
       .eq('id', allocation.id);
   } else {
     await supabase.from('envelope_allocations').insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       envelope_id: envelopeId,
       month_key: monthKey,
       allocated: amount,
@@ -357,22 +459,28 @@ export async function allocateToEnvelopeDb(userId: string, monthKey: string, env
   }
 }
 
-export async function deallocateFromEnvelopeDb(userId: string, monthKey: string, envelopeId: string, amount: number): Promise<void> {
+export async function deallocateFromEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
   // Add back to toBeBudgeted
-  const { data: current } = await supabase
+  let budgetQuery = supabase
     .from('monthly_budgets')
-    .select('to_be_budgeted')
-    .eq('user_id', userId)
-    .eq('month_key', monthKey)
-    .single();
-
-  await supabase
-    .from('monthly_budgets')
-    .update({ to_be_budgeted: (Number(current?.to_be_budgeted) || 0) + amount })
-    .eq('user_id', userId)
+    .select('to_be_budgeted, id')
     .eq('month_key', monthKey);
 
-  // Remove from envelope allocation
+  if (ctx.householdId) {
+    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+  } else {
+    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: current } = await budgetQuery.single();
+
+  if (current) {
+    await supabase
+      .from('monthly_budgets')
+      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + amount })
+      .eq('id', current.id);
+  }
+
   const { data: allocation } = await supabase
     .from('envelope_allocations')
     .select('id, allocated')
@@ -388,8 +496,7 @@ export async function deallocateFromEnvelopeDb(userId: string, monthKey: string,
   }
 }
 
-export async function transferBetweenEnvelopesDb(userId: string, monthKey: string, fromId: string, toId: string, amount: number): Promise<void> {
-  // Get allocations
+export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: string, fromId: string, toId: string, amount: number): Promise<void> {
   const { data: fromAlloc } = await supabase
     .from('envelope_allocations')
     .select('id, allocated')
@@ -418,7 +525,8 @@ export async function transferBetweenEnvelopesDb(userId: string, monthKey: strin
       .eq('id', toAlloc.id);
   } else {
     await supabase.from('envelope_allocations').insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       envelope_id: toId,
       month_key: monthKey,
       allocated: amount,
@@ -429,7 +537,7 @@ export async function transferBetweenEnvelopesDb(userId: string, monthKey: strin
 
 // Transaction operations
 export async function addTransactionDb(
-  userId: string,
+  ctx: QueryContext,
   monthKey: string,
   envelopeId: string,
   amount: number,
@@ -441,7 +549,8 @@ export async function addTransactionDb(
   const { data: transaction, error } = await supabase
     .from('transactions')
     .insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       envelope_id: envelopeId,
       amount,
       description,
@@ -469,7 +578,8 @@ export async function addTransactionDb(
       .eq('id', allocation.id);
   } else {
     await supabase.from('envelope_allocations').insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       envelope_id: envelopeId,
       month_key: monthKey,
       allocated: 0,
@@ -481,7 +591,7 @@ export async function addTransactionDb(
 }
 
 export async function updateTransactionDb(
-  userId: string,
+  ctx: QueryContext,
   monthKey: string,
   transactionId: string,
   oldEnvelopeId: string,
@@ -491,7 +601,6 @@ export async function updateTransactionDb(
   const newAmount = updates.amount ?? oldAmount;
   const newEnvelopeId = updates.envelopeId ?? oldEnvelopeId;
 
-  // Update transaction
   await supabase
     .from('transactions')
     .update({
@@ -504,9 +613,7 @@ export async function updateTransactionDb(
     })
     .eq('id', transactionId);
 
-  // Update spent amounts
   if (oldEnvelopeId === newEnvelopeId) {
-    // Same envelope, just update the amount diff
     const diff = newAmount - oldAmount;
     if (diff !== 0) {
       const { data: allocation } = await supabase
@@ -524,7 +631,6 @@ export async function updateTransactionDb(
       }
     }
   } else {
-    // Different envelopes, update both
     const { data: oldAlloc } = await supabase
       .from('envelope_allocations')
       .select('id, spent')
@@ -553,7 +659,8 @@ export async function updateTransactionDb(
         .eq('id', newAlloc.id);
     } else {
       await supabase.from('envelope_allocations').insert({
-        user_id: userId,
+        user_id: ctx.userId,
+        household_id: ctx.householdId || null,
         envelope_id: newEnvelopeId,
         month_key: monthKey,
         allocated: 0,
@@ -563,7 +670,7 @@ export async function updateTransactionDb(
   }
 }
 
-export async function deleteTransactionDb(userId: string, monthKey: string, transactionId: string, envelopeId: string, amount: number): Promise<void> {
+export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, transactionId: string, envelopeId: string, amount: number): Promise<void> {
   await supabase.from('transactions').delete().eq('id', transactionId);
 
   const { data: allocation } = await supabase
@@ -582,39 +689,50 @@ export async function deleteTransactionDb(userId: string, monthKey: string, tran
 }
 
 // Start new month
-export async function startNewMonthDb(userId: string, currentMonthKey: string): Promise<string> {
+export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<string> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
   const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 
-  // Check if next month exists
-  const { data: existing } = await supabase
+  let existsQuery = supabase
     .from('monthly_budgets')
     .select('id')
-    .eq('user_id', userId)
-    .eq('month_key', nextMonthKey)
-    .single();
+    .eq('month_key', nextMonthKey);
+
+  if (ctx.householdId) {
+    existsQuery = existsQuery.eq('household_id', ctx.householdId);
+  } else {
+    existsQuery = existsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: existing } = await existsQuery.single();
 
   if (!existing) {
-    // Create new month
     await supabase.from('monthly_budgets').insert({
-      user_id: userId,
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
       month_key: nextMonthKey,
       to_be_budgeted: 0,
     });
 
-    // Get current month allocations to copy
-    const { data: currentAllocations } = await supabase
+    let allocQuery = supabase
       .from('envelope_allocations')
       .select('envelope_id, allocated')
-      .eq('user_id', userId)
       .eq('month_key', currentMonthKey);
 
-    // Create allocations for new month with same allocated amounts
+    if (ctx.householdId) {
+      allocQuery = allocQuery.eq('household_id', ctx.householdId);
+    } else {
+      allocQuery = allocQuery.eq('user_id', ctx.userId).is('household_id', null);
+    }
+
+    const { data: currentAllocations } = await allocQuery;
+
     if (currentAllocations && currentAllocations.length > 0) {
       const newAllocations = currentAllocations.map(a => ({
-        user_id: userId,
+        user_id: ctx.userId,
+        household_id: ctx.householdId || null,
         envelope_id: a.envelope_id,
         month_key: nextMonthKey,
         allocated: a.allocated,
@@ -628,14 +746,21 @@ export async function startNewMonthDb(userId: string, currentMonthKey: string): 
   return nextMonthKey;
 }
 
-// Delete all user data
-export async function deleteAllUserDataDb(userId: string): Promise<void> {
-  // Delete in order: transactions, incomes, allocations, envelopes, monthly_budgets
-  await supabase.from('transactions').delete().eq('user_id', userId);
-  await supabase.from('incomes').delete().eq('user_id', userId);
-  await supabase.from('envelope_allocations').delete().eq('user_id', userId);
-  await supabase.from('envelopes').delete().eq('user_id', userId);
-  await supabase.from('monthly_budgets').delete().eq('user_id', userId);
+// Delete all user/household data
+export async function deleteAllUserDataDb(ctx: QueryContext): Promise<void> {
+  if (ctx.householdId) {
+    await supabase.from('transactions').delete().eq('household_id', ctx.householdId);
+    await supabase.from('incomes').delete().eq('household_id', ctx.householdId);
+    await supabase.from('envelope_allocations').delete().eq('household_id', ctx.householdId);
+    await supabase.from('envelopes').delete().eq('household_id', ctx.householdId);
+    await supabase.from('monthly_budgets').delete().eq('household_id', ctx.householdId);
+  } else {
+    await supabase.from('transactions').delete().eq('user_id', ctx.userId).is('household_id', null);
+    await supabase.from('incomes').delete().eq('user_id', ctx.userId).is('household_id', null);
+    await supabase.from('envelope_allocations').delete().eq('user_id', ctx.userId).is('household_id', null);
+    await supabase.from('envelopes').delete().eq('user_id', ctx.userId).is('household_id', null);
+    await supabase.from('monthly_budgets').delete().eq('user_id', ctx.userId).is('household_id', null);
+  }
 }
 
 // Helper
@@ -645,3 +770,6 @@ function getNextMonthKey(monthKey: string): string {
   const nextYear = month === 12 ? year + 1 : year;
   return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 }
+
+// Export context type for use in other files
+export type { QueryContext };

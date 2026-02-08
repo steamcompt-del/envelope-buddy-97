@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/hooks/useHousehold';
 import {
   fetchMonthData,
   fetchAvailableMonths,
@@ -19,6 +20,7 @@ import {
   deleteTransactionDb,
   startNewMonthDb,
   deleteAllUserDataDb,
+  QueryContext,
 } from '@/lib/budgetDb';
 
 // Types
@@ -60,6 +62,15 @@ export interface MonthlyBudget {
 interface BudgetContextType {
   // Loading state
   loading: boolean;
+  
+  // Household state
+  householdLoading: boolean;
+  needsHouseholdSetup: boolean;
+  household: { id: string; name: string; invite_code: string } | null;
+  createHousehold: (name: string) => Promise<void>;
+  joinHousehold: (code: string) => Promise<void>;
+  updateHouseholdName: (name: string) => Promise<void>;
+  regenerateInviteCode: () => Promise<string>;
   
   // Current month data
   currentMonthKey: string;
@@ -137,33 +148,51 @@ export const defaultEnvelopeTemplates = [
 
 export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const {
+    household,
+    loading: householdLoading,
+    needsSetup: needsHouseholdSetup,
+    create: createHouseholdFn,
+    join: joinHouseholdFn,
+    updateName: updateHouseholdNameFn,
+    regenerateCode: regenerateInviteCodeFn,
+    refresh: refreshHousehold,
+  } = useHousehold();
+  
   const [initialLoading, setInitialLoading] = useState(true);
   const [currentMonthKey, setCurrentMonthKey] = useState(getCurrentMonthKey());
   const [months, setMonths] = useState<Record<string, MonthlyBudget>>({});
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const hasLoadedRef = React.useRef(false);
 
-  // Load data when user or month changes
+  // Build query context
+  const getQueryContext = useCallback((): QueryContext | null => {
+    if (!user) return null;
+    return {
+      userId: user.id,
+      householdId: household?.id,
+    };
+  }, [user, household?.id]);
+
+  // Load data when user, household, or month changes
   const loadMonthData = useCallback(async (isInitial = false) => {
-    if (!user) {
+    const ctx = getQueryContext();
+    if (!ctx) {
       setInitialLoading(false);
       return;
     }
 
-    // Only show loading spinner on initial load
+    // Wait for household to be loaded
+    if (householdLoading) return;
+
     if (isInitial) {
       setInitialLoading(true);
     }
     
     try {
-      // Ensure current month exists
-      await ensureMonthExists(user.id, currentMonthKey);
-      
-      // Fetch month data
-      const monthData = await fetchMonthData(user.id, currentMonthKey);
-      
-      // Fetch available months
-      const available = await fetchAvailableMonths(user.id);
+      await ensureMonthExists(ctx, currentMonthKey);
+      const monthData = await fetchMonthData(ctx, currentMonthKey);
+      const available = await fetchAvailableMonths(ctx);
       
       setMonths(prev => ({
         ...prev,
@@ -177,19 +206,46 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
         setInitialLoading(false);
       }
     }
-  }, [user, currentMonthKey]);
+  }, [getQueryContext, currentMonthKey, householdLoading]);
 
   useEffect(() => {
+    // Don't load until household check is complete
+    if (householdLoading) return;
+    
     if (!hasLoadedRef.current) {
       hasLoadedRef.current = true;
       loadMonthData(true);
     } else {
       loadMonthData(false);
     }
-  }, [loadMonthData]);
+  }, [loadMonthData, householdLoading, household?.id]);
+
+  // Reset loaded state when household changes
+  useEffect(() => {
+    hasLoadedRef.current = false;
+    setMonths({});
+    setAvailableMonths([]);
+  }, [household?.id]);
 
   // Get current month data
   const currentMonth = months[currentMonthKey] || createEmptyMonth(currentMonthKey);
+
+  // Household actions
+  const createHousehold = useCallback(async (name: string) => {
+    await createHouseholdFn(name);
+  }, [createHouseholdFn]);
+
+  const joinHousehold = useCallback(async (code: string) => {
+    await joinHouseholdFn(code);
+  }, [joinHouseholdFn]);
+
+  const updateHouseholdName = useCallback(async (name: string) => {
+    await updateHouseholdNameFn(name);
+  }, [updateHouseholdNameFn]);
+
+  const regenerateInviteCode = useCallback(async () => {
+    return await regenerateInviteCodeFn();
+  }, [regenerateInviteCodeFn]);
 
   // Month navigation
   const setCurrentMonth = useCallback((monthKey: string) => {
@@ -201,57 +257,65 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [availableMonths]);
 
   const createNewMonth = useCallback(async (monthKey: string) => {
-    if (!user) return;
-    await ensureMonthExists(user.id, monthKey);
+    const ctx = getQueryContext();
+    if (!ctx) return;
+    await ensureMonthExists(ctx, monthKey);
     setCurrentMonthKey(monthKey);
-  }, [user]);
+  }, [getQueryContext]);
 
   // Income actions
   const addIncome = useCallback(async (amount: number, description: string) => {
-    if (!user) return;
-    await addIncomeDb(user.id, currentMonthKey, amount, description);
+    const ctx = getQueryContext();
+    if (!ctx) return;
+    await addIncomeDb(ctx, currentMonthKey, amount, description);
     await loadMonthData();
-  }, [user, currentMonthKey, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, loadMonthData]);
 
   const updateIncome = useCallback(async (id: string, newAmount: number, newDescription: string) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const income = currentMonth.incomes.find(i => i.id === id);
     if (!income) return;
-    await updateIncomeDb(user.id, currentMonthKey, id, newAmount, newDescription, income.amount);
+    await updateIncomeDb(ctx, currentMonthKey, id, newAmount, newDescription, income.amount);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.incomes, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
   const deleteIncome = useCallback(async (id: string) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const income = currentMonth.incomes.find(i => i.id === id);
     if (!income) return;
-    await deleteIncomeDb(user.id, currentMonthKey, id, income.amount);
+    await deleteIncomeDb(ctx, currentMonthKey, id, income.amount);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.incomes, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
   // Envelope actions
   const createEnvelope = useCallback(async (name: string, icon: string, color: string) => {
-    if (!user) return;
-    await createEnvelopeDb(user.id, currentMonthKey, name, icon, color);
+    const ctx = getQueryContext();
+    if (!ctx) return;
+    await createEnvelopeDb(ctx, currentMonthKey, name, icon, color);
     await loadMonthData();
-  }, [user, currentMonthKey, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, loadMonthData]);
 
   const updateEnvelope = useCallback(async (id: string, updates: Partial<Omit<Envelope, 'id'>>) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const { allocated, spent, ...dbUpdates } = updates;
     await updateEnvelopeDb(id, dbUpdates);
     await loadMonthData();
-  }, [user, loadMonthData]);
+  }, [getQueryContext, loadMonthData]);
 
   const deleteEnvelope = useCallback(async (id: string) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const envelope = currentMonth.envelopes.find(e => e.id === id);
-    await deleteEnvelopeDb(user.id, currentMonthKey, id, envelope?.allocated || 0);
+    await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
   const reorderEnvelopes = useCallback(async (orderedIds: string[]) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     
     // Optimistic update for smooth UX
     setMonths(prev => {
@@ -271,35 +335,37 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       };
     });
     
-    // Persist to database
-    await reorderEnvelopesDb(user.id, orderedIds);
-  }, [user, currentMonthKey]);
+    await reorderEnvelopesDb(ctx, orderedIds);
+  }, [getQueryContext, currentMonthKey]);
 
   const allocateToEnvelope = useCallback(async (envelopeId: string, amount: number) => {
-    if (!user || amount > currentMonth.toBeBudgeted) return;
-    await allocateToEnvelopeDb(user.id, currentMonthKey, envelopeId, amount);
+    const ctx = getQueryContext();
+    if (!ctx || amount > currentMonth.toBeBudgeted) return;
+    await allocateToEnvelopeDb(ctx, currentMonthKey, envelopeId, amount);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.toBeBudgeted, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.toBeBudgeted, loadMonthData]);
 
   const deallocateFromEnvelope = useCallback(async (envelopeId: string, amount: number) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     if (!envelope) return;
     const available = envelope.allocated - envelope.spent;
     const actualAmount = Math.min(amount, available);
-    await deallocateFromEnvelopeDb(user.id, currentMonthKey, envelopeId, actualAmount);
+    await deallocateFromEnvelopeDb(ctx, currentMonthKey, envelopeId, actualAmount);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
   const transferBetweenEnvelopes = useCallback(async (fromId: string, toId: string, amount: number) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const fromEnvelope = currentMonth.envelopes.find(e => e.id === fromId);
     if (!fromEnvelope) return;
     const available = fromEnvelope.allocated - fromEnvelope.spent;
     if (amount > available) return;
-    await transferBetweenEnvelopesDb(user.id, currentMonthKey, fromId, toId, amount);
+    await transferBetweenEnvelopesDb(ctx, currentMonthKey, fromId, toId, amount);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
   // Transaction actions
   const addTransaction = useCallback(async (
@@ -310,9 +376,9 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     receiptUrl?: string,
     receiptPath?: string
   ): Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }> => {
-    if (!user) throw new Error('Not authenticated');
+    const ctx = getQueryContext();
+    if (!ctx) throw new Error('Not authenticated');
 
-    // Check for budget alert before adding
     const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     let alertInfo: { envelopeName: string; percent: number; isOver: boolean } | undefined;
     
@@ -331,7 +397,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     }
 
     const transactionId = await addTransactionDb(
-      user.id,
+      ctx,
       currentMonthKey,
       envelopeId,
       amount,
@@ -343,17 +409,18 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     
     await loadMonthData();
     return { transactionId, alert: alertInfo };
-  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
   const updateTransaction = useCallback(async (
     id: string,
     updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }
   ) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const transaction = currentMonth.transactions.find(t => t.id === id);
     if (!transaction) return;
     await updateTransactionDb(
-      user.id,
+      ctx,
       currentMonthKey,
       id,
       transaction.envelopeId,
@@ -361,22 +428,24 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       updates
     );
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.transactions, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.transactions, loadMonthData]);
 
   const deleteTransaction = useCallback(async (id: string) => {
-    if (!user) return;
+    const ctx = getQueryContext();
+    if (!ctx) return;
     const transaction = currentMonth.transactions.find(t => t.id === id);
     if (!transaction) return;
-    await deleteTransactionDb(user.id, currentMonthKey, id, transaction.envelopeId, transaction.amount);
+    await deleteTransactionDb(ctx, currentMonthKey, id, transaction.envelopeId, transaction.amount);
     await loadMonthData();
-  }, [user, currentMonthKey, currentMonth.transactions, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.transactions, loadMonthData]);
 
   // Start new month
   const startNewMonth = useCallback(async () => {
-    if (!user) return;
-    const nextMonthKey = await startNewMonthDb(user.id, currentMonthKey);
+    const ctx = getQueryContext();
+    if (!ctx) return;
+    const nextMonthKey = await startNewMonthDb(ctx, currentMonthKey);
     setCurrentMonthKey(nextMonthKey);
-  }, [user, currentMonthKey]);
+  }, [getQueryContext, currentMonthKey]);
 
   // Legacy reset
   const resetMonth = useCallback(() => {
@@ -385,15 +454,15 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   // Delete all user data
   const deleteAllUserData = useCallback(async () => {
-    if (!user) return;
-    await deleteAllUserDataDb(user.id);
+    const ctx = getQueryContext();
+    if (!ctx) return;
+    await deleteAllUserDataDb(ctx);
     setMonths({});
     setAvailableMonths([]);
-    // Reset to current month and reload
     const currentKey = getCurrentMonthKey();
     setCurrentMonthKey(currentKey);
     await loadMonthData(true);
-  }, [user, loadMonthData]);
+  }, [getQueryContext, loadMonthData]);
 
   // Refresh data
   const refreshData = useCallback(async () => {
@@ -401,7 +470,14 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [loadMonthData]);
 
   const value: BudgetContextType = {
-    loading: initialLoading,
+    loading: initialLoading || householdLoading,
+    householdLoading,
+    needsHouseholdSetup,
+    household,
+    createHousehold,
+    joinHousehold,
+    updateHouseholdName,
+    regenerateInviteCode,
     currentMonthKey,
     toBeBudgeted: currentMonth.toBeBudgeted,
     envelopes: currentMonth.envelopes,
