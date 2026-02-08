@@ -227,6 +227,9 @@ export async function ensureMonthExists(ctx: QueryContext, monthKey: string): Pr
 
 // Income operations
 export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: number, description: string): Promise<string> {
+  // Ensure monthly_budgets entry exists first
+  await ensureMonthExists(ctx, monthKey);
+
   // Insert income
   const { data: income, error: incomeError } = await supabase
     .from('incomes')
@@ -242,7 +245,7 @@ export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: n
 
   if (incomeError) throw incomeError;
 
-  // Update toBeBudgeted
+  // Update toBeBudgeted - now we're sure the entry exists
   let budgetQuery = supabase
     .from('monthly_budgets')
     .select('to_be_budgeted, id')
@@ -254,22 +257,23 @@ export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: n
     budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
   }
 
-  const { data: current } = await budgetQuery.single();
+  const { data: current, error: selectError } = await budgetQuery.single();
+
+  if (selectError) {
+    console.error('Error fetching monthly_budgets:', selectError);
+    throw selectError;
+  }
 
   if (current) {
-    await supabase
+    const { error: updateError } = await supabase
       .from('monthly_budgets')
       .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + amount })
       .eq('id', current.id);
-  } else {
-    await supabase
-      .from('monthly_budgets')
-      .insert({
-        user_id: ctx.userId,
-        household_id: ctx.householdId || null,
-        month_key: monthKey,
-        to_be_budgeted: amount,
-      });
+    
+    if (updateError) {
+      console.error('Error updating to_be_budgeted:', updateError);
+      throw updateError;
+    }
   }
 
   return income.id;
