@@ -73,53 +73,50 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
     <button
       onClick={onClick}
       className={cn(
-        "w-full p-3 sm:p-4 rounded-xl border text-left transition-all duration-200",
+        "w-full p-4 rounded-xl border text-left transition-all duration-200",
         "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
         "bg-card",
         colorStyle.border
       )}
     >
-      {/* Header row: icon + name + remaining */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-start gap-3">
         <div className={cn(
-          "flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg shrink-0",
+          "flex items-center justify-center w-10 h-10 rounded-lg",
           colorStyle.bg
         )}>
-          <DynamicIcon name={icon} className={cn("w-4 h-4 sm:w-5 sm:h-5", colorStyle.text)} />
+          <DynamicIcon name={icon} className={cn("w-5 h-5", colorStyle.text)} />
         </div>
         
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm sm:text-base text-foreground truncate">{name}</h3>
+          <h3 className="font-semibold text-foreground truncate">{name}</h3>
+          <p className="text-sm text-muted-foreground">
+            {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} / {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+          </p>
         </div>
         
-        <div className="text-right shrink-0">
-          <p
-            className={cn(
-              "font-semibold text-base sm:text-lg leading-tight",
-              isOverspent ? "text-destructive" : "text-foreground"
-            )}
-          >
+        <div className="text-right">
+          <p className={cn(
+            "font-semibold text-lg",
+            isOverspent ? "text-destructive" : "text-foreground"
+          )}>
             {remaining.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">restant</p>
+          <p className="text-xs text-muted-foreground">restant</p>
         </div>
       </div>
       
-      {/* Progress section */}
-      <div className="mt-2 sm:mt-3">
+      <div className="mt-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] sm:text-xs text-muted-foreground">
-            {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} / {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-          </span>
-          <span className="text-[10px] sm:text-xs font-semibold text-foreground">{Math.round(percentUsed)}%</span>
+          <span className="text-xs text-muted-foreground">Dépensé</span>
+          <span className="text-xs font-semibold text-foreground">{Math.round(percentUsed)}%</span>
         </div>
         <Progress 
           value={Math.min(percentUsed, 100)} 
-          className="h-1.5 sm:h-2 [&>div]:transition-colors"
+          className="h-2 [&>div]:transition-colors"
           style={{ '--progress-color': progressColor } as React.CSSProperties}
         />
         {isOverspent && (
-          <p className="text-[10px] sm:text-xs text-destructive mt-1 font-medium">
+          <p className="text-xs text-destructive mt-1 font-medium">
             Dépassement de {Math.abs(remaining).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
         )}

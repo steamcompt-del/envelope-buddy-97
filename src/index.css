@@ -132,17 +132,6 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
   }
-
-  /* Prevent horizontal overflow at root level */
-  #root {
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-
-  .container {
-    max-width: 100%;
-    overflow-x: hidden;
-  }
 }
 
 @layer components {
