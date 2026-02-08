@@ -553,7 +553,8 @@ export async function addTransactionDb(
   description: string,
   merchant?: string,
   receiptUrl?: string,
-  receiptPath?: string
+  receiptPath?: string,
+  date?: string
 ): Promise<string> {
   const { data: transaction, error } = await supabase
     .from('transactions')
@@ -566,6 +567,7 @@ export async function addTransactionDb(
       merchant: merchant || null,
       receipt_url: receiptUrl || null,
       receipt_path: receiptPath || null,
+      date: date || new Date().toISOString().split('T')[0],
     })
     .select('id')
     .single();

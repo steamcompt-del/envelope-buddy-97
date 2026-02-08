@@ -24,8 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Receipt, Sparkles } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Loader2, Receipt, Sparkles, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { MultiReceiptUploader, PendingReceipt } from './MultiReceiptUploader';
 
 interface PendingReceiptWithItems extends PendingReceipt {
@@ -59,13 +67,15 @@ export function AddExpenseDrawer({
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
   const { scanReceipt, isScanning } = useReceiptScanner();
   
-  const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
+   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [isCategorizing, setIsCategorizing] = useState(false);
   const [pendingReceipts, setPendingReceipts] = useState<PendingReceiptWithItems[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   
   // Pre-fill form with scanned data when provided
   useEffect(() => {
@@ -113,7 +123,7 @@ export function AddExpenseDrawer({
     };
   }, []);
   
-  const handleSubmit = async (e: React.FormEvent) => {
+   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
@@ -121,11 +131,15 @@ export function AddExpenseDrawer({
     
     try {
       // First create the transaction
+      const dateString = selectedDate ? selectedDate.toISOString().split('T')[0] : undefined;
       const result = await addTransaction(
         selectedEnvelope, 
         parsedAmount, 
         description || 'Dépense', 
-        merchant || undefined
+        merchant || undefined,
+        undefined,
+        undefined,
+        dateString
       );
       
       // Then upload all receipts and their items
@@ -195,6 +209,7 @@ export function AddExpenseDrawer({
     setDescription('');
     setMerchant('');
     setSelectedEnvelope('');
+    setSelectedDate(new Date());
     pendingReceipts.forEach(r => URL.revokeObjectURL(r.previewUrl));
     setPendingReceipts([]);
   };
@@ -325,6 +340,36 @@ export function AddExpenseDrawer({
                     €
                   </span>
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal rounded-xl",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Sélectionner une date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        setSelectedDate(date);
+                        setDatePopoverOpen(false);
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
