@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
@@ -16,8 +16,10 @@ import { FabButton } from '@/components/budget/FabButton';
 import { HouseholdSetupDialog } from '@/components/budget/HouseholdSetupDialog';
 import { RecurringListSheet } from '@/components/budget/RecurringListSheet';
 import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
+import { PullToRefresh } from '@/components/budget/PullToRefresh';
 import { useReceiptScanner } from '@/hooks/useReceiptScanner';
 import { useRecurring } from '@/hooks/useRecurring';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -28,7 +30,9 @@ export default function Index() {
     needsHouseholdSetup,
     createHousehold,
     joinHousehold,
+    refreshData,
   } = useBudget();
+  const isMobile = useIsMobile();
   const { user } = useAuth();
   
   // Dialog states
@@ -118,6 +122,11 @@ export default function Index() {
     setExpenseOpen(true);
   };
   
+  const handleRefresh = useCallback(async () => {
+    await refreshData();
+    toast.success('Données actualisées');
+  }, [refreshData]);
+  
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -129,8 +138,8 @@ export default function Index() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
+  const mainContent = (
+    <>
       <BudgetHeader
         onAllocate={() => setAllocateOpen(true)}
         onAddIncome={() => setIncomeOpen(true)}
@@ -143,6 +152,18 @@ export default function Index() {
           onCreateEnvelope={() => setCreateEnvelopeOpen(true)}
         />
       </main>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      {isMobile ? (
+        <PullToRefresh onRefresh={handleRefresh} className="min-h-screen">
+          {mainContent}
+        </PullToRefresh>
+      ) : (
+        mainContent
+      )}
       
       {/* FAB */}
       <FabButton
