@@ -138,7 +138,7 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
+      <SheetContent side="bottom" className="h-[85vh] rounded-t-xl flex flex-col">
         <SheetHeader className="text-left pb-4">
           <SheetTitle className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
@@ -159,7 +159,7 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <ScrollArea className="h-[calc(85vh-180px)] pr-4">
+          <ScrollArea className="flex-1 pr-4">
             {/* Add item form with autocomplete */}
             <div className="relative mb-4">
               <form onSubmit={handleAddItem} className="flex gap-2">
@@ -301,54 +301,57 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
                            </Button>
                          </div>
                        </div>
-                     ) : (
-                       // View mode
-                       <div className="flex items-center gap-3">
-                         <Checkbox
-                           checked={item.isChecked}
-                           onCheckedChange={() => toggleItem(item.id)}
-                         />
-                         <div className="flex-1 min-w-0">
-                           <p className={cn(
-                             "font-medium truncate",
-                             item.isChecked && "line-through text-muted-foreground"
-                           )}>
-                             {item.name}
-                           </p>
-                           <p className="text-xs text-muted-foreground">
-                             Quantité: {item.quantity}
-                             {item.estimatedPrice && ` · ${item.estimatedPrice.toFixed(2)}€ l'unité`}
-                           </p>
-                         </div>
-                         {item.estimatedPrice && (
-                           <span className={cn(
-                             "text-sm font-medium whitespace-nowrap",
-                             item.isChecked ? "text-muted-foreground" : "text-primary"
-                           )}>
-                             ~{(item.estimatedPrice * item.quantity).toFixed(2)}€
-                           </span>
-                         )}
-                         {item.suggestedFromHistory && !item.isChecked && (
-                           <Sparkles className="w-3 h-3 text-primary/60" />
-                         )}
-                         <Button
-                           variant="ghost"
-                           size="icon"
-                           className="h-8 w-8 text-muted-foreground hover:text-primary"
-                           onClick={() => handleStartEdit(item)}
-                         >
-                           <Edit2 className="w-4 h-4" />
-                         </Button>
-                         <Button
-                           variant="ghost"
-                           size="icon"
-                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                           onClick={() => removeItem(item.id)}
-                         >
-                           <Trash2 className="w-4 h-4" />
-                         </Button>
-                       </div>
-                     )}
+                      ) : (
+                        // View mode
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={item.isChecked}
+                            onCheckedChange={() => toggleItem(item.id)}
+                            className="h-5 w-5 border-2"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={cn(
+                              "font-medium truncate",
+                              item.isChecked && "line-through text-muted-foreground"
+                            )}>
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Quantité: {item.quantity}
+                              {item.estimatedPrice && ` · ${item.estimatedPrice.toFixed(2)}€ l'unité`}
+                            </p>
+                          </div>
+                          {item.estimatedPrice && (
+                            <span className={cn(
+                              "text-sm font-medium whitespace-nowrap",
+                              item.isChecked ? "text-muted-foreground" : "text-primary"
+                            )}>
+                              ~{(item.estimatedPrice * item.quantity).toFixed(2)}€
+                            </span>
+                          )}
+                          {item.suggestedFromHistory && !item.isChecked && (
+                            <Sparkles className="w-3 h-3 text-primary/60 shrink-0" />
+                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-foreground/70 hover:text-primary hover:bg-primary/10"
+                              onClick={() => handleStartEdit(item)}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-foreground/70 hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => removeItem(item.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                    </div>
                  ))}
                </div>
@@ -357,7 +360,7 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
         )}
 
         {/* Footer actions */}
-        <div className="pt-4 border-t space-y-2">
+        <div className="pt-4 border-t space-y-2 shrink-0">
           {/* History toggle */}
           <Button
             variant="ghost"
