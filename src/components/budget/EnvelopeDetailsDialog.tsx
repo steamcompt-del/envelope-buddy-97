@@ -83,8 +83,7 @@ export function EnvelopeDetailsDialog({
     if (!envelope) return [];
     return transactions
       .filter(t => t.envelopeId === envelopeId)
-      .slice(-5)
-      .reverse();
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, envelopeId, envelope]);
   
   const transactionIds = useMemo(() => envelopeTransactions.map(t => t.id), [envelopeTransactions]);
