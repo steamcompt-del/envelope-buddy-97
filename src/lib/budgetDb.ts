@@ -36,6 +36,7 @@ interface DbTransaction {
   merchant: string | null;
   receipt_url: string | null;
   receipt_path: string | null;
+  notes: string | null;
   date: string;
   created_at: string;
 }
@@ -161,6 +162,7 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
     merchant: t.merchant || undefined,
     receiptUrl: t.receipt_url || undefined,
     receiptPath: t.receipt_path || undefined,
+    notes: t.notes || undefined,
   }));
 
   // Build income list
@@ -596,7 +598,7 @@ export async function updateTransactionDb(
   transactionId: string,
   oldEnvelopeId: string,
   oldAmount: number,
-  updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }
+  updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string }
 ): Promise<void> {
   const newAmount = updates.amount ?? oldAmount;
   const newEnvelopeId = updates.envelopeId ?? oldEnvelopeId;
@@ -610,6 +612,7 @@ export async function updateTransactionDb(
       envelope_id: updates.envelopeId,
       receipt_url: updates.receiptUrl,
       receipt_path: updates.receiptPath,
+      notes: updates.notes,
     })
     .eq('id', transactionId);
 
