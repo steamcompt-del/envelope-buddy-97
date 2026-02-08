@@ -750,6 +750,73 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   return nextMonthKey;
 }
 
+// Delete all data for a specific month
+export async function deleteMonthDataDb(ctx: QueryContext, monthKey: string): Promise<void> {
+  if (ctx.householdId) {
+    // Delete transactions for this month
+    await supabase
+      .from('transactions')
+      .delete()
+      .eq('household_id', ctx.householdId)
+      .gte('date', `${monthKey}-01`)
+      .lt('date', getNextMonthKey(monthKey) + '-01');
+    
+    // Delete incomes for this month
+    await supabase
+      .from('incomes')
+      .delete()
+      .eq('household_id', ctx.householdId)
+      .eq('month_key', monthKey);
+    
+    // Delete allocations for this month
+    await supabase
+      .from('envelope_allocations')
+      .delete()
+      .eq('household_id', ctx.householdId)
+      .eq('month_key', monthKey);
+    
+    // Delete monthly budget for this month
+    await supabase
+      .from('monthly_budgets')
+      .delete()
+      .eq('household_id', ctx.householdId)
+      .eq('month_key', monthKey);
+  } else {
+    // Delete transactions for this month
+    await supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', ctx.userId)
+      .is('household_id', null)
+      .gte('date', `${monthKey}-01`)
+      .lt('date', getNextMonthKey(monthKey) + '-01');
+    
+    // Delete incomes for this month
+    await supabase
+      .from('incomes')
+      .delete()
+      .eq('user_id', ctx.userId)
+      .is('household_id', null)
+      .eq('month_key', monthKey);
+    
+    // Delete allocations for this month
+    await supabase
+      .from('envelope_allocations')
+      .delete()
+      .eq('user_id', ctx.userId)
+      .is('household_id', null)
+      .eq('month_key', monthKey);
+    
+    // Delete monthly budget for this month
+    await supabase
+      .from('monthly_budgets')
+      .delete()
+      .eq('user_id', ctx.userId)
+      .is('household_id', null)
+      .eq('month_key', monthKey);
+  }
+}
+
 // Delete all user/household data
 export async function deleteAllUserDataDb(ctx: QueryContext): Promise<void> {
   if (ctx.householdId) {
