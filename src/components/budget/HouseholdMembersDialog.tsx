@@ -44,12 +44,38 @@ export function HouseholdMembersDialog({
       setLoading(true);
       try {
         const supabase = getBackendClient();
-        const { data } = await supabase
+        
+        // Fetch members
+        const { data: membersData, error: membersError } = await supabase
           .from('household_members')
-          .select('*, profiles(display_name)')
+          .select('*')
           .eq('household_id', householdId);
 
-        setMembers(data || []);
+        if (membersError) {
+          console.error('Error fetching members:', membersError);
+          setMembers([]);
+          return;
+        }
+
+        if (!membersData || membersData.length === 0) {
+          setMembers([]);
+          return;
+        }
+
+        // Fetch profiles for all member user_ids
+        const userIds = membersData.map(m => m.user_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, display_name')
+          .in('user_id', userIds);
+
+        // Map profiles to members
+        const membersWithProfiles = membersData.map(member => ({
+          ...member,
+          profiles: profilesData?.find(p => p.user_id === member.user_id) || null
+        }));
+
+        setMembers(membersWithProfiles);
       } catch (error) {
         console.error('Error loading members:', error);
       } finally {
