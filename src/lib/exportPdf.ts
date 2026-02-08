@@ -36,7 +36,12 @@ const monthNames = [
 ];
 
 function formatCurrency(amount: number): string {
-  return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+  // Use manual formatting to avoid Unicode issues with jsPDF
+  const formatted = amount.toFixed(2).replace('.', ',');
+  // Add thousand separators (space)
+  const parts = formatted.split(',');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return parts.join(',') + ' €';
 }
 
 function formatDate(dateString: string): string {
