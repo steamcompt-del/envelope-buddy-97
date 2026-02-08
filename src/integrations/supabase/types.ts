@@ -456,6 +456,63 @@ export type Database = {
           },
         ]
       }
+      shopping_list: {
+        Row: {
+          created_at: string
+          envelope_id: string | null
+          estimated_price: number | null
+          household_id: string | null
+          id: string
+          is_checked: boolean
+          name: string
+          quantity: number | null
+          suggested_from_history: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          envelope_id?: string | null
+          estimated_price?: number | null
+          household_id?: string | null
+          id?: string
+          is_checked?: boolean
+          name: string
+          quantity?: number | null
+          suggested_from_history?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          envelope_id?: string | null
+          estimated_price?: number | null
+          household_id?: string | null
+          id?: string
+          is_checked?: boolean
+          name?: string
+          quantity?: number | null
+          suggested_from_history?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_envelope_id_fkey"
+            columns: ["envelope_id"]
+            isOneToOne: false
+            referencedRelation: "envelopes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
