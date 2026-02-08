@@ -723,26 +723,25 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
       to_be_budgeted: 0,
     });
 
-    // Get current month's envelopes (via allocations)
-    let allocationsQuery = supabase
-      .from('envelope_allocations')
-      .select('envelope_id')
-      .eq('month_key', currentMonthKey);
+    // Get all existing envelopes (not via allocations - they might not exist for current month)
+    let envelopesQuery = supabase
+      .from('envelopes')
+      .select('id');
 
     if (ctx.householdId) {
-      allocationsQuery = allocationsQuery.eq('household_id', ctx.householdId);
+      envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
     } else {
-      allocationsQuery = allocationsQuery.eq('user_id', ctx.userId).is('household_id', null);
+      envelopesQuery = envelopesQuery.eq('user_id', ctx.userId).is('household_id', null);
     }
 
-    const { data: currentAllocations } = await allocationsQuery;
+    const { data: envelopes } = await envelopesQuery;
 
     // Create empty allocations for each envelope in the new month
-    if (currentAllocations && currentAllocations.length > 0) {
-      const newAllocations = currentAllocations.map(a => ({
+    if (envelopes && envelopes.length > 0) {
+      const newAllocations = envelopes.map(env => ({
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
-        envelope_id: a.envelope_id,
+        envelope_id: env.id,
         month_key: nextMonthKey,
         allocated: 0,
         spent: 0,
