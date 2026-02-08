@@ -161,13 +161,15 @@ export default function Auth() {
             <form onSubmit={handleSignup}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Prénom</Label>
+                  <Label htmlFor="signup-name">Nom complet <span className="text-destructive">*</span></Label>
                   <Input
                     id="signup-name"
                     type="text"
-                    placeholder="Jean"
+                    placeholder="Jean Dupont"
                     value={signupName}
                     onChange={(e) => setSignupName(e.target.value)}
+                    required
+                    maxLength={100}
                   />
                 </div>
                 <div className="space-y-2">
