@@ -40,6 +40,7 @@ import {
   Moon,
   Sun,
   ShoppingCart,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
@@ -66,6 +67,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     startNewMonth, 
     currentMonthKey, 
     deleteAllUserData,
+    deleteMonthData,
     household,
     updateHouseholdName,
     regenerateInviteCode,
@@ -76,8 +78,10 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
   const { dueCount } = useRecurring();
   const { theme, setTheme } = useTheme();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
+  const [showDeleteMonthDialog, setShowDeleteMonthDialog] = useState(false);
   const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingMonth, setIsDeletingMonth] = useState(false);
   
   const isDarkMode = theme === 'dark';
   
@@ -100,6 +104,23 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     if (confirm('Êtes-vous sûr de vouloir remettre à zéro les dépenses et allocations de toutes les enveloppes ? Cette action est irréversible.')) {
       resetMonth();
       onOpenChange(false);
+    }
+  };
+  
+  const handleDeleteMonthData = async () => {
+    setIsDeletingMonth(true);
+    try {
+      await deleteMonthData(currentMonthKey);
+      toast.success(`Données de ${monthDisplay} supprimées`, {
+        description: 'Toutes les dépenses, revenus et allocations du mois ont été effacés.'
+      });
+      setShowDeleteMonthDialog(false);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error deleting month data:', error);
+      toast.error('Erreur lors de la suppression');
+    } finally {
+      setIsDeletingMonth(false);
     }
   };
   
@@ -454,23 +475,23 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           
           <Separator />
           
-          {/* Monthly Reset */}
+          {/* Delete Month Data */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Réinitialiser ce mois
+              Supprimer ce mois
             </h3>
             
             <p className="text-sm text-muted-foreground">
-              Remet les dépenses et allocations à zéro pour ce mois.
+              Efface complètement les données du mois : dépenses, revenus, allocations.
             </p>
             
             <Button
-              onClick={handleResetMonth}
+              onClick={() => setShowDeleteMonthDialog(true)}
               variant="outline"
               className="w-full rounded-xl gap-2 text-destructive hover:text-destructive"
             >
-              <RefreshCw className="w-4 h-4" />
-              Réinitialiser {monthDisplay}
+              <Trash2 className="w-4 h-4" />
+              Supprimer {monthDisplay}
             </Button>
           </div>
           
@@ -535,6 +556,34 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleStartNewMonth}>
               Démarrer {nextMonthDisplay}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Delete Month Data Confirmation Dialog */}
+      <AlertDialog open={showDeleteMonthDialog} onOpenChange={setShowDeleteMonthDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer toutes les données de {monthDisplay} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ⚠️ Cette action est irréversible. Cela supprimera :
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Toutes les dépenses du mois ({transactions.length} transaction{transactions.length !== 1 ? 's' : ''})</li>
+                <li>Tous les revenus du mois ({incomes.length} revenu{incomes.length !== 1 ? 's' : ''})</li>
+                <li>Toutes les allocations aux enveloppes</li>
+              </ul>
+              <p className="mt-2 text-foreground font-medium">Les enveloppes elles-mêmes seront conservées.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingMonth}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteMonthData}
+              disabled={isDeletingMonth}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingMonth ? 'Suppression...' : `Supprimer ${monthDisplay}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
