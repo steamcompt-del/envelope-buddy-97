@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getBackendClient } from '@/lib/backendClient';
 import { toast } from 'sonner';
 
 interface FrequentItem {
@@ -32,6 +32,7 @@ export function useAISuggestions() {
 
     setIsLoadingAI(true);
     try {
+      const supabase = getBackendClient();
       const { data, error } = await supabase.functions.invoke('suggest-shopping-items', {
         body: {
           frequentItems,
