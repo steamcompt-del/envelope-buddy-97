@@ -182,18 +182,25 @@ export async function addIncomeDb(userId: string, monthKey: string, amount: numb
   // Update toBeBudgeted
   const { data: current } = await supabase
     .from('monthly_budgets')
-    .select('to_be_budgeted')
+    .select('to_be_budgeted, id')
     .eq('user_id', userId)
     .eq('month_key', monthKey)
     .single();
 
-  await supabase
-    .from('monthly_budgets')
-    .upsert({
-      user_id: userId,
-      month_key: monthKey,
-      to_be_budgeted: (Number(current?.to_be_budgeted) || 0) + amount,
-    });
+  if (current) {
+    await supabase
+      .from('monthly_budgets')
+      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + amount })
+      .eq('id', current.id);
+  } else {
+    await supabase
+      .from('monthly_budgets')
+      .insert({
+        user_id: userId,
+        month_key: monthKey,
+        to_be_budgeted: amount,
+      });
+  }
 
   return income.id;
 }
