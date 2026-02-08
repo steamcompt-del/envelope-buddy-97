@@ -218,3 +218,145 @@ export async function getFrequentItems(householdId: string | null, limit = 10): 
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
 }
+
+// ==================== Archives ====================
+
+export interface ShoppingListArchive {
+  id: string;
+  userId: string;
+  householdId: string | null;
+  name: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    estimatedPrice: number | null;
+  }>;
+  totalEstimated: number;
+  itemsCount: number;
+  archivedAt: string;
+}
+
+interface DbArchive {
+  id: string;
+  user_id: string;
+  household_id: string | null;
+  name: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    estimatedPrice: number | null;
+  }>;
+  total_estimated: number;
+  items_count: number;
+  archived_at: string;
+}
+
+/**
+ * Archive the current shopping list (checked items)
+ */
+export async function archiveShoppingList(
+  userId: string,
+  householdId: string | null,
+  items: ShoppingItem[],
+  name?: string
+): Promise<ShoppingListArchive | null> {
+  const supabase = getBackendClient();
+
+  const checkedItems = items.filter(i => i.isChecked);
+  if (checkedItems.length === 0) return null;
+
+  const archiveItems = checkedItems.map(item => ({
+    name: item.name,
+    quantity: item.quantity,
+    estimatedPrice: item.estimatedPrice,
+  }));
+
+  const totalEstimated = checkedItems.reduce(
+    (sum, i) => sum + (i.estimatedPrice || 0) * i.quantity,
+    0
+  );
+
+  const { data, error } = await supabase
+    .from('shopping_list_archives')
+    .insert({
+      user_id: userId,
+      household_id: householdId,
+      name: name || `Courses du ${new Date().toLocaleDateString('fr-FR')}`,
+      items: archiveItems,
+      total_estimated: totalEstimated,
+      items_count: checkedItems.length,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error archiving shopping list:', error);
+    throw error;
+  }
+
+  // Delete the archived items from the active list
+  const checkedIds = checkedItems.map(i => i.id);
+  await supabase
+    .from('shopping_list')
+    .delete()
+    .in('id', checkedIds);
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    householdId: data.household_id,
+    name: data.name,
+    items: data.items as DbArchive['items'],
+    totalEstimated: data.total_estimated,
+    itemsCount: data.items_count,
+    archivedAt: data.archived_at,
+  };
+}
+
+/**
+ * Fetch all archives
+ */
+export async function fetchArchives(householdId: string | null): Promise<ShoppingListArchive[]> {
+  const supabase = getBackendClient();
+
+  let query = supabase
+    .from('shopping_list_archives')
+    .select('*')
+    .order('archived_at', { ascending: false });
+
+  if (householdId) {
+    query = query.eq('household_id', householdId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching archives:', error);
+    return [];
+  }
+
+  return (data || []).map((a: DbArchive) => ({
+    id: a.id,
+    userId: a.user_id,
+    householdId: a.household_id,
+    name: a.name,
+    items: a.items,
+    totalEstimated: a.total_estimated,
+    itemsCount: a.items_count,
+    archivedAt: a.archived_at,
+  }));
+}
+
+/**
+ * Delete an archive
+ */
+export async function deleteArchive(archiveId: string): Promise<void> {
+  const supabase = getBackendClient();
+
+  const { error } = await supabase
+    .from('shopping_list_archives')
+    .delete()
+    .eq('id', archiveId);
+
+  if (error) throw error;
+}
