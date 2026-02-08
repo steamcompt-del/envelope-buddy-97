@@ -85,25 +85,25 @@ export function EnvelopeDetailsDialog({
     .slice(-5)
     .reverse();
   
-  const handleAllocate = () => {
+  const handleAllocate = async () => {
     const parsedAmount = parseFloat(allocateAmount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
     if (allocateMode === 'add') {
       if (parsedAmount <= toBeBudgeted) {
-        allocateToEnvelope(envelopeId, parsedAmount);
+        await allocateToEnvelope(envelopeId, parsedAmount);
       }
     } else {
-      deallocateFromEnvelope(envelopeId, parsedAmount);
+      await deallocateFromEnvelope(envelopeId, parsedAmount);
     }
     
     setAllocateAmount('');
     setShowAllocate(false);
   };
   
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (confirm(`Supprimer l'enveloppe "${envelope.name}" ?`)) {
-      deleteEnvelope(envelopeId);
+      await deleteEnvelope(envelopeId);
       onOpenChange(false);
     }
   };
@@ -128,11 +128,11 @@ export function EnvelopeDetailsDialog({
     setEditReceiptPreview(null);
   };
   
-  const saveEditTransaction = (id: string) => {
+  const saveEditTransaction = async (id: string) => {
     const parsedAmount = parseFloat(editAmount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
-    updateTransaction(id, {
+    await updateTransaction(id, {
       amount: parsedAmount,
       merchant: editMerchant || undefined,
       description: editDescription || 'Dépense',
@@ -142,9 +142,9 @@ export function EnvelopeDetailsDialog({
     cancelEditTransaction();
   };
   
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (confirm('Supprimer cette dépense ?')) {
-      deleteTransaction(id);
+      await deleteTransaction(id);
     }
   };
 

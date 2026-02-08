@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Sheet,
   SheetContent,
@@ -26,7 +27,8 @@ import {
   Wallet,
   PieChart,
   Calendar,
-  Sparkles
+  Sparkles,
+  LogOut
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,6 +41,7 @@ interface SettingsSheetProps {
 
 export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions }: SettingsSheetProps) {
   const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey } = useBudget();
+  const { user, signOut } = useAuth();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   
   // Calculate totals
@@ -280,8 +283,20 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           <div className="text-center text-xs text-muted-foreground space-y-1">
             <p>{envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''}</p>
             <p>{transactions.length} transaction{transactions.length !== 1 ? 's' : ''} ce mois</p>
-            <p className="pt-2">Données stockées localement</p>
+            {user && <p className="pt-2">Connecté : {user.email}</p>}
           </div>
+          
+          <Separator />
+          
+          {/* Logout */}
+          <Button
+            onClick={signOut}
+            variant="outline"
+            className="w-full rounded-xl gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Se déconnecter
+          </Button>
         </div>
       </SheetContent>
       

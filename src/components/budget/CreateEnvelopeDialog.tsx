@@ -71,11 +71,11 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
   const [selectedColor, setSelectedColor] = useState('blue');
   const [showCustom, setShowCustom] = useState(false);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     
-    createEnvelope(name.trim(), selectedIcon, selectedColor);
+    await createEnvelope(name.trim(), selectedIcon, selectedColor);
     setName('');
     setSelectedIcon('Wallet');
     setSelectedColor('blue');

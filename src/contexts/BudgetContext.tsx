@@ -1,4 +1,23 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  fetchMonthData,
+  fetchAvailableMonths,
+  ensureMonthExists,
+  addIncomeDb,
+  updateIncomeDb,
+  deleteIncomeDb,
+  createEnvelopeDb,
+  updateEnvelopeDb,
+  deleteEnvelopeDb,
+  allocateToEnvelopeDb,
+  deallocateFromEnvelopeDb,
+  transferBetweenEnvelopesDb,
+  addTransactionDb,
+  updateTransactionDb,
+  deleteTransactionDb,
+  startNewMonthDb,
+} from '@/lib/budgetDb';
 
 // Types
 export interface Envelope {
@@ -28,24 +47,19 @@ export interface Income {
   date: string;
 }
 
-
-// Monthly budget data
 export interface MonthlyBudget {
-  monthKey: string; // Format: "YYYY-MM"
+  monthKey: string;
   toBeBudgeted: number;
   envelopes: Envelope[];
   transactions: Transaction[];
   incomes: Income[];
 }
 
-interface BudgetState {
-  currentMonthKey: string;
-  months: Record<string, MonthlyBudget>;
-  envelopeTemplates: Array<{ id: string; name: string; icon: string; color: string }>;
-}
-
 interface BudgetContextType {
-  // Current month data (convenience getters)
+  // Loading state
+  loading: boolean;
+  
+  // Current month data
   currentMonthKey: string;
   toBeBudgeted: number;
   envelopes: Envelope[];
@@ -59,52 +73,45 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
-  startNewMonth: () => void; // Start a fresh new month with zeroed envelopes
+  startNewMonth: () => void;
   
   // Income actions
-  addIncome: (amount: number, description: string) => void;
-  updateIncome: (id: string, amount: number, description: string) => void;
-  deleteIncome: (id: string) => void;
+  addIncome: (amount: number, description: string) => Promise<void>;
+  updateIncome: (id: string, amount: number, description: string) => Promise<void>;
+  deleteIncome: (id: string) => Promise<void>;
   
   // Envelope actions
-  createEnvelope: (name: string, icon: string, color: string) => void;
-  updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => void;
-  deleteEnvelope: (id: string) => void;
-  allocateToEnvelope: (envelopeId: string, amount: number) => void;
-  deallocateFromEnvelope: (envelopeId: string, amount: number) => void;
-  transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => void;
+  createEnvelope: (name: string, icon: string, color: string) => Promise<void>;
+  updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => Promise<void>;
+  deleteEnvelope: (id: string) => Promise<void>;
+  allocateToEnvelope: (envelopeId: string, amount: number) => Promise<void>;
+  deallocateFromEnvelope: (envelopeId: string, amount: number) => Promise<void>;
+  transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => Promise<void>;
   
   // Transaction actions
-  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string) => { transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } };
-  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }) => void;
-  deleteTransaction: (id: string) => void;
+  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string) => Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }>;
+  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   
-  // Monthly reset (deprecated, kept for compatibility)
+  // Refresh data
+  refreshData: () => Promise<void>;
+  
+  // Legacy
   resetMonth: () => void;
 }
 
 const BudgetContext = createContext<BudgetContextType | null>(null);
-
-const STORAGE_KEY = 'budget-envelope-app-state-v2';
-const LEGACY_STORAGE_KEY = 'budget-envelope-app-state';
 
 function getCurrentMonthKey(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function createEmptyMonth(monthKey: string, envelopeTemplates: Array<{ id: string; name: string; icon: string; color: string }>): MonthlyBudget {
+function createEmptyMonth(monthKey: string): MonthlyBudget {
   return {
     monthKey,
     toBeBudgeted: 0,
-    envelopes: envelopeTemplates.map(t => ({
-      id: t.id,
-      name: t.name,
-      icon: t.icon,
-      color: t.color,
-      allocated: 0,
-      spent: 0,
-    })),
+    envelopes: [],
     transactions: [],
     incomes: [],
   };
@@ -122,612 +129,234 @@ export const defaultEnvelopeTemplates = [
   { name: 'Épargne', icon: 'PiggyBank', color: 'green' },
 ];
 
-function getDefaultState(): BudgetState {
-  const currentMonthKey = getCurrentMonthKey();
-  return {
-    currentMonthKey,
-    months: {
-      [currentMonthKey]: {
-        monthKey: currentMonthKey,
-        toBeBudgeted: 0,
-        envelopes: [],
-        transactions: [],
-        incomes: [],
-      },
-    },
-    envelopeTemplates: [],
-  };
-}
-
-// Migration from legacy storage
-function migrateLegacyState(legacyState: {
-  toBeBudgeted: number;
-  envelopes: Envelope[];
-  transactions: Transaction[];
-  incomes: Income[];
-}): BudgetState {
-  const currentMonthKey = getCurrentMonthKey();
-  
-  // Create envelope templates from existing envelopes
-  const envelopeTemplates = legacyState.envelopes.map(env => ({
-    id: env.id,
-    name: env.name,
-    icon: env.icon,
-    color: env.color,
-  }));
-  
-  return {
-    currentMonthKey,
-    months: {
-      [currentMonthKey]: {
-        monthKey: currentMonthKey,
-        toBeBudgeted: legacyState.toBeBudgeted,
-        envelopes: legacyState.envelopes,
-        transactions: legacyState.transactions,
-        incomes: legacyState.incomes,
-      },
-    },
-    envelopeTemplates,
-  };
-}
-
 export function BudgetProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<BudgetState>(() => {
-    if (typeof window === 'undefined') return getDefaultState();
-    
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [currentMonthKey, setCurrentMonthKey] = useState(getCurrentMonthKey());
+  const [months, setMonths] = useState<Record<string, MonthlyBudget>>({});
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+
+  // Load data when user or month changes
+  const loadMonthData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      // Try new storage format first
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      // Ensure current month exists
+      await ensureMonthExists(user.id, currentMonthKey);
       
-      // Try to migrate from legacy format
-      const legacyStored = localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (legacyStored) {
-        const legacyState = JSON.parse(legacyStored);
-        const migratedState = migrateLegacyState(legacyState);
-        // Clear legacy storage after migration
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
-        return migratedState;
-      }
-    } catch (error) {
-      console.error('Error loading budget state:', error);
-    }
-    return getDefaultState();
-  });
-
-  // Persist to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-      console.error('Error saving budget state:', error);
-    }
-  }, [state]);
-
-  // Ensure the current month exists in state (otherwise UI shows a fallback month but actions become no-ops)
-  useEffect(() => {
-    setState(prev => {
-      if (prev.months[prev.currentMonthKey]) return prev;
-      const newMonth = createEmptyMonth(prev.currentMonthKey, prev.envelopeTemplates);
-      return {
+      // Fetch month data
+      const monthData = await fetchMonthData(user.id, currentMonthKey);
+      
+      // Fetch available months
+      const available = await fetchAvailableMonths(user.id);
+      
+      setMonths(prev => ({
         ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: newMonth,
-        },
-      };
-    });
-  }, [state.currentMonthKey]);
+        [currentMonthKey]: monthData,
+      }));
+      setAvailableMonths(available.length > 0 ? available : [currentMonthKey]);
+    } catch (error) {
+      console.error('Error loading budget data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, currentMonthKey]);
+
+  useEffect(() => {
+    loadMonthData();
+  }, [loadMonthData]);
 
   // Get current month data
-  const currentMonth = state.months[state.currentMonthKey] || createEmptyMonth(state.currentMonthKey, state.envelopeTemplates);
+  const currentMonth = months[currentMonthKey] || createEmptyMonth(currentMonthKey);
 
   // Month navigation
   const setCurrentMonth = useCallback((monthKey: string) => {
-    setState(prev => {
-      // If month doesn't exist, create it
-      if (!prev.months[monthKey]) {
-        const newMonth = createEmptyMonth(monthKey, prev.envelopeTemplates);
-        return {
-          ...prev,
-          currentMonthKey: monthKey,
-          months: {
-            ...prev.months,
-            [monthKey]: newMonth,
-          },
-        };
-      }
-      return {
-        ...prev,
-        currentMonthKey: monthKey,
-      };
-    });
+    setCurrentMonthKey(monthKey);
   }, []);
 
   const getAvailableMonths = useCallback(() => {
-    return Object.keys(state.months).sort().reverse();
-  }, [state.months]);
+    return availableMonths;
+  }, [availableMonths]);
 
-  const createNewMonth = useCallback((monthKey: string) => {
-    setState(prev => {
-      if (prev.months[monthKey]) return prev;
-      
-      const newMonth = createEmptyMonth(monthKey, prev.envelopeTemplates);
-      return {
-        ...prev,
-        currentMonthKey: monthKey,
-        months: {
-          ...prev.months,
-          [monthKey]: newMonth,
-        },
-      };
-    });
-  }, []);
+  const createNewMonth = useCallback(async (monthKey: string) => {
+    if (!user) return;
+    await ensureMonthExists(user.id, monthKey);
+    setCurrentMonthKey(monthKey);
+  }, [user]);
 
-  // Income actions (scoped to current month)
-  const addIncome = useCallback((amount: number, description: string) => {
-    const income: Income = {
-      id: crypto.randomUUID(),
-      amount,
-      description,
-      date: new Date().toISOString(),
-    };
-    
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: month.toBeBudgeted + amount,
-            incomes: [...month.incomes, income],
-          },
-        },
-      };
-    });
-  }, []);
+  // Income actions
+  const addIncome = useCallback(async (amount: number, description: string) => {
+    if (!user) return;
+    await addIncomeDb(user.id, currentMonthKey, amount, description);
+    await loadMonthData();
+  }, [user, currentMonthKey, loadMonthData]);
 
-  const updateIncome = useCallback((id: string, newAmount: number, newDescription: string) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const existingIncome = month.incomes.find(inc => inc.id === id);
-      if (!existingIncome) return prev;
-      
-      const amountDiff = newAmount - existingIncome.amount;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: month.toBeBudgeted + amountDiff,
-            incomes: month.incomes.map(inc =>
-              inc.id === id
-                ? { ...inc, amount: newAmount, description: newDescription }
-                : inc
-            ),
-          },
-        },
-      };
-    });
-  }, []);
+  const updateIncome = useCallback(async (id: string, newAmount: number, newDescription: string) => {
+    if (!user) return;
+    const income = currentMonth.incomes.find(i => i.id === id);
+    if (!income) return;
+    await updateIncomeDb(user.id, currentMonthKey, id, newAmount, newDescription, income.amount);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
-  const deleteIncome = useCallback((id: string) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const income = month.incomes.find(inc => inc.id === id);
-      if (!income) return prev;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: month.toBeBudgeted - income.amount,
-            incomes: month.incomes.filter(inc => inc.id !== id),
-          },
-        },
-      };
-    });
-  }, []);
+  const deleteIncome = useCallback(async (id: string) => {
+    if (!user) return;
+    const income = currentMonth.incomes.find(i => i.id === id);
+    if (!income) return;
+    await deleteIncomeDb(user.id, currentMonthKey, id, income.amount);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
-  // Envelope actions (scoped to current month + template sync)
-  const createEnvelope = useCallback((name: string, icon: string, color: string) => {
-    const envelopeId = crypto.randomUUID();
-    const envelope: Envelope = {
-      id: envelopeId,
-      name,
-      allocated: 0,
-      spent: 0,
-      icon,
-      color,
-    };
-    
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      // Add to templates for future months
-      const newTemplate = { id: envelopeId, name, icon, color };
-      
-      return {
-        ...prev,
-        envelopeTemplates: [...prev.envelopeTemplates, newTemplate],
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            envelopes: [...month.envelopes, envelope],
-          },
-        },
-      };
-    });
-  }, []);
+  // Envelope actions
+  const createEnvelope = useCallback(async (name: string, icon: string, color: string) => {
+    if (!user) return;
+    await createEnvelopeDb(user.id, currentMonthKey, name, icon, color);
+    await loadMonthData();
+  }, [user, currentMonthKey, loadMonthData]);
 
-  const updateEnvelope = useCallback((id: string, updates: Partial<Omit<Envelope, 'id'>>) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      // Update template too
-      const updatedTemplates = prev.envelopeTemplates.map(t =>
-        t.id === id ? { ...t, ...updates } : t
-      );
-      
-      return {
-        ...prev,
-        envelopeTemplates: updatedTemplates,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            envelopes: month.envelopes.map(env =>
-              env.id === id ? { ...env, ...updates } : env
-            ),
-          },
-        },
-      };
-    });
-  }, []);
+  const updateEnvelope = useCallback(async (id: string, updates: Partial<Omit<Envelope, 'id'>>) => {
+    if (!user) return;
+    const { allocated, spent, ...dbUpdates } = updates;
+    await updateEnvelopeDb(id, dbUpdates);
+    await loadMonthData();
+  }, [user, loadMonthData]);
 
-  const deleteEnvelope = useCallback((id: string) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const envelope = month.envelopes.find(e => e.id === id);
-      // Refund the full allocated amount (spent money is also returned since transactions are deleted)
-      const refundAmount = envelope ? envelope.allocated : 0;
-      
-      return {
-        ...prev,
-        envelopeTemplates: prev.envelopeTemplates.filter(t => t.id !== id),
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: month.toBeBudgeted + refundAmount,
-            envelopes: month.envelopes.filter(e => e.id !== id),
-            transactions: month.transactions.filter(t => t.envelopeId !== id),
-          },
-        },
-      };
-    });
-  }, []);
+  const deleteEnvelope = useCallback(async (id: string) => {
+    if (!user) return;
+    const envelope = currentMonth.envelopes.find(e => e.id === id);
+    await deleteEnvelopeDb(user.id, currentMonthKey, id, envelope?.allocated || 0);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
-  const allocateToEnvelope = useCallback((envelopeId: string, amount: number) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month || amount > month.toBeBudgeted) return prev;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: month.toBeBudgeted - amount,
-            envelopes: month.envelopes.map(env =>
-              env.id === envelopeId
-                ? { ...env, allocated: env.allocated + amount }
-                : env
-            ),
-          },
-        },
-      };
-    });
-  }, []);
+  const allocateToEnvelope = useCallback(async (envelopeId: string, amount: number) => {
+    if (!user || amount > currentMonth.toBeBudgeted) return;
+    await allocateToEnvelopeDb(user.id, currentMonthKey, envelopeId, amount);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.toBeBudgeted, loadMonthData]);
 
-  const deallocateFromEnvelope = useCallback((envelopeId: string, amount: number) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const envelope = month.envelopes.find(e => e.id === envelopeId);
-      if (!envelope) return prev;
-      
-      const available = envelope.allocated - envelope.spent;
-      const actualAmount = Math.min(amount, available);
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            toBeBudgeted: month.toBeBudgeted + actualAmount,
-            envelopes: month.envelopes.map(env =>
-              env.id === envelopeId
-                ? { ...env, allocated: env.allocated - actualAmount }
-                : env
-            ),
-          },
-        },
-      };
-    });
-  }, []);
+  const deallocateFromEnvelope = useCallback(async (envelopeId: string, amount: number) => {
+    if (!user) return;
+    const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
+    if (!envelope) return;
+    const available = envelope.allocated - envelope.spent;
+    const actualAmount = Math.min(amount, available);
+    await deallocateFromEnvelopeDb(user.id, currentMonthKey, envelopeId, actualAmount);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
-  const transferBetweenEnvelopes = useCallback((fromId: string, toId: string, amount: number) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const fromEnvelope = month.envelopes.find(e => e.id === fromId);
-      if (!fromEnvelope) return prev;
-      
-      const available = fromEnvelope.allocated - fromEnvelope.spent;
-      if (amount > available) return prev;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            envelopes: month.envelopes.map(env => {
-              if (env.id === fromId) {
-                return { ...env, allocated: env.allocated - amount };
-              }
-              if (env.id === toId) {
-                return { ...env, allocated: env.allocated + amount };
-              }
-              return env;
-            }),
-          },
-        },
-      };
-    });
-  }, []);
+  const transferBetweenEnvelopes = useCallback(async (fromId: string, toId: string, amount: number) => {
+    if (!user) return;
+    const fromEnvelope = currentMonth.envelopes.find(e => e.id === fromId);
+    if (!fromEnvelope) return;
+    const available = fromEnvelope.allocated - fromEnvelope.spent;
+    if (amount > available) return;
+    await transferBetweenEnvelopesDb(user.id, currentMonthKey, fromId, toId, amount);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
   // Transaction actions
-  const addTransaction = useCallback((envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string): { transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } } => {
-    const transactionId = crypto.randomUUID();
-    const transaction: Transaction = {
-      id: transactionId,
+  const addTransaction = useCallback(async (
+    envelopeId: string,
+    amount: number,
+    description: string,
+    merchant?: string,
+    receiptUrl?: string,
+    receiptPath?: string
+  ): Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }> => {
+    if (!user) throw new Error('Not authenticated');
+
+    // Check for budget alert before adding
+    const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
+    let alertInfo: { envelopeName: string; percent: number; isOver: boolean } | undefined;
+    
+    if (envelope && envelope.allocated > 0) {
+      const newSpent = envelope.spent + amount;
+      const percentUsed = (newSpent / envelope.allocated) * 100;
+      const previousPercent = (envelope.spent / envelope.allocated) * 100;
+      
+      if ((previousPercent < 80 && percentUsed >= 80) || (previousPercent < 100 && percentUsed >= 100)) {
+        alertInfo = {
+          envelopeName: envelope.name,
+          percent: Math.round(percentUsed),
+          isOver: percentUsed >= 100,
+        };
+      }
+    }
+
+    const transactionId = await addTransactionDb(
+      user.id,
+      currentMonthKey,
       envelopeId,
       amount,
       description,
-      date: new Date().toISOString(),
       merchant,
       receiptUrl,
-      receiptPath,
-    };
+      receiptPath
+    );
     
-    let alertInfo: { envelopeName: string; percent: number; isOver: boolean } | undefined;
-    
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      // Check for budget alert
-      const envelope = month.envelopes.find(e => e.id === envelopeId);
-      if (envelope && envelope.allocated > 0) {
-        const newSpent = envelope.spent + amount;
-        const percentUsed = (newSpent / envelope.allocated) * 100;
-        const previousPercent = (envelope.spent / envelope.allocated) * 100;
-        
-        // Alert if crossing 80% threshold or going over 100%
-        if ((previousPercent < 80 && percentUsed >= 80) || (previousPercent < 100 && percentUsed >= 100)) {
-          alertInfo = {
-            envelopeName: envelope.name,
-            percent: Math.round(percentUsed),
-            isOver: percentUsed >= 100,
-          };
-        }
-      }
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            transactions: [...month.transactions, transaction],
-            envelopes: month.envelopes.map(env =>
-              env.id === envelopeId
-                ? { ...env, spent: env.spent + amount }
-                : env
-            ),
-          },
-        },
-      };
-    });
-    
+    await loadMonthData();
     return { transactionId, alert: alertInfo };
-  }, []);
+  }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
-  const updateTransaction = useCallback((id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const existingTransaction = month.transactions.find(t => t.id === id);
-      if (!existingTransaction) return prev;
-      
-      const oldAmount = existingTransaction.amount;
-      const newAmount = updates.amount ?? oldAmount;
-      const oldEnvelopeId = existingTransaction.envelopeId;
-      const newEnvelopeId = updates.envelopeId ?? oldEnvelopeId;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            transactions: month.transactions.map(t =>
-              t.id === id ? { ...t, ...updates } : t
-            ),
-            envelopes: month.envelopes.map(env => {
-              if (oldEnvelopeId === newEnvelopeId && env.id === oldEnvelopeId) {
-                return { ...env, spent: env.spent - oldAmount + newAmount };
-              }
-              if (env.id === oldEnvelopeId) {
-                return { ...env, spent: env.spent - oldAmount };
-              }
-              if (env.id === newEnvelopeId) {
-                return { ...env, spent: env.spent + newAmount };
-              }
-              return env;
-            }),
-          },
-        },
-      };
-    });
-  }, []);
+  const updateTransaction = useCallback(async (
+    id: string,
+    updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string }
+  ) => {
+    if (!user) return;
+    const transaction = currentMonth.transactions.find(t => t.id === id);
+    if (!transaction) return;
+    await updateTransactionDb(
+      user.id,
+      currentMonthKey,
+      id,
+      transaction.envelopeId,
+      transaction.amount,
+      updates
+    );
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.transactions, loadMonthData]);
 
-  const deleteTransaction = useCallback((id: string) => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      const transaction = month.transactions.find(t => t.id === id);
-      if (!transaction) return prev;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            transactions: month.transactions.filter(t => t.id !== id),
-            envelopes: month.envelopes.map(env =>
-              env.id === transaction.envelopeId
-                ? { ...env, spent: env.spent - transaction.amount }
-                : env
-            ),
-          },
-        },
-      };
-    });
-  }, []);
+  const deleteTransaction = useCallback(async (id: string) => {
+    if (!user) return;
+    const transaction = currentMonth.transactions.find(t => t.id === id);
+    if (!transaction) return;
+    await deleteTransactionDb(user.id, currentMonthKey, id, transaction.envelopeId, transaction.amount);
+    await loadMonthData();
+  }, [user, currentMonthKey, currentMonth.transactions, loadMonthData]);
 
+  // Start new month
+  const startNewMonth = useCallback(async () => {
+    if (!user) return;
+    const nextMonthKey = await startNewMonthDb(user.id, currentMonthKey);
+    setCurrentMonthKey(nextMonthKey);
+  }, [user, currentMonthKey]);
 
-  // Start a new month: creates the next month preserving envelope allocations, resetting spent to 0
-  const startNewMonth = useCallback(() => {
-    setState(prev => {
-      // Calculate next month key
-      const [year, month] = prev.currentMonthKey.split('-').map(Number);
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear = month === 12 ? year + 1 : year;
-      const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-      
-      // If next month already exists, just navigate to it
-      if (prev.months[nextMonthKey]) {
-        return {
-          ...prev,
-          currentMonthKey: nextMonthKey,
-        };
-      }
-      
-      // Get current month's envelopes to preserve allocations when possible
-      const currentMonthData = prev.months[prev.currentMonthKey];
-      const currentEnvelopes = currentMonthData?.envelopes || [];
-
-      const allocatedById = new Map(currentEnvelopes.map(env => [env.id, env.allocated] as const));
-
-      // Create new month from templates to ensure envelopes are always recreated,
-      // while preserving allocated amount from the current month when available.
-      const newMonth: MonthlyBudget = {
-        monthKey: nextMonthKey,
-        toBeBudgeted: 0, // Start with 0; user adds new income for the new month
-        envelopes: prev.envelopeTemplates.map(t => ({
-          id: t.id,
-          name: t.name,
-          icon: t.icon,
-          color: t.color,
-          allocated: allocatedById.get(t.id) ?? 0,
-          spent: 0,
-        })),
-        transactions: [],
-        incomes: [],
-      };
-      
-      return {
-        ...prev,
-        currentMonthKey: nextMonthKey,
-        months: {
-          ...prev.months,
-          [nextMonthKey]: newMonth,
-        },
-      };
-    });
-  }, []);
-
-  // Legacy reset (kept for compatibility)
+  // Legacy reset
   const resetMonth = useCallback(() => {
-    setState(prev => {
-      const month = prev.months[prev.currentMonthKey];
-      if (!month) return prev;
-      
-      return {
-        ...prev,
-        months: {
-          ...prev.months,
-          [prev.currentMonthKey]: {
-            ...month,
-            envelopes: month.envelopes.map(env => ({
-              ...env,
-              allocated: 0,
-              spent: 0,
-            })),
-            transactions: [],
-          },
-        },
-      };
-    });
+    console.warn('resetMonth is deprecated');
   }, []);
+
+  // Refresh data
+  const refreshData = useCallback(async () => {
+    await loadMonthData();
+  }, [loadMonthData]);
 
   const value: BudgetContextType = {
-    // Current month convenience
-    currentMonthKey: state.currentMonthKey,
+    loading,
+    currentMonthKey,
     toBeBudgeted: currentMonth.toBeBudgeted,
     envelopes: currentMonth.envelopes,
     transactions: currentMonth.transactions,
     incomes: currentMonth.incomes,
-    
-    // All data
-    months: state.months,
-    
-    // Month navigation
+    months,
     setCurrentMonth,
     getAvailableMonths,
     createNewMonth,
     startNewMonth,
-    
-    // Actions
     addIncome,
     updateIncome,
     deleteIncome,
@@ -741,6 +370,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     updateTransaction,
     deleteTransaction,
     resetMonth,
+    refreshData,
   };
 
   return (
