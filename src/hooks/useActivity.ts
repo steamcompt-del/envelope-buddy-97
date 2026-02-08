@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBudget } from '@/contexts/BudgetContext';
 import { ActivityLogEntry, fetchActivityLog } from '@/lib/activityDb';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useActivity(limit: number = 50) {
   const { user } = useAuth();
@@ -39,6 +40,29 @@ export function useActivity(limit: number = 50) {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Realtime subscription for live updates
+  useEffect(() => {
+    if (!household?.id) return;
+
+    const channel = supabase
+      .channel(`activity-${household.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'activity_log',
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => fetchAll()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [household?.id, fetchAll]);
 
   return {
     activities,
