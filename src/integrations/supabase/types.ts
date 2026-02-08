@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: Database["public"]["Enums"]["activity_action"]
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          household_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["activity_action"]
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          household_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["activity_action"]
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          household_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       envelope_allocations: {
         Row: {
           allocated: number
@@ -304,6 +345,66 @@ export type Database = {
           },
         ]
       }
+      recurring_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          envelope_id: string
+          frequency: Database["public"]["Enums"]["recurring_frequency"]
+          household_id: string | null
+          id: string
+          is_active: boolean
+          merchant: string | null
+          next_due_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          envelope_id: string
+          frequency?: Database["public"]["Enums"]["recurring_frequency"]
+          household_id?: string | null
+          id?: string
+          is_active?: boolean
+          merchant?: string | null
+          next_due_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          envelope_id?: string
+          frequency?: Database["public"]["Enums"]["recurring_frequency"]
+          household_id?: string | null
+          id?: string
+          is_active?: boolean
+          merchant?: string | null
+          next_due_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transactions_envelope_id_fkey"
+            columns: ["envelope_id"]
+            isOneToOne: false
+            referencedRelation: "envelopes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -373,7 +474,29 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      activity_action:
+        | "income_added"
+        | "income_updated"
+        | "income_deleted"
+        | "expense_added"
+        | "expense_updated"
+        | "expense_deleted"
+        | "envelope_created"
+        | "envelope_updated"
+        | "envelope_deleted"
+        | "allocation_made"
+        | "transfer_made"
+        | "recurring_created"
+        | "recurring_updated"
+        | "recurring_deleted"
+        | "member_joined"
+        | "member_left"
+      recurring_frequency:
+        | "weekly"
+        | "biweekly"
+        | "monthly"
+        | "quarterly"
+        | "yearly"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -500,6 +623,32 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      activity_action: [
+        "income_added",
+        "income_updated",
+        "income_deleted",
+        "expense_added",
+        "expense_updated",
+        "expense_deleted",
+        "envelope_created",
+        "envelope_updated",
+        "envelope_deleted",
+        "allocation_made",
+        "transfer_made",
+        "recurring_created",
+        "recurring_updated",
+        "recurring_deleted",
+        "member_joined",
+        "member_left",
+      ],
+      recurring_frequency: [
+        "weekly",
+        "biweekly",
+        "monthly",
+        "quarterly",
+        "yearly",
+      ],
+    },
   },
 } as const

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { 
   RefreshCw, 
   TrendingUp, 
@@ -30,20 +31,25 @@ import {
   Sparkles,
   LogOut,
   Users,
-  FileDown
+  FileDown,
+  History,
+  Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
 import { exportMonthlyReportPDF } from '@/lib/exportPdf';
+import { useRecurring } from '@/hooks/useRecurring';
 
 interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenIncomeList?: () => void;
   onOpenSuggestions?: () => void;
+  onOpenRecurring?: () => void;
+  onOpenActivity?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions }: SettingsSheetProps) {
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions, onOpenRecurring, onOpenActivity }: SettingsSheetProps) {
   const { 
     envelopes, 
     transactions, 
@@ -58,6 +64,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     regenerateInviteCode,
   } = useBudget();
   const { user, signOut } = useAuth();
+  const { dueCount } = useRecurring();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -174,6 +181,65 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           </div>
           
           <Separator />
+          
+          {/* Recurring Transactions */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Automatisation
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Gérez vos dépenses récurrentes (loyer, abonnements...).
+            </p>
+            
+            <Button
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(() => onOpenRecurring?.(), 100);
+              }}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <Repeat className="w-4 h-4" />
+              Dépenses récurrentes
+              {dueCount > 0 && (
+                <Badge variant="destructive" className="ml-auto">
+                  {dueCount} à payer
+                </Badge>
+              )}
+            </Button>
+          </div>
+          
+          <Separator />
+          
+          {/* Activity Log (only for households) */}
+          {household && (
+            <>
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Collaboration
+                </h3>
+                
+                <p className="text-sm text-muted-foreground">
+                  Voyez qui a fait quoi dans votre ménage partagé.
+                </p>
+                
+                <Button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setTimeout(() => onOpenActivity?.(), 100);
+                  }}
+                  variant="outline"
+                  className="w-full rounded-xl gap-2"
+                >
+                  <History className="w-4 h-4" />
+                  Historique d'activité
+                </Button>
+              </div>
+              
+              <Separator />
+            </>
+          )}
           
           {/* Start New Month */}
           <div className="space-y-4">

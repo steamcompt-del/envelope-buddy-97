@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
@@ -14,7 +14,10 @@ import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
 import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDialog';
 import { FabButton } from '@/components/budget/FabButton';
 import { HouseholdSetupDialog } from '@/components/budget/HouseholdSetupDialog';
+import { RecurringListSheet } from '@/components/budget/RecurringListSheet';
+import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
 import { useReceiptScanner } from '@/hooks/useReceiptScanner';
+import { useRecurring } from '@/hooks/useRecurring';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -38,6 +41,8 @@ export default function Index() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [incomeListOpen, setIncomeListOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [recurringOpen, setRecurringOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   const [scannedExpenseData, setScannedExpenseData] = useState<ScannedExpenseData | null>(null);
@@ -45,6 +50,19 @@ export default function Index() {
   // File input for FAB scan
   const scanInputRef = useRef<HTMLInputElement>(null);
   const { scanReceipt, isScanning } = useReceiptScanner();
+  const { dueCount, applyAllDue } = useRecurring();
+
+  // Check for due recurring transactions on mount
+  useEffect(() => {
+    if (dueCount > 0 && !loading) {
+      toast.info(`${dueCount} dépense${dueCount > 1 ? 's' : ''} récurrente${dueCount > 1 ? 's' : ''} à payer`, {
+        action: {
+          label: 'Voir',
+          onClick: () => setRecurringOpen(true),
+        },
+      });
+    }
+  }, [dueCount, loading]);
   
   const handleEnvelopeClick = (envelopeId: string) => {
     setSelectedEnvelopeId(envelopeId);
@@ -166,9 +184,13 @@ export default function Index() {
         onOpenChange={setSettingsOpen}
         onOpenIncomeList={() => setIncomeListOpen(true)}
         onOpenSuggestions={() => setSuggestionsOpen(true)}
+        onOpenRecurring={() => setRecurringOpen(true)}
+        onOpenActivity={() => setActivityOpen(true)}
       />
       <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
       <BudgetSuggestionsDialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen} />
+      <RecurringListSheet open={recurringOpen} onOpenChange={setRecurringOpen} />
+      <ActivityLogSheet open={activityOpen} onOpenChange={setActivityOpen} />
       
       {/* Household setup dialog */}
       <HouseholdSetupDialog

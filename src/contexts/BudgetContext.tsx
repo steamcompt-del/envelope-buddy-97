@@ -22,6 +22,7 @@ import {
   deleteAllUserDataDb,
   QueryContext,
 } from '@/lib/budgetDb';
+import { logActivity } from '@/lib/activityDb';
 
 // Types
 export interface Envelope {
@@ -267,7 +268,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const addIncome = useCallback(async (amount: number, description: string) => {
     const ctx = getQueryContext();
     if (!ctx) return;
-    await addIncomeDb(ctx, currentMonthKey, amount, description);
+    const incomeId = await addIncomeDb(ctx, currentMonthKey, amount, description);
+    await logActivity(ctx, 'income_added', 'income', incomeId, { amount, description });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 
@@ -277,6 +279,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const income = currentMonth.incomes.find(i => i.id === id);
     if (!income) return;
     await updateIncomeDb(ctx, currentMonthKey, id, newAmount, newDescription, income.amount);
+    await logActivity(ctx, 'income_updated', 'income', id, { amount: newAmount, description: newDescription });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
@@ -286,6 +289,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const income = currentMonth.incomes.find(i => i.id === id);
     if (!income) return;
     await deleteIncomeDb(ctx, currentMonthKey, id, income.amount);
+    await logActivity(ctx, 'income_deleted', 'income', id, { amount: income.amount, description: income.description });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
@@ -293,23 +297,27 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const createEnvelope = useCallback(async (name: string, icon: string, color: string) => {
     const ctx = getQueryContext();
     if (!ctx) return;
-    await createEnvelopeDb(ctx, currentMonthKey, name, icon, color);
+    const envelopeId = await createEnvelopeDb(ctx, currentMonthKey, name, icon, color);
+    await logActivity(ctx, 'envelope_created', 'envelope', envelopeId, { name });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 
   const updateEnvelope = useCallback(async (id: string, updates: Partial<Omit<Envelope, 'id'>>) => {
     const ctx = getQueryContext();
     if (!ctx) return;
+    const envelope = currentMonth.envelopes.find(e => e.id === id);
     const { allocated, spent, ...dbUpdates } = updates;
     await updateEnvelopeDb(id, dbUpdates);
+    await logActivity(ctx, 'envelope_updated', 'envelope', id, { name: updates.name || envelope?.name });
     await loadMonthData();
-  }, [getQueryContext, loadMonthData]);
+  }, [getQueryContext, currentMonth.envelopes, loadMonthData]);
 
   const deleteEnvelope = useCallback(async (id: string) => {
     const ctx = getQueryContext();
     if (!ctx) return;
     const envelope = currentMonth.envelopes.find(e => e.id === id);
     await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0);
+    await logActivity(ctx, 'envelope_deleted', 'envelope', id, { name: envelope?.name });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
@@ -341,9 +349,11 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const allocateToEnvelope = useCallback(async (envelopeId: string, amount: number) => {
     const ctx = getQueryContext();
     if (!ctx || amount > currentMonth.toBeBudgeted) return;
+    const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     await allocateToEnvelopeDb(ctx, currentMonthKey, envelopeId, amount);
+    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name });
     await loadMonthData();
-  }, [getQueryContext, currentMonthKey, currentMonth.toBeBudgeted, loadMonthData]);
+  }, [getQueryContext, currentMonthKey, currentMonth.toBeBudgeted, currentMonth.envelopes, loadMonthData]);
 
   const deallocateFromEnvelope = useCallback(async (envelopeId: string, amount: number) => {
     const ctx = getQueryContext();
@@ -360,10 +370,16 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const ctx = getQueryContext();
     if (!ctx) return;
     const fromEnvelope = currentMonth.envelopes.find(e => e.id === fromId);
+    const toEnvelope = currentMonth.envelopes.find(e => e.id === toId);
     if (!fromEnvelope) return;
     const available = fromEnvelope.allocated - fromEnvelope.spent;
     if (amount > available) return;
     await transferBetweenEnvelopesDb(ctx, currentMonthKey, fromId, toId, amount);
+    await logActivity(ctx, 'transfer_made', 'envelope', undefined, { 
+      amount, 
+      from_envelope: fromEnvelope.name, 
+      to_envelope: toEnvelope?.name 
+    });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
@@ -407,6 +423,11 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       receiptPath
     );
     
+    await logActivity(ctx, 'expense_added', 'transaction', transactionId, { 
+      amount, 
+      description, 
+      envelope_name: envelope?.name 
+    });
     await loadMonthData();
     return { transactionId, alert: alertInfo };
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
@@ -427,6 +448,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       transaction.amount,
       updates
     );
+    await logActivity(ctx, 'expense_updated', 'transaction', id, { 
+      amount: updates.amount || transaction.amount, 
+      description: updates.description || transaction.description 
+    });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.transactions, loadMonthData]);
 
@@ -436,6 +461,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const transaction = currentMonth.transactions.find(t => t.id === id);
     if (!transaction) return;
     await deleteTransactionDb(ctx, currentMonthKey, id, transaction.envelopeId, transaction.amount);
+    await logActivity(ctx, 'expense_deleted', 'transaction', id, { 
+      amount: transaction.amount, 
+      description: transaction.description 
+    });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.transactions, loadMonthData]);
 
