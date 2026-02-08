@@ -41,6 +41,7 @@ export interface Transaction {
   amount: number;
   description: string;
   date: string;
+  createdAt: string;
   merchant?: string;
   receiptUrl?: string;
   receiptPath?: string;
