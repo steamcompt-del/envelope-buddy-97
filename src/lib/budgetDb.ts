@@ -694,13 +694,14 @@ export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, t
   }
 }
 
-// Start new month - duplicates envelopes with empty allocations
+// Start new month - ensures allocations exist for the new month (duplicates envelopes as empty allocations)
 export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<string> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
   const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 
+  // 1) Ensure monthly budget row exists
   let existsQuery = supabase
     .from('monthly_budgets')
     .select('id')
@@ -715,40 +716,54 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: existing } = await existsQuery.single();
 
   if (!existing) {
-    // Create the monthly budget entry
     await supabase.from('monthly_budgets').insert({
       user_id: ctx.userId,
       household_id: ctx.householdId || null,
       month_key: nextMonthKey,
       to_be_budgeted: 0,
     });
+  }
 
-    // Get all existing envelopes (not via allocations - they might not exist for current month)
-    let envelopesQuery = supabase
-      .from('envelopes')
-      .select('id');
+  // 2) Ensure allocations exist for ALL envelopes in the new month
+  let envelopesQuery = supabase.from('envelopes').select('id');
+  if (ctx.householdId) {
+    envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
+  } else {
+    envelopesQuery = envelopesQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
 
-    if (ctx.householdId) {
-      envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
-    } else {
-      envelopesQuery = envelopesQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
+  const { data: envelopes } = await envelopesQuery;
+  if (!envelopes || envelopes.length === 0) return nextMonthKey;
 
-    const { data: envelopes } = await envelopesQuery;
+  let existingAllocsQuery = supabase
+    .from('envelope_allocations')
+    .select('envelope_id')
+    .eq('month_key', nextMonthKey);
 
-    // Create empty allocations for each envelope in the new month
-    if (envelopes && envelopes.length > 0) {
-      const newAllocations = envelopes.map(env => ({
+  if (ctx.householdId) {
+    existingAllocsQuery = existingAllocsQuery.eq('household_id', ctx.householdId);
+  } else {
+    existingAllocsQuery = existingAllocsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: existingAllocs } = await existingAllocsQuery;
+  const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
+
+  const missingEnvelopeIds = envelopes
+    .map(e => e.id)
+    .filter(id => !existingSet.has(id));
+
+  if (missingEnvelopeIds.length > 0) {
+    await supabase.from('envelope_allocations').insert(
+      missingEnvelopeIds.map(envelopeId => ({
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
-        envelope_id: env.id,
+        envelope_id: envelopeId,
         month_key: nextMonthKey,
         allocated: 0,
         spent: 0,
-      }));
-
-      await supabase.from('envelope_allocations').insert(newAllocations);
-    }
+      }))
+    );
   }
 
   return nextMonthKey;
