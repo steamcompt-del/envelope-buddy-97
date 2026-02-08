@@ -11,11 +11,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Expand
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
@@ -70,6 +78,8 @@ export function EnvelopeDetailsDialog({
   const [editMerchant, setEditMerchant] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editDate, setEditDate] = useState<Date | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
@@ -156,6 +166,7 @@ export function EnvelopeDetailsDialog({
     setEditMerchant(t.merchant || '');
     setEditDescription(t.description);
     setEditNotes(t.notes || '');
+    setEditDate(new Date(t.date));
   };
   
   const cancelEditTransaction = () => {
@@ -164,6 +175,8 @@ export function EnvelopeDetailsDialog({
     setEditMerchant('');
     setEditDescription('');
     setEditNotes('');
+    setEditDate(undefined);
+    setDatePopoverOpen(false);
   };
   
   const saveEditTransaction = async (id: string) => {
@@ -175,6 +188,7 @@ export function EnvelopeDetailsDialog({
       merchant: editMerchant || undefined,
       description: editDescription || 'Dépense',
       notes: editNotes || undefined,
+      date: editDate ? editDate.toISOString() : undefined,
     });
     cancelEditTransaction();
   };
@@ -341,15 +355,47 @@ export function EnvelopeDetailsDialog({
                             />
                           </div>
                         </div>
-                        <div>
-                          <Label className="text-xs">Description</Label>
-                          <Input
-                            type="text"
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            placeholder="Ex: Courses"
-                            className="h-8 text-sm rounded-lg"
-                          />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">Description</Label>
+                            <Input
+                              type="text"
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="Ex: Courses"
+                              className="h-8 text-sm rounded-lg"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Date</Label>
+                            <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full h-8 justify-start text-left font-normal text-sm rounded-lg",
+                                    !editDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-3 w-3" />
+                                  {editDate ? format(editDate, "dd/MM/yyyy", { locale: fr }) : "Choisir"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={editDate}
+                                  onSelect={(date) => {
+                                    setEditDate(date);
+                                    setDatePopoverOpen(false);
+                                  }}
+                                  initialFocus
+                                  className={cn("p-3 pointer-events-auto")}
+                                  locale={fr}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
                         
                         <TransactionNotesField

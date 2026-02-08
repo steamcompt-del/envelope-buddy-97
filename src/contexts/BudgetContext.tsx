@@ -113,7 +113,7 @@ interface BudgetContextType {
   
   // Transaction actions
   addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string) => Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }>;
-  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string }) => Promise<void>;
+  updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string; date?: string }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   
   // Refresh data
@@ -519,7 +519,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   const updateTransaction = useCallback(async (
     id: string,
-    updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string }
+    updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string; date?: string }
   ) => {
     const ctx = getQueryContext();
     if (!ctx) return;
