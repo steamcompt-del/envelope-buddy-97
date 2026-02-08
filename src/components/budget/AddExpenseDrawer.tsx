@@ -26,16 +26,26 @@ import { Loader2, Receipt, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { MultiReceiptUploader, PendingReceipt } from './MultiReceiptUploader';
 
+export interface ScannedExpenseData {
+  amount: number;
+  description: string;
+  merchant: string;
+  envelopeId?: string;
+  receiptFile?: File;
+}
+
 interface AddExpenseDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preselectedEnvelopeId?: string;
+  scannedData?: ScannedExpenseData | null;
 }
 
 export function AddExpenseDrawer({ 
   open, 
   onOpenChange,
-  preselectedEnvelopeId 
+  preselectedEnvelopeId,
+  scannedData,
 }: AddExpenseDrawerProps) {
   const { envelopes, addTransaction } = useBudget();
   const { user } = useAuth();
@@ -49,6 +59,27 @@ export function AddExpenseDrawer({
   const [isCategorizing, setIsCategorizing] = useState(false);
   const [pendingReceipts, setPendingReceipts] = useState<PendingReceipt[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Pre-fill form with scanned data when provided
+  useEffect(() => {
+    if (scannedData && open) {
+      setAmount(scannedData.amount.toString().replace('.', ','));
+      setDescription(scannedData.description);
+      setMerchant(scannedData.merchant);
+      if (scannedData.envelopeId) {
+        setSelectedEnvelope(scannedData.envelopeId);
+      }
+      // Add the scanned receipt file to pending receipts
+      if (scannedData.receiptFile) {
+        const newReceipt: PendingReceipt = {
+          id: crypto.randomUUID(),
+          file: scannedData.receiptFile,
+          previewUrl: URL.createObjectURL(scannedData.receiptFile),
+        };
+        setPendingReceipts([newReceipt]);
+      }
+    }
+  }, [scannedData, open]);
   
   // Auto-categorize when description changes (debounced)
   useEffect(() => {
