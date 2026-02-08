@@ -159,6 +159,7 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
     amount: Number(t.amount),
     description: t.description,
     date: t.date,
+    createdAt: t.created_at,
     merchant: t.merchant || undefined,
     receiptUrl: t.receipt_url || undefined,
     receiptPath: t.receipt_path || undefined,

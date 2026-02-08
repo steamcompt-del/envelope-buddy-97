@@ -463,6 +463,9 @@ export function EnvelopeDetailsDialog({
                               <p className="text-sm font-medium">{t.merchant || t.description}</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(t.date).toLocaleDateString('fr-FR')}
+                                <span className="ml-1 opacity-70">
+                                  · Créé le {new Date(t.createdAt).toLocaleDateString('fr-FR')} à {new Date(t.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
                               </p>
                               <TransactionNotesField notes={t.notes} onSave={() => {}} compact />
                             </div>
