@@ -605,7 +605,7 @@ export async function updateTransactionDb(
   transactionId: string,
   oldEnvelopeId: string,
   oldAmount: number,
-  updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string }
+  updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string; date?: string }
 ): Promise<void> {
   const newAmount = updates.amount ?? oldAmount;
   const newEnvelopeId = updates.envelopeId ?? oldEnvelopeId;
@@ -620,6 +620,7 @@ export async function updateTransactionDb(
       receipt_url: updates.receiptUrl,
       receipt_path: updates.receiptPath,
       notes: updates.notes,
+      date: updates.date,
     })
     .eq('id', transactionId);
 
