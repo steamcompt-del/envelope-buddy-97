@@ -63,7 +63,6 @@ export function AddIncomeDialog({ open, onOpenChange }: AddIncomeDialogProps) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="text-2xl font-semibold pr-12 rounded-xl"
-                autoFocus
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
                 €
