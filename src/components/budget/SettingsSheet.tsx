@@ -28,9 +28,11 @@ import {
   PieChart,
   Calendar,
   Sparkles,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
 
 interface SettingsSheetProps {
   open: boolean;
@@ -40,9 +42,22 @@ interface SettingsSheetProps {
 }
 
 export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions }: SettingsSheetProps) {
-  const { envelopes, transactions, incomes, toBeBudgeted, resetMonth, startNewMonth, currentMonthKey, deleteAllUserData } = useBudget();
+  const { 
+    envelopes, 
+    transactions, 
+    incomes, 
+    toBeBudgeted, 
+    resetMonth, 
+    startNewMonth, 
+    currentMonthKey, 
+    deleteAllUserData,
+    household,
+    updateHouseholdName,
+    regenerateInviteCode,
+  } = useBudget();
   const { user, signOut } = useAuth();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
+  const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Calculate totals
@@ -203,6 +218,38 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
             </Button>
           </div>
           
+          {/* Household Settings */}
+          {household && (
+            <>
+              <Separator />
+              
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Ménage partagé
+                </h3>
+                
+                <div className="p-4 rounded-xl bg-muted">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    <span className="font-medium">{household.name}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Code d'invitation : <span className="font-mono font-bold">{household.invite_code}</span>
+                  </p>
+                </div>
+                
+                <Button
+                  onClick={() => setShowHouseholdSettings(true)}
+                  variant="outline"
+                  className="w-full rounded-xl gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  Gérer le ménage
+                </Button>
+              </div>
+            </>
+          )}
+          
           <Separator />
           
           {/* Envelope breakdown */}
@@ -329,6 +376,15 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Household Settings Dialog */}
+      <HouseholdSettingsDialog
+        open={showHouseholdSettings}
+        onOpenChange={setShowHouseholdSettings}
+        household={household}
+        onUpdateName={updateHouseholdName}
+        onRegenerateCode={regenerateInviteCode}
+      />
     </Sheet>
   );
 }

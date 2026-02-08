@@ -19,6 +19,7 @@ export type Database = {
           allocated: number
           created_at: string
           envelope_id: string
+          household_id: string | null
           id: string
           month_key: string
           spent: number
@@ -28,6 +29,7 @@ export type Database = {
           allocated?: number
           created_at?: string
           envelope_id: string
+          household_id?: string | null
           id?: string
           month_key: string
           spent?: number
@@ -37,6 +39,7 @@ export type Database = {
           allocated?: number
           created_at?: string
           envelope_id?: string
+          household_id?: string | null
           id?: string
           month_key?: string
           spent?: number
@@ -50,12 +53,20 @@ export type Database = {
             referencedRelation: "envelopes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "envelope_allocations_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
         ]
       }
       envelopes: {
         Row: {
           color: string
           created_at: string
+          household_id: string | null
           icon: string
           id: string
           name: string
@@ -65,6 +76,7 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string
+          household_id?: string | null
           icon?: string
           id?: string
           name: string
@@ -74,11 +86,73 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string
+          household_id?: string | null
           icon?: string
           id?: string
           name?: string
           position?: number
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "envelopes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      household_members: {
+        Row: {
+          household_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          household_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          household_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_members_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      households: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          invite_code: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
         }
         Relationships: []
       }
@@ -88,6 +162,7 @@ export type Database = {
           created_at: string
           date: string
           description: string
+          household_id: string | null
           id: string
           month_key: string
           user_id: string
@@ -97,6 +172,7 @@ export type Database = {
           created_at?: string
           date?: string
           description: string
+          household_id?: string | null
           id?: string
           month_key: string
           user_id: string
@@ -106,15 +182,25 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string
+          household_id?: string | null
           id?: string
           month_key?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "incomes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       monthly_budgets: {
         Row: {
           created_at: string
+          household_id: string | null
           id: string
           month_key: string
           to_be_budgeted: number
@@ -122,6 +208,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          household_id?: string | null
           id?: string
           month_key: string
           to_be_budgeted?: number
@@ -129,12 +216,21 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          household_id?: string | null
           id?: string
           month_key?: string
           to_be_budgeted?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "monthly_budgets_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -164,6 +260,7 @@ export type Database = {
         Row: {
           created_at: string
           file_name: string | null
+          household_id: string | null
           id: string
           path: string
           transaction_id: string
@@ -173,6 +270,7 @@ export type Database = {
         Insert: {
           created_at?: string
           file_name?: string | null
+          household_id?: string | null
           id?: string
           path: string
           transaction_id: string
@@ -182,6 +280,7 @@ export type Database = {
         Update: {
           created_at?: string
           file_name?: string | null
+          household_id?: string | null
           id?: string
           path?: string
           transaction_id?: string
@@ -189,6 +288,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "receipts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receipts_transaction_id_fkey"
             columns: ["transaction_id"]
@@ -205,6 +311,7 @@ export type Database = {
           date: string
           description: string
           envelope_id: string
+          household_id: string | null
           id: string
           merchant: string | null
           receipt_path: string | null
@@ -217,6 +324,7 @@ export type Database = {
           date?: string
           description: string
           envelope_id: string
+          household_id?: string | null
           id?: string
           merchant?: string | null
           receipt_path?: string | null
@@ -229,6 +337,7 @@ export type Database = {
           date?: string
           description?: string
           envelope_id?: string
+          household_id?: string | null
           id?: string
           merchant?: string | null
           receipt_path?: string | null
@@ -243,6 +352,13 @@ export type Database = {
             referencedRelation: "envelopes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transactions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -250,7 +366,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_household_id: { Args: { _user_id: string }; Returns: string }
+      is_household_member: {
+        Args: { _household_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -13,12 +13,19 @@ import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
 import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDialog';
 import { FabButton } from '@/components/budget/FabButton';
+import { HouseholdSetupDialog } from '@/components/budget/HouseholdSetupDialog';
 import { mockScanReceipt } from '@/lib/mockReceiptScanner';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
 export default function Index() {
-  const { envelopes, loading } = useBudget();
+  const { 
+    envelopes, 
+    loading, 
+    needsHouseholdSetup,
+    createHousehold,
+    joinHousehold,
+  } = useBudget();
   const { user } = useAuth();
   
   // Dialog states
@@ -147,6 +154,12 @@ export default function Index() {
       <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
       <BudgetSuggestionsDialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen} />
       
+      {/* Household setup dialog */}
+      <HouseholdSetupDialog
+        open={needsHouseholdSetup}
+        onCreateHousehold={createHousehold}
+        onJoinHousehold={joinHousehold}
+      />
       
       {selectedEnvelopeId && (
         <EnvelopeDetailsDialog
