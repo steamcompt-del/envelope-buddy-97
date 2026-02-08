@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useHousehold } from '@/hooks/useHousehold';
+import { useBudget } from '@/contexts/BudgetContext';
 import { toast } from 'sonner';
 import {
   ShoppingItem,
@@ -15,7 +15,7 @@ import {
 
 export function useShoppingList() {
   const { user } = useAuth();
-  const { household } = useHousehold();
+  const { household } = useBudget();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [frequentItems, setFrequentItems] = useState<Array<{ name: string; count: number; avgPrice: number }>>([]);
   const [loading, setLoading] = useState(true);
