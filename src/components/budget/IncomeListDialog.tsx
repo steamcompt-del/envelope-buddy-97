@@ -98,7 +98,6 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
                             value={editAmount}
                             onChange={(e) => setEditAmount(e.target.value)}
                             className="pr-8 rounded-xl"
-                            autoFocus
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                             €
