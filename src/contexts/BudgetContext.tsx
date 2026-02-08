@@ -112,7 +112,7 @@ interface BudgetContextType {
   transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => Promise<void>;
   
   // Transaction actions
-  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string) => Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }>;
+  addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string, date?: string) => Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }>;
   updateTransaction: (id: string, updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string; date?: string }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   
@@ -475,7 +475,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     description: string,
     merchant?: string,
     receiptUrl?: string,
-    receiptPath?: string
+    receiptPath?: string,
+    date?: string
   ): Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }> => {
     const ctx = getQueryContext();
     if (!ctx) throw new Error('Not authenticated');
@@ -505,7 +506,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       description,
       merchant,
       receiptUrl,
-      receiptPath
+      receiptPath,
+      date
     );
     
     await logActivity(ctx, 'expense_added', 'transaction', transactionId, { 
