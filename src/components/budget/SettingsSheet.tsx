@@ -29,10 +29,12 @@ import {
   Calendar,
   Sparkles,
   LogOut,
-  Users
+  Users,
+  FileDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
+import { exportMonthlyReportPDF } from '@/lib/exportPdf';
 
 interface SettingsSheetProps {
   open: boolean;
@@ -190,6 +192,38 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
             >
               <Calendar className="w-4 h-4" />
               Démarrer {nextMonthDisplay}
+            </Button>
+          </div>
+          
+          <Separator />
+          
+          {/* Export PDF */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Exporter
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Téléchargez un récapitulatif complet du mois en PDF.
+            </p>
+            
+            <Button
+              onClick={() => {
+                exportMonthlyReportPDF({
+                  monthKey: currentMonthKey,
+                  householdName: household?.name,
+                  toBeBudgeted,
+                  envelopes,
+                  transactions,
+                  incomes,
+                });
+                toast.success('PDF généré avec succès !');
+              }}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <FileDown className="w-4 h-4" />
+              Exporter en PDF
             </Button>
           </div>
           
