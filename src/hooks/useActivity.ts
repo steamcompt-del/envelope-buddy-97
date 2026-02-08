@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBudget } from '@/contexts/BudgetContext';
 import { ActivityLogEntry, fetchActivityLog } from '@/lib/activityDb';
-import { supabase } from '@/integrations/supabase/client';
+import { getBackendClient } from '@/lib/backendClient';
 
 export function useActivity(limit: number = 50) {
   const { user } = useAuth();
@@ -45,6 +45,7 @@ export function useActivity(limit: number = 50) {
   useEffect(() => {
     if (!household?.id) return;
 
+    const supabase = getBackendClient();
     const channel = supabase
       .channel(`activity-${household.id}`)
       .on(

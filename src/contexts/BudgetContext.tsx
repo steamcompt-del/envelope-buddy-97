@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/hooks/useHousehold';
-import { supabase } from '@/integrations/supabase/client';
+import { getBackendClient } from '@/lib/backendClient';
 import {
   fetchMonthData,
   fetchAvailableMonths,
@@ -233,6 +233,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!household?.id) return;
 
+    const supabase = getBackendClient();
     const channel = supabase
       .channel(`budget-${household.id}`)
       .on(
