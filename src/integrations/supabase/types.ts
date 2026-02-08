@@ -297,6 +297,57 @@ export type Database = {
         }
         Relationships: []
       }
+      receipt_items: {
+        Row: {
+          created_at: string
+          household_id: string | null
+          id: string
+          name: string
+          quantity: number | null
+          receipt_id: string
+          total_price: number
+          unit_price: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          household_id?: string | null
+          id?: string
+          name: string
+          quantity?: number | null
+          receipt_id: string
+          total_price: number
+          unit_price?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string | null
+          id?: string
+          name?: string
+          quantity?: number | null
+          receipt_id?: string
+          total_price?: number
+          unit_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_items_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_items_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipts: {
         Row: {
           created_at: string

@@ -368,6 +368,7 @@ export function EnvelopeDetailsDialog({
                             canEdit
                             isAdding={isUploadingReceipt}
                             isDeleting={isLoadingReceipts}
+                            showItems
                           />
                         </div>
                         

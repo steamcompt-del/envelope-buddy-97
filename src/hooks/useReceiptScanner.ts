@@ -3,11 +3,19 @@ import { toast } from "sonner";
 import { fileToBase64 } from "@/lib/receiptStorage";
 import { getBackendClient } from "@/lib/backendClient";
 
+export interface ScannedReceiptItem {
+  name: string;
+  quantity: number;
+  unit_price: number | null;
+  total_price: number;
+}
+
 export interface ScannedReceiptData {
   merchant: string;
   amount: number;
   category: string;
   description: string;
+  items: ScannedReceiptItem[];
 }
 
 export function useReceiptScanner() {
@@ -39,8 +47,17 @@ export function useReceiptScanner() {
         return null;
       }
 
+      // Ensure items array exists
+      const result: ScannedReceiptData = {
+        merchant: data.merchant || "Inconnu",
+        amount: data.amount || 0,
+        category: data.category || "Shopping",
+        description: data.description || "Achat",
+        items: data.items || [],
+      };
+
       toast.success("Ticket analysé avec succès !");
-      return data as ScannedReceiptData;
+      return result;
     } catch (error) {
       console.error("Error scanning receipt:", error);
       toast.error(
