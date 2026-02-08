@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.suggest-budget]
 verify_jwt = false
+
+[functions.suggest-shopping-items]
+verify_jwt = false

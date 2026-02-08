@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useShoppingList } from '@/hooks/useShoppingList';
+import { useAISuggestions } from '@/hooks/useAISuggestions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +21,8 @@ import {
   X,
   Archive,
   History,
-  ChevronRight
+  ChevronRight,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -47,14 +49,32 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
     estimatedTotal,
   } = useShoppingList();
 
+  const {
+    aiSuggestions,
+    isLoadingAI,
+    fetchAISuggestions,
+    dismissSuggestion,
+  } = useAISuggestions();
+
   const [newItemName, setNewItemName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  const [aiSuggestionsOpen, setAiSuggestionsOpen] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState('1');
   const [editPrice, setEditPrice] = useState('0');
   const [showHistory, setShowHistory] = useState(false);
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
+
+  // Fetch AI suggestions when opening the sheet
+  useEffect(() => {
+    if (open && frequentItems.length > 0) {
+      fetchAISuggestions(
+        frequentItems,
+        items.map(i => ({ name: i.name }))
+      );
+    }
+  }, [open, frequentItems.length > 0]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,6 +253,63 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
                       </Badge>
                     ))}
                   </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* AI-powered suggestions */}
+            {(aiSuggestions.length > 0 || isLoadingAI) && (
+              <Collapsible open={aiSuggestionsOpen} onOpenChange={setAiSuggestionsOpen} className="mb-4">
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full">
+                  <Wand2 className="w-4 h-4 text-primary" />
+                  <span>Suggestions IA</span>
+                  {isLoadingAI && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
+                  <ChevronDown className={cn(
+                    "w-4 h-4 ml-auto transition-transform",
+                    aiSuggestionsOpen && "rotate-180"
+                  )} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  {isLoadingAI ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Analyse de vos habitudes...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {aiSuggestions.map((suggestion) => (
+                        <div
+                          key={suggestion.name}
+                          className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20"
+                        >
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => {
+                              handleAddSuggestion(suggestion.name, 0);
+                              dismissSuggestion(suggestion.name);
+                            }}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Ajouter
+                          </Button>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{suggestion.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{suggestion.reason}</p>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => dismissSuggestion(suggestion.name)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
             )}
