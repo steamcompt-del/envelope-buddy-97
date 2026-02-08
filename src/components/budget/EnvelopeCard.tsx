@@ -51,6 +51,14 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
   teal: { bg: 'bg-envelope-teal/15', text: 'text-envelope-teal', border: 'border-envelope-teal/30' },
 };
 
+// Get progress bar color based on percentage used (HSL values for semantic colors)
+function getProgressColorHsl(percentUsed: number, isOverspent: boolean): string {
+  if (isOverspent) return "hsl(0 84% 60%)"; // destructive red
+  if (percentUsed >= 80) return "hsl(25 95% 53%)"; // orange
+  if (percentUsed >= 50) return "hsl(45 93% 47%)"; // yellow
+  return "hsl(160 84% 45%)"; // green (success)
+}
+
 export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
@@ -59,6 +67,7 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
   const isOverspent = spent > allocated;
   
   const colorStyle = colorClasses[color] || colorClasses.blue;
+  const progressColor = getProgressColorHsl(percentUsed, isOverspent);
   
   return (
     <button
@@ -99,10 +108,8 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
       <div className="mt-3">
         <Progress 
           value={Math.min(percentUsed, 100)} 
-          className={cn(
-            "h-2",
-            isOverspent && "[&>div]:bg-destructive"
-          )}
+          className="h-2 [&>div]:transition-colors"
+          style={{ '--progress-color': progressColor } as React.CSSProperties}
         />
         {isOverspent && (
           <p className="text-xs text-destructive mt-1 font-medium">
