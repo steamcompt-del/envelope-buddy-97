@@ -275,7 +275,6 @@ export function EnvelopeDetailsDialog({
                     value={allocateAmount}
                     onChange={(e) => setAllocateAmount(e.target.value)}
                     className="pr-8 rounded-lg"
-                    autoFocus
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
                 </div>
@@ -322,7 +321,6 @@ export function EnvelopeDetailsDialog({
                                 value={editAmount}
                                 onChange={(e) => setEditAmount(e.target.value)}
                                 className="pr-6 h-8 text-sm rounded-lg"
-                                autoFocus
                               />
                               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">€</span>
                             </div>
