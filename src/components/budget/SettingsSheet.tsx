@@ -332,7 +332,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
             </h3>
             
             <p className="text-sm text-muted-foreground">
-              Démarrez un nouveau mois vide. Vous devrez créer de nouvelles enveloppes.
+              Démarrez un nouveau mois avec vos enveloppes vides (allocations et dépenses à zéro).
             </p>
             
             <Button
@@ -547,7 +547,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           <AlertDialogHeader>
             <AlertDialogTitle>Démarrer un nouveau mois ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cela va créer le mois de <strong>{nextMonthDisplay}</strong> vide, sans enveloppes ni allocations. 
+              Cela va créer le mois de <strong>{nextMonthDisplay}</strong> avec vos {envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''} vides (allocations et dépenses à zéro). 
               Le mois actuel ({monthDisplay}) restera accessible dans l'historique.
             </AlertDialogDescription>
           </AlertDialogHeader>
