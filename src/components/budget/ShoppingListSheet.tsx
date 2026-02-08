@@ -138,7 +138,11 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] sm:h-[70vh] sm:max-w-lg sm:mx-auto sm:rounded-t-xl rounded-t-xl flex flex-col">
+      <SheetContent 
+        side="bottom" 
+        className="h-[85vh] sm:h-[70vh] sm:max-w-lg sm:mx-auto sm:rounded-t-xl rounded-t-xl flex flex-col"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader className="text-left pb-4">
           <SheetTitle className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
