@@ -127,6 +127,23 @@ export async function leaveHousehold(userId: string, householdId: string): Promi
   if (error) throw error;
 }
 
+// Delete household (only for creator)
+export async function deleteHousehold(householdId: string): Promise<void> {
+  // First delete all members
+  await supabase
+    .from('household_members')
+    .delete()
+    .eq('household_id', householdId);
+
+  // Then delete the household
+  const { error } = await supabase
+    .from('households')
+    .delete()
+    .eq('id', householdId);
+
+  if (error) throw error;
+}
+
 // Update household name
 export async function updateHouseholdName(householdId: string, name: string): Promise<void> {
   const { error } = await supabase
