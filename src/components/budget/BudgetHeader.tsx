@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MonthSelector } from './MonthSelector';
+import { HouseholdSwitcher } from './HouseholdSwitcher';
 
 interface BudgetHeaderProps {
   onAllocate: () => void;
@@ -19,8 +20,9 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
   return (
     <header className="sticky top-0 z-40 glass-card border-b">
       <div className="container py-3 sm:py-4">
-        {/* Month selector row */}
-        <div className="flex items-center justify-center mb-3">
+        {/* Household switcher + Month selector row */}
+        <div className="flex items-center justify-between mb-3">
+          <HouseholdSwitcher />
           <MonthSelector />
         </div>
         
