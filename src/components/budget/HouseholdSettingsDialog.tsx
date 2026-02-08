@@ -20,8 +20,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Copy, RefreshCw, Users, Loader2, LogOut, Trash2 } from 'lucide-react';
+import { Copy, RefreshCw, Users, Loader2, LogOut, Trash2, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { HouseholdMembersDialog } from './HouseholdMembersDialog';
 
 // Simple household type for the dialog (doesn't need full Household)
 interface HouseholdInfo {
@@ -57,6 +58,7 @@ export function HouseholdSettingsDialog({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -207,7 +209,26 @@ export function HouseholdSettingsDialog({
 
             <Separator />
 
-            {/* Leave/Delete section */}
+            {/* Members section */}
+            <div className="space-y-4">
+              <Label>Membres</Label>
+              <p className="text-sm text-muted-foreground">
+                Consultez la liste des membres et leurs rôles.
+              </p>
+              <Button
+                variant="outline"
+                className="w-full justify-between gap-2"
+                onClick={() => setShowMembers(true)}
+              >
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Voir les membres
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </div>
+
+            <Separator />
             <div className="space-y-4">
               <Label className="text-destructive">Zone danger</Label>
               
@@ -288,6 +309,14 @@ export function HouseholdSettingsDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Household Members Dialog */}
+      <HouseholdMembersDialog
+        open={showMembers}
+        onOpenChange={setShowMembers}
+        householdId={household?.id || null}
+        creatorId={household?.created_by || null}
+      />
     </>
   );
 }

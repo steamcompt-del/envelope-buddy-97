@@ -42,11 +42,11 @@ export async function getUserHousehold(userId: string): Promise<Household | null
   return households.length > 0 ? households[0] : null;
 }
 
-// Get household members
-export async function getHouseholdMembers(householdId: string): Promise<HouseholdMember[]> {
+// Get household members with user details
+export async function getHouseholdMembersWithDetails(householdId: string): Promise<(HouseholdMember & { user_email?: string })[]> {
   const { data } = await supabase
     .from('household_members')
-    .select('*')
+    .select('*, profiles(display_name)')
     .eq('household_id', householdId);
 
   return data || [];
