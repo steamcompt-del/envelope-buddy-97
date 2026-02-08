@@ -74,7 +74,8 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
         items.map(i => ({ name: i.name }))
       );
     }
-  }, [open, frequentItems.length > 0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, frequentItems.length]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
