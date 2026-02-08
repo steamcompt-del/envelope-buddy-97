@@ -16,6 +16,8 @@ interface HouseholdSetupDialogProps {
   open: boolean;
   onCreateHousehold: (name: string) => Promise<void>;
   onJoinHousehold: (code: string) => Promise<void>;
+  onClose?: () => void;
+  isAdditional?: boolean;
 }
 
 type Mode = 'choose' | 'create' | 'join';
@@ -24,6 +26,8 @@ export function HouseholdSetupDialog({
   open,
   onCreateHousehold,
   onJoinHousehold,
+  onClose,
+  isAdditional = false,
 }: HouseholdSetupDialogProps) {
   const [mode, setMode] = useState<Mode>('choose');
   const [householdName, setHouseholdName] = useState('');
@@ -66,15 +70,24 @@ export function HouseholdSetupDialog({
     }
   };
 
+  const handleClose = () => {
+    setMode('choose');
+    setHouseholdName('');
+    setInviteCode('');
+    onClose?.();
+  };
+
   return (
-    <Dialog open={open}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose?.()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => !isAdditional && e.preventDefault()}>
         {mode === 'choose' && (
           <>
             <DialogHeader>
-              <DialogTitle>Configuration du budget</DialogTitle>
+              <DialogTitle>{isAdditional ? 'Ajouter un ménage' : 'Configuration du budget'}</DialogTitle>
               <DialogDescription>
-                Pour utiliser l'application, créez un nouveau ménage ou rejoignez un ménage existant avec un code d'invitation.
+                {isAdditional 
+                  ? 'Créez un nouveau ménage ou rejoignez un ménage existant.'
+                  : 'Pour utiliser l\'application, créez un nouveau ménage ou rejoignez un ménage existant avec un code d\'invitation.'}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">

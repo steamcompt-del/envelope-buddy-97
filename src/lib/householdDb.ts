@@ -16,23 +16,29 @@ export interface HouseholdMember {
   joined_at: string;
 }
 
-// Get the user's household
-export async function getUserHousehold(userId: string): Promise<Household | null> {
-  const { data: member } = await supabase
+// Get all user's households
+export async function getUserHouseholds(userId: string): Promise<Household[]> {
+  const { data: members } = await supabase
     .from('household_members')
     .select('household_id')
-    .eq('user_id', userId)
-    .single();
+    .eq('user_id', userId);
 
-  if (!member) return null;
+  if (!members || members.length === 0) return [];
 
-  const { data: household } = await supabase
+  const householdIds = members.map(m => m.household_id);
+  
+  const { data: households } = await supabase
     .from('households')
     .select('*')
-    .eq('id', member.household_id)
-    .single();
+    .in('id', householdIds);
 
-  return household;
+  return households || [];
+}
+
+// Get the user's primary household (first one, for backward compatibility)
+export async function getUserHousehold(userId: string): Promise<Household | null> {
+  const households = await getUserHouseholds(userId);
+  return households.length > 0 ? households[0] : null;
 }
 
 // Get household members

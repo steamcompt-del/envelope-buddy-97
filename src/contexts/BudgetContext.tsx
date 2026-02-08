@@ -71,6 +71,8 @@ interface BudgetContextType {
   householdLoading: boolean;
   needsHouseholdSetup: boolean;
   household: { id: string; name: string; invite_code: string } | null;
+  households: { id: string; name: string; invite_code: string }[];
+  switchHousehold: (householdId: string) => void;
   createHousehold: (name: string) => Promise<void>;
   joinHousehold: (code: string) => Promise<void>;
   updateHouseholdName: (name: string) => Promise<void>;
@@ -154,8 +156,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const {
     household,
+    households,
     loading: householdLoading,
     needsSetup: needsHouseholdSetup,
+    switchHousehold,
     create: createHouseholdFn,
     join: joinHouseholdFn,
     updateName: updateHouseholdNameFn,
@@ -570,6 +574,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     householdLoading,
     needsHouseholdSetup,
     household,
+    households,
+    switchHousehold,
     createHousehold,
     joinHousehold,
     updateHouseholdName,
