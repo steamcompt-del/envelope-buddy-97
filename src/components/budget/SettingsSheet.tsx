@@ -547,8 +547,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           <AlertDialogHeader>
             <AlertDialogTitle>Démarrer un nouveau mois ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Attention, cela va créer le mois de <strong>{nextMonthDisplay}</strong> et remettre toutes les dépenses à zéro. 
-              Vos enveloppes seront conservées mais leurs soldes seront réinitialisés. 
+              Cela va créer le mois de <strong>{nextMonthDisplay}</strong> vide, sans enveloppes ni allocations. 
               Le mois actuel ({monthDisplay}) restera accessible dans l'historique.
             </AlertDialogDescription>
           </AlertDialogHeader>
