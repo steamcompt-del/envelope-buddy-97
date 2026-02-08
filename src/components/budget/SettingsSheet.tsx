@@ -567,13 +567,13 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer toutes les données de {monthDisplay} ?</AlertDialogTitle>
             <AlertDialogDescription>
-              ⚠️ Cette action est irréversible. Cela supprimera :
+            ⚠️ Cette action est irréversible. Cela supprimera :
               <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Toutes les enveloppes ({envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''})</li>
                 <li>Toutes les dépenses du mois ({transactions.length} transaction{transactions.length !== 1 ? 's' : ''})</li>
                 <li>Tous les revenus du mois ({incomes.length} revenu{incomes.length !== 1 ? 's' : ''})</li>
                 <li>Toutes les allocations aux enveloppes</li>
               </ul>
-              <p className="mt-2 text-foreground font-medium">Les enveloppes elles-mêmes seront conservées.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
