@@ -4,7 +4,6 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -32,12 +31,6 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 300,
-        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {

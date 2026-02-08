@@ -51,16 +51,6 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
   teal: { bg: 'bg-envelope-teal/15', text: 'text-envelope-teal', border: 'border-envelope-teal/30' },
 };
 
-// Get progress bar color based on percentage used
-function getProgressColor(percent: number): string {
-  if (percent >= 100) return '[&>div]:bg-red-500';
-  if (percent >= 85) return '[&>div]:bg-orange-500';
-  if (percent >= 70) return '[&>div]:bg-amber-500';
-  if (percent >= 50) return '[&>div]:bg-yellow-500';
-  if (percent >= 30) return '[&>div]:bg-lime-500';
-  return '[&>div]:bg-green-500';
-}
-
 export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
@@ -69,7 +59,6 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
   const isOverspent = spent > allocated;
   
   const colorStyle = colorClasses[color] || colorClasses.blue;
-  const progressColor = getProgressColor(percentUsed);
   
   return (
     <button
@@ -110,7 +99,10 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
       <div className="mt-3">
         <Progress 
           value={Math.min(percentUsed, 100)} 
-          className={cn("h-2", progressColor)}
+          className={cn(
+            "h-2",
+            isOverspent && "[&>div]:bg-destructive"
+          )}
         />
         {isOverspent && (
           <p className="text-xs text-destructive mt-1 font-medium">
