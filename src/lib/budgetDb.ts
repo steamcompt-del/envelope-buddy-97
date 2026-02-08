@@ -1,5 +1,7 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getBackendClient } from '@/lib/backendClient';
 import { Envelope, Transaction, Income, MonthlyBudget } from '@/contexts/BudgetContext';
+
+const supabase = getBackendClient();
 
 // Database types
 interface DbEnvelope {
