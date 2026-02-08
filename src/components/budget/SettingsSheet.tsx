@@ -39,6 +39,7 @@ import {
   Repeat,
   Moon,
   Sun,
+  ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
@@ -52,9 +53,10 @@ interface SettingsSheetProps {
   onOpenSuggestions?: () => void;
   onOpenRecurring?: () => void;
   onOpenActivity?: () => void;
+  onOpenShoppingList?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions, onOpenRecurring, onOpenActivity }: SettingsSheetProps) {
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions, onOpenRecurring, onOpenActivity, onOpenShoppingList }: SettingsSheetProps) {
   const { 
     envelopes, 
     transactions, 
@@ -247,6 +249,30 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           
           <Separator />
           
+          {/* Shopping List */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Liste de courses
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Créez votre liste avec des suggestions basées sur vos achats.
+            </p>
+            
+            <Button
+              onClick={() => {
+                onOpenChange(false);
+                setTimeout(() => onOpenShoppingList?.(), 100);
+              }}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Liste de courses
+            </Button>
+          </div>
+          
+          <Separator />
           {/* Activity Log (only for households) */}
           {household && (
             <>
