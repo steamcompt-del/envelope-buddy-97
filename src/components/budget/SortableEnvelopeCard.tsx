@@ -39,11 +39,12 @@ export function SortableEnvelopeCard({ envelope, onClick }: SortableEnvelopeCard
         {...attributes}
         {...listeners}
         className={cn(
-          "absolute -left-2 top-1/2 -translate-y-1/2 z-10",
+          "absolute left-2 top-1/2 -translate-y-1/2 z-10",
           "w-8 h-10 flex items-center justify-center",
           "text-muted-foreground/50 hover:text-muted-foreground",
           "cursor-grab active:cursor-grabbing",
-          "opacity-0 group-hover:opacity-100 transition-opacity",
+          // On mobile (no hover), keep it non-intrusive; on desktop show on hover
+          "opacity-30 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity",
           "touch-none"
         )}
         aria-label="Réorganiser"
