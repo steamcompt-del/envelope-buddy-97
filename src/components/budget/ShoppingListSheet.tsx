@@ -14,7 +14,10 @@ import {
   Sparkles, 
   ChevronDown, 
   Loader2,
-  Package
+  Package,
+  Edit2,
+  Check,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +34,7 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
     addItem,
     toggleItem,
     removeItem,
+    updateItem,
     clearChecked,
     checkedCount,
     uncheckedCount,
@@ -40,6 +44,9 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
   const [newItemName, setNewItemName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQuantity, setEditQuantity] = useState('1');
+  const [editPrice, setEditPrice] = useState('0');
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +71,33 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
     } catch {
       // Error handled in hook
     }
+  };
+
+  const handleStartEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditQuantity(item.quantity.toString());
+    setEditPrice((item.estimatedPrice || 0).toString());
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+
+    try {
+      const quantity = Math.max(1, parseFloat(editQuantity) || 1);
+      const price = Math.max(0, parseFloat(editPrice) || 0);
+      
+      await updateItem(editingId, {
+        quantity,
+        estimatedPrice: price > 0 ? price : null,
+      });
+      setEditingId(null);
+    } catch {
+      // Error handled in hook
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
   };
 
   // Filter out suggestions that are already in the list
@@ -152,56 +186,117 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
                 <p className="text-sm mt-1">Ajoutez des articles ou utilisez les suggestions</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                      item.isChecked 
-                        ? "bg-muted/50 border-muted" 
-                        : "bg-card border-border hover:border-primary/30"
-                    )}
-                  >
-                    <Checkbox
-                      checked={item.isChecked}
-                      onCheckedChange={() => toggleItem(item.id)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "font-medium truncate",
-                        item.isChecked && "line-through text-muted-foreground"
-                      )}>
-                        {item.name}
-                      </p>
-                      {item.quantity > 1 && (
-                        <p className="text-xs text-muted-foreground">
-                          Quantité: {item.quantity}
-                        </p>
-                      )}
-                    </div>
-                    {item.estimatedPrice && (
-                      <span className={cn(
-                        "text-sm",
-                        item.isChecked ? "text-muted-foreground" : "text-primary"
-                      )}>
-                        ~{(item.estimatedPrice * item.quantity).toFixed(2)}€
-                      </span>
-                    )}
-                    {item.suggestedFromHistory && !item.isChecked && (
-                      <Sparkles className="w-3 h-3 text-primary/60" />
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeItem(item.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+               <div className="space-y-2">
+                 {items.map((item) => (
+                   <div
+                     key={item.id}
+                     className={cn(
+                       "p-3 rounded-lg border transition-all",
+                       item.isChecked 
+                         ? "bg-muted/50 border-muted" 
+                         : "bg-card border-border hover:border-primary/30"
+                     )}
+                   >
+                     {editingId === item.id ? (
+                       // Edit mode
+                       <div className="space-y-3">
+                         <p className="font-medium">{item.name}</p>
+                         <div className="grid grid-cols-2 gap-2">
+                           <div>
+                             <label className="text-xs text-muted-foreground mb-1 block">Quantité</label>
+                             <Input
+                               type="number"
+                               min="1"
+                               step="0.1"
+                               value={editQuantity}
+                               onChange={(e) => setEditQuantity(e.target.value)}
+                               className="h-8"
+                             />
+                           </div>
+                           <div>
+                             <label className="text-xs text-muted-foreground mb-1 block">Prix unitaire (€)</label>
+                             <Input
+                               type="number"
+                               min="0"
+                               step="0.01"
+                               value={editPrice}
+                               onChange={(e) => setEditPrice(e.target.value)}
+                               className="h-8"
+                             />
+                           </div>
+                         </div>
+                         <div className="flex gap-2">
+                           <Button
+                             size="sm"
+                             variant="default"
+                             className="flex-1 h-8"
+                             onClick={handleSaveEdit}
+                           >
+                             <Check className="w-3 h-3 mr-1" />
+                             Enregistrer
+                           </Button>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             className="flex-1 h-8"
+                             onClick={handleCancelEdit}
+                           >
+                             <X className="w-3 h-3 mr-1" />
+                             Annuler
+                           </Button>
+                         </div>
+                       </div>
+                     ) : (
+                       // View mode
+                       <div className="flex items-center gap-3">
+                         <Checkbox
+                           checked={item.isChecked}
+                           onCheckedChange={() => toggleItem(item.id)}
+                         />
+                         <div className="flex-1 min-w-0">
+                           <p className={cn(
+                             "font-medium truncate",
+                             item.isChecked && "line-through text-muted-foreground"
+                           )}>
+                             {item.name}
+                           </p>
+                           <p className="text-xs text-muted-foreground">
+                             Quantité: {item.quantity}
+                             {item.estimatedPrice && ` · ${item.estimatedPrice.toFixed(2)}€ l'unité`}
+                           </p>
+                         </div>
+                         {item.estimatedPrice && (
+                           <span className={cn(
+                             "text-sm font-medium whitespace-nowrap",
+                             item.isChecked ? "text-muted-foreground" : "text-primary"
+                           )}>
+                             ~{(item.estimatedPrice * item.quantity).toFixed(2)}€
+                           </span>
+                         )}
+                         {item.suggestedFromHistory && !item.isChecked && (
+                           <Sparkles className="w-3 h-3 text-primary/60" />
+                         )}
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8 text-muted-foreground hover:text-primary"
+                           onClick={() => handleStartEdit(item)}
+                         >
+                           <Edit2 className="w-4 h-4" />
+                         </Button>
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                           onClick={() => removeItem(item.id)}
+                         >
+                           <Trash2 className="w-4 h-4" />
+                         </Button>
+                       </div>
+                     )}
+                   </div>
+                 ))}
+               </div>
             )}
           </ScrollArea>
         )}
