@@ -20,6 +20,7 @@ import {
 import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
 import { ReceiptGallery } from './ReceiptGallery';
+import { SwipeableRow } from './SwipeableRow';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -396,63 +397,68 @@ export function EnvelopeDetailsDialog({
                         </div>
                       </div>
                     ) : (
-                      <div 
-                        className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors group"
-                        onClick={() => startEditTransaction(t)}
+                      <SwipeableRow
+                        onEdit={() => startEditTransaction(t)}
+                        onDelete={() => handleDeleteTransaction(t.id)}
                       >
-                        <div className="flex items-center gap-2">
-                          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          {(() => {
-                            const transactionReceipts = getReceiptsForTransaction(t.id);
-                            if (transactionReceipts.length > 0) {
+                        <div 
+                          className="flex items-center justify-between py-2 px-3 cursor-pointer hover:bg-muted transition-colors group"
+                          onClick={() => startEditTransaction(t)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block" />
+                            {(() => {
+                              const transactionReceipts = getReceiptsForTransaction(t.id);
+                              if (transactionReceipts.length > 0) {
+                                return (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const images: ReceiptImage[] = transactionReceipts.map(r => ({
+                                        id: r.id,
+                                        url: r.url,
+                                        fileName: r.fileName,
+                                      }));
+                                      setLightboxImages(images);
+                                      setLightboxIndex(0);
+                                      setLightboxOpen(true);
+                                    }}
+                                    className="relative flex-shrink-0 group/img"
+                                  >
+                                    <img 
+                                      src={transactionReceipts[0].url} 
+                                      alt="Ticket" 
+                                      className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
+                                    />
+                                    {transactionReceipts.length > 1 && (
+                                      <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center">
+                                        {transactionReceipts.length}
+                                      </span>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 rounded opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Expand className="w-3 h-3 text-white" />
+                                    </div>
+                                  </button>
+                                );
+                              }
                               return (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const images: ReceiptImage[] = transactionReceipts.map(r => ({
-                                      id: r.id,
-                                      url: r.url,
-                                      fileName: r.fileName,
-                                    }));
-                                    setLightboxImages(images);
-                                    setLightboxIndex(0);
-                                    setLightboxOpen(true);
-                                  }}
-                                  className="relative flex-shrink-0 group/img"
-                                >
-                                  <img 
-                                    src={transactionReceipts[0].url} 
-                                    alt="Ticket" 
-                                    className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
-                                  />
-                                  {transactionReceipts.length > 1 && (
-                                    <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center">
-                                      {transactionReceipts.length}
-                                    </span>
-                                  )}
-                                  <div className="absolute inset-0 bg-black/40 rounded opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Expand className="w-3 h-3 text-white" />
-                                  </div>
-                                </button>
+                                <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                                  <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
+                                </div>
                               );
-                            }
-                            return (
-                              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                                <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
-                              </div>
-                            );
-                          })()}
-                          <div>
-                            <p className="text-sm font-medium">{t.merchant || t.description}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(t.date).toLocaleDateString('fr-FR')}
-                            </p>
+                            })()}
+                            <div>
+                              <p className="text-sm font-medium">{t.merchant || t.description}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(t.date).toLocaleDateString('fr-FR')}
+                              </p>
+                            </div>
                           </div>
+                          <span className="font-medium text-destructive">
+                            -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </span>
                         </div>
-                        <span className="font-medium text-destructive">
-                          -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                        </span>
-                      </div>
+                      </SwipeableRow>
                     )}
                   </div>
                 ))}
