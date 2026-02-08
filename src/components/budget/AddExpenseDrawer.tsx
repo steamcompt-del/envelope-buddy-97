@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAI } from '@/hooks/useAI';
 import { useReceiptScanner } from '@/hooks/useReceiptScanner';
 import { uploadReceipt } from '@/lib/receiptStorage';
+import { addReceiptDb } from '@/lib/receiptsDb';
 import {
   Drawer,
   DrawerContent,
@@ -20,9 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Camera, Loader2, Receipt, Sparkles, X, ImageIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Loader2, Receipt, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { MultiReceiptUploader, PendingReceipt } from './MultiReceiptUploader';
 
 interface AddExpenseDrawerProps {
   open: boolean;
@@ -35,7 +37,8 @@ export function AddExpenseDrawer({
   onOpenChange,
   preselectedEnvelopeId 
 }: AddExpenseDrawerProps) {
-  const { envelopes, addTransaction, updateTransaction } = useBudget();
+  const { envelopes, addTransaction } = useBudget();
+  const { user } = useAuth();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
   const { scanReceipt, isScanning } = useReceiptScanner();
   
@@ -44,10 +47,8 @@ export function AddExpenseDrawer({
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [isCategorizing, setIsCategorizing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingReceipts, setPendingReceipts] = useState<PendingReceipt[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Auto-categorize when description changes (debounced)
   useEffect(() => {
@@ -66,23 +67,21 @@ export function AddExpenseDrawer({
     return () => clearTimeout(timer);
   }, [description, envelopes, selectedEnvelope, categorizeExpense]);
   
-  // Clean up preview URL on unmount
+  // Clean up preview URLs on unmount
   useEffect(() => {
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      pendingReceipts.forEach(r => URL.revokeObjectURL(r.previewUrl));
     };
-  }, [previewUrl]);
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
-    if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope || !user) return;
     
     try {
-      // First create the transaction without receipt
+      // First create the transaction
       const result = await addTransaction(
         selectedEnvelope, 
         parsedAmount, 
@@ -90,20 +89,26 @@ export function AddExpenseDrawer({
         merchant || undefined
       );
       
-      // Then upload receipt if one was selected
-      if (selectedFile && result.transactionId) {
+      // Then upload all receipts
+      if (pendingReceipts.length > 0 && result.transactionId) {
         setIsUploading(true);
         try {
-          const uploadResult = await uploadReceipt(selectedFile, result.transactionId);
-          // Update transaction with receipt URL
-          await updateTransaction(result.transactionId, {
-            receiptUrl: uploadResult.url,
-            receiptPath: uploadResult.path,
-          });
-          toast.success('Ticket sauvegardé !');
+          for (let i = 0; i < pendingReceipts.length; i++) {
+            const receipt = pendingReceipts[i];
+            const uploadResult = await uploadReceipt(receipt.file, `${result.transactionId}_${i}`);
+            // Save receipt to database
+            await addReceiptDb(
+              user.id,
+              result.transactionId,
+              uploadResult.url,
+              uploadResult.path,
+              receipt.file.name
+            );
+          }
+          toast.success(`${pendingReceipts.length} ticket${pendingReceipts.length > 1 ? 's' : ''} sauvegardé${pendingReceipts.length > 1 ? 's' : ''} !`);
         } catch (error) {
-          console.error('Failed to upload receipt:', error);
-          toast.error('Erreur lors de la sauvegarde du ticket');
+          console.error('Failed to upload receipts:', error);
+          toast.error('Erreur lors de la sauvegarde des tickets');
         } finally {
           setIsUploading(false);
         }
@@ -135,32 +140,30 @@ export function AddExpenseDrawer({
     setDescription('');
     setMerchant('');
     setSelectedEnvelope('');
-    setSelectedFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
+    pendingReceipts.forEach(r => URL.revokeObjectURL(r.previewUrl));
+    setPendingReceipts([]);
   };
   
-  const handleScanClick = () => {
-    fileInputRef.current?.click();
-  };
-  
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Store the file for later upload
-    setSelectedFile(file);
-    
-    // Create preview URL
-    const url = URL.createObjectURL(file);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(url);
-    
-    // Scan the receipt with AI
+  const handleAddReceipts = useCallback((files: File[]) => {
+    const newReceipts: PendingReceipt[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setPendingReceipts((prev) => [...prev, ...newReceipts]);
+  }, []);
+
+  const handleRemoveReceipt = useCallback((id: string) => {
+    setPendingReceipts((prev) => {
+      const receipt = prev.find((r) => r.id === id);
+      if (receipt) {
+        URL.revokeObjectURL(receipt.previewUrl);
+      }
+      return prev.filter((r) => r.id !== id);
+    });
+  }, []);
+
+  const handleScanReceipt = useCallback(async (file: File) => {
     const scannedData = await scanReceipt(file);
     
     if (scannedData) {
@@ -177,20 +180,7 @@ export function AddExpenseDrawer({
         setSelectedEnvelope(matchingEnvelope.id);
       }
     }
-    
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-  
-  const handleRemoveImage = () => {
-    setSelectedFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-  };
+  }, [scanReceipt, envelopes]);
   
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -211,62 +201,17 @@ export function AddExpenseDrawer({
           </DrawerHeader>
           
           <div className="p-4 pb-8">
-            {/* Hidden file input for receipt scanning */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            
-            {/* Preview image or scan button */}
-            {previewUrl ? (
-              <div className="relative mb-4 rounded-xl overflow-hidden border border-border">
-                <img 
-                  src={previewUrl} 
-                  alt="Ticket de caisse" 
-                  className="w-full h-40 object-cover"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 h-8 w-8 rounded-full"
-                  onClick={handleRemoveImage}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-                <div className="absolute bottom-2 left-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-lg text-xs flex items-center gap-1">
-                  <ImageIcon className="w-3 h-3" />
-                  Ticket attaché
-                </div>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleScanClick}
-                disabled={isScanning}
-                className={cn(
-                  "w-full mb-4 rounded-xl h-14 border-dashed",
-                  isScanning && "bg-muted"
-                )}
-              >
-                {isScanning ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Analyse IA en cours...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-5 h-5 mr-2" />
-                    Scanner un ticket (Image)
-                  </>
-                )}
-              </Button>
-            )}
+            {/* Multi-receipt uploader */}
+            <div className="mb-4">
+              <MultiReceiptUploader
+                pendingReceipts={pendingReceipts}
+                onAddReceipts={handleAddReceipts}
+                onRemoveReceipt={handleRemoveReceipt}
+                onScanReceipt={handleScanReceipt}
+                isScanning={isScanning}
+                disabled={isUploading}
+              />
+            </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

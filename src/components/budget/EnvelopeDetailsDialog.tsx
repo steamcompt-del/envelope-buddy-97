@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useBudget, Envelope, Transaction } from '@/contexts/BudgetContext';
+import { useTransactionsReceipts } from '@/hooks/useReceipts';
 import {
   Dialog,
   DialogContent,
@@ -14,9 +15,10 @@ import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Upload
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Upload, Expand
 } from 'lucide-react';
 import { ComponentType } from 'react';
+import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -71,19 +73,32 @@ export function EnvelopeDetailsDialog({
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  
   const envelope = envelopes.find(e => e.id === envelopeId);
+  
+  // Get recent transactions for this envelope
+  const envelopeTransactions = useMemo(() => {
+    if (!envelope) return [];
+    return transactions
+      .filter(t => t.envelopeId === envelopeId)
+      .slice(-5)
+      .reverse();
+  }, [transactions, envelopeId, envelope]);
+  
+  // Fetch receipts for all visible transactions
+  const transactionIds = useMemo(() => envelopeTransactions.map(t => t.id), [envelopeTransactions]);
+  const { getReceiptsForTransaction, refresh: refreshReceipts } = useTransactionsReceipts(transactionIds);
+  
   if (!envelope) return null;
   
   const remaining = envelope.allocated - envelope.spent;
   const percentUsed = envelope.allocated > 0 ? (envelope.spent / envelope.allocated) * 100 : 0;
   const isOverspent = envelope.spent > envelope.allocated;
   const colorStyle = colorClasses[envelope.color] || colorClasses.blue;
-  
-  // Get recent transactions for this envelope
-  const envelopeTransactions = transactions
-    .filter(t => t.envelopeId === envelopeId)
-    .slice(-5)
-    .reverse();
   
   const handleAllocate = async () => {
     const parsedAmount = parseFloat(allocateAmount.replace(',', '.'));
@@ -465,26 +480,46 @@ export function EnvelopeDetailsDialog({
                       >
                         <div className="flex items-center gap-2">
                           <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          {t.receiptUrl && (
-                            <a 
-                              href={t.receiptUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex-shrink-0"
-                            >
-                              <img 
-                                src={t.receiptUrl} 
-                                alt="Ticket" 
-                                className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
-                              />
-                            </a>
-                          )}
-                          {!t.receiptUrl && (
-                            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                              <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
-                            </div>
-                          )}
+                          {(() => {
+                            const transactionReceipts = getReceiptsForTransaction(t.id);
+                            if (transactionReceipts.length > 0) {
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const images: ReceiptImage[] = transactionReceipts.map(r => ({
+                                      id: r.id,
+                                      url: r.url,
+                                      fileName: r.fileName,
+                                    }));
+                                    setLightboxImages(images);
+                                    setLightboxIndex(0);
+                                    setLightboxOpen(true);
+                                  }}
+                                  className="relative flex-shrink-0 group/img"
+                                >
+                                  <img 
+                                    src={transactionReceipts[0].url} 
+                                    alt="Ticket" 
+                                    className="w-8 h-8 object-cover rounded border border-border hover:opacity-80 transition-opacity"
+                                  />
+                                  {transactionReceipts.length > 1 && (
+                                    <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center">
+                                      {transactionReceipts.length}
+                                    </span>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/40 rounded opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Expand className="w-3 h-3 text-white" />
+                                  </div>
+                                </button>
+                              );
+                            }
+                            return (
+                              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                                <ImageIcon className="w-4 h-4 text-muted-foreground/50" />
+                              </div>
+                            );
+                          })()}
                           <div>
                             <p className="text-sm font-medium">{t.merchant || t.description}</p>
                             <p className="text-xs text-muted-foreground">
@@ -521,6 +556,14 @@ export function EnvelopeDetailsDialog({
             </Button>
           </div>
         </div>
+        
+        {/* Lightbox for viewing receipts */}
+        <ReceiptLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
       </DialogContent>
     </Dialog>
   );
