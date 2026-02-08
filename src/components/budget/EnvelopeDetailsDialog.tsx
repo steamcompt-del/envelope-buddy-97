@@ -21,6 +21,7 @@ import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
 import { ReceiptGallery } from './ReceiptGallery';
 import { SwipeableRow } from './SwipeableRow';
+import { TransactionNotesField } from './TransactionNotesField';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ export function EnvelopeDetailsDialog({
   const [editAmount, setEditAmount] = useState('');
   const [editMerchant, setEditMerchant] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editNotes, setEditNotes] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
@@ -154,6 +156,7 @@ export function EnvelopeDetailsDialog({
     setEditAmount(t.amount.toString().replace('.', ','));
     setEditMerchant(t.merchant || '');
     setEditDescription(t.description);
+    setEditNotes(t.notes || '');
   };
   
   const cancelEditTransaction = () => {
@@ -161,6 +164,7 @@ export function EnvelopeDetailsDialog({
     setEditAmount('');
     setEditMerchant('');
     setEditDescription('');
+    setEditNotes('');
   };
   
   const saveEditTransaction = async (id: string) => {
@@ -171,6 +175,7 @@ export function EnvelopeDetailsDialog({
       amount: parsedAmount,
       merchant: editMerchant || undefined,
       description: editDescription || 'Dépense',
+      notes: editNotes || undefined,
     });
     cancelEditTransaction();
   };
@@ -348,6 +353,12 @@ export function EnvelopeDetailsDialog({
                           />
                         </div>
                         
+                        <TransactionNotesField
+                          notes={editNotes}
+                          onSave={setEditNotes}
+                          isEditing
+                        />
+                        
                         <div className="space-y-2">
                           <Label className="text-xs">Tickets</Label>
                           <ReceiptGallery
@@ -447,11 +458,12 @@ export function EnvelopeDetailsDialog({
                                 </div>
                               );
                             })()}
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium">{t.merchant || t.description}</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(t.date).toLocaleDateString('fr-FR')}
                               </p>
+                              <TransactionNotesField notes={t.notes} onSave={() => {}} compact />
                             </div>
                           </div>
                           <span className="font-medium text-destructive">

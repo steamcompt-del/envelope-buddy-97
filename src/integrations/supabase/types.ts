@@ -415,6 +415,7 @@ export type Database = {
           household_id: string | null
           id: string
           merchant: string | null
+          notes: string | null
           receipt_path: string | null
           receipt_url: string | null
           user_id: string
@@ -428,6 +429,7 @@ export type Database = {
           household_id?: string | null
           id?: string
           merchant?: string | null
+          notes?: string | null
           receipt_path?: string | null
           receipt_url?: string | null
           user_id: string
@@ -441,6 +443,7 @@ export type Database = {
           household_id?: string | null
           id?: string
           merchant?: string | null
+          notes?: string | null
           receipt_path?: string | null
           receipt_url?: string | null
           user_id?: string
