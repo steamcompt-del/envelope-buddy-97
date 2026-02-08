@@ -692,7 +692,7 @@ export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, t
   }
 }
 
-// Start new month
+// Start new month (without copying allocations from previous month)
 export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<string> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -713,38 +713,13 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: existing } = await existsQuery.single();
 
   if (!existing) {
+    // Just create an empty monthly budget - no allocation copying
     await supabase.from('monthly_budgets').insert({
       user_id: ctx.userId,
       household_id: ctx.householdId || null,
       month_key: nextMonthKey,
       to_be_budgeted: 0,
     });
-
-    let allocQuery = supabase
-      .from('envelope_allocations')
-      .select('envelope_id, allocated')
-      .eq('month_key', currentMonthKey);
-
-    if (ctx.householdId) {
-      allocQuery = allocQuery.eq('household_id', ctx.householdId);
-    } else {
-      allocQuery = allocQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-
-    const { data: currentAllocations } = await allocQuery;
-
-    if (currentAllocations && currentAllocations.length > 0) {
-      const newAllocations = currentAllocations.map(a => ({
-        user_id: ctx.userId,
-        household_id: ctx.householdId || null,
-        envelope_id: a.envelope_id,
-        month_key: nextMonthKey,
-        allocated: a.allocated,
-        spent: 0,
-      }));
-
-      await supabase.from('envelope_allocations').insert(newAllocations);
-    }
   }
 
   return nextMonthKey;
