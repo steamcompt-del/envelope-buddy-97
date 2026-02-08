@@ -89,9 +89,15 @@ export function useReceipts(transactionId?: string) {
 export function useTransactionsReceipts(transactionIds: string[]) {
   const [receiptsMap, setReceiptsMap] = useState<Map<string, Receipt[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Stable string key for dependency tracking
+  const idsKey = transactionIds.join(',');
 
   const fetchAll = useCallback(async () => {
-    if (transactionIds.length === 0) return;
+    if (transactionIds.length === 0) {
+      setReceiptsMap(new Map());
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -102,7 +108,8 @@ export function useTransactionsReceipts(transactionIds: string[]) {
     } finally {
       setIsLoading(false);
     }
-  }, [transactionIds.join(',')]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey]);
 
   useEffect(() => {
     fetchAll();
