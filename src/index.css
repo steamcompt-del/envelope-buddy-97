@@ -171,3 +171,71 @@
     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 }
+
+/* Mobile keyboard scroll fix */
+@supports (height: 100dvh) {
+  html, body {
+    height: 100dvh;
+  }
+}
+
+/* Prevent scroll jump when mobile keyboard opens */
+html {
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+
+/* Fix for iOS Safari rubber band effect and scroll on input focus */
+@supports (-webkit-touch-callout: none) {
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent body scroll when modal/dialog is open */
+  body[data-scroll-locked] {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+  }
+}
+
+/* Prevent input zoom on iOS (font-size 16px minimum) */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[inputmode="decimal"],
+  input[inputmode="numeric"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Dialog/Drawer scroll fix on mobile - prevent parent scroll */
+[data-radix-dialog-overlay],
+[data-radix-popper-content-wrapper],
+[data-vaul-overlay] {
+  overscroll-behavior: contain;
+}
+
+[data-radix-dialog-content],
+[data-vaul-drawer] {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent focus scroll jump */
+input:focus,
+textarea:focus,
+select:focus {
+  scroll-margin-top: 100px;
+  scroll-margin-bottom: 100px;
+}
