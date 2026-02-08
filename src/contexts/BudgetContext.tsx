@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/hooks/useHousehold';
+import { supabase } from '@/integrations/supabase/client';
 import {
   fetchMonthData,
   fetchAvailableMonths,
@@ -227,6 +228,69 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     setMonths({});
     setAvailableMonths([]);
   }, [household?.id]);
+
+  // Realtime subscriptions for live updates
+  useEffect(() => {
+    if (!household?.id) return;
+
+    const channel = supabase
+      .channel(`budget-${household.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'monthly_budgets',
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => loadMonthData(false)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'envelopes',
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => loadMonthData(false)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'envelope_allocations',
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => loadMonthData(false)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => loadMonthData(false)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'incomes',
+          filter: `household_id=eq.${household.id}`,
+        },
+        () => loadMonthData(false)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [household?.id, loadMonthData]);
 
   // Get current month data
   const currentMonth = months[currentMonthKey] || createEmptyMonth(currentMonthKey);
