@@ -10,6 +10,7 @@ import {
   createEnvelopeDb,
   updateEnvelopeDb,
   deleteEnvelopeDb,
+  reorderEnvelopesDb,
   allocateToEnvelopeDb,
   deallocateFromEnvelopeDb,
   transferBetweenEnvelopesDb,
@@ -85,6 +86,7 @@ interface BudgetContextType {
   createEnvelope: (name: string, icon: string, color: string) => Promise<void>;
   updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => Promise<void>;
   deleteEnvelope: (id: string) => Promise<void>;
+  reorderEnvelopes: (orderedIds: string[]) => Promise<void>;
   allocateToEnvelope: (envelopeId: string, amount: number) => Promise<void>;
   deallocateFromEnvelope: (envelopeId: string, amount: number) => Promise<void>;
   transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => Promise<void>;
@@ -248,6 +250,31 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     await loadMonthData();
   }, [user, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
+  const reorderEnvelopes = useCallback(async (orderedIds: string[]) => {
+    if (!user) return;
+    
+    // Optimistic update for smooth UX
+    setMonths(prev => {
+      const current = prev[currentMonthKey];
+      if (!current) return prev;
+      
+      const reordered = orderedIds
+        .map(id => current.envelopes.find(e => e.id === id))
+        .filter((e): e is Envelope => e !== undefined);
+      
+      return {
+        ...prev,
+        [currentMonthKey]: {
+          ...current,
+          envelopes: reordered,
+        },
+      };
+    });
+    
+    // Persist to database
+    await reorderEnvelopesDb(user.id, orderedIds);
+  }, [user, currentMonthKey]);
+
   const allocateToEnvelope = useCallback(async (envelopeId: string, amount: number) => {
     if (!user || amount > currentMonth.toBeBudgeted) return;
     await allocateToEnvelopeDb(user.id, currentMonthKey, envelopeId, amount);
@@ -391,6 +418,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     createEnvelope,
     updateEnvelope,
     deleteEnvelope,
+    reorderEnvelopes,
     allocateToEnvelope,
     deallocateFromEnvelope,
     transferBetweenEnvelopes,

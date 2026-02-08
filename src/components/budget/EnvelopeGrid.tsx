@@ -1,5 +1,21 @@
+import { useCallback } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
 import { useBudget } from '@/contexts/BudgetContext';
-import { EnvelopeCard } from './EnvelopeCard';
+import { SortableEnvelopeCard } from './SortableEnvelopeCard';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet } from 'lucide-react';
 
@@ -9,7 +25,30 @@ interface EnvelopeGridProps {
 }
 
 export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGridProps) {
-  const { envelopes } = useBudget();
+  const { envelopes, reorderEnvelopes } = useBudget();
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = envelopes.findIndex((e) => e.id === active.id);
+      const newIndex = envelopes.findIndex((e) => e.id === over.id);
+      
+      const newOrder = arrayMove(envelopes, oldIndex, newIndex);
+      reorderEnvelopes(newOrder.map(e => e.id));
+    }
+  }, [envelopes, reorderEnvelopes]);
   
   if (envelopes.length === 0) {
     return (
@@ -30,27 +69,36 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
   }
   
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {envelopes.map((envelope, index) => (
-        <div 
-          key={envelope.id} 
-          className="animate-fade-in"
-          style={{ animationDelay: `${index * 50}ms` }}
-        >
-          <EnvelopeCard
-            envelope={envelope}
-            onClick={() => onEnvelopeClick(envelope.id)}
-          />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={envelopes.map(e => e.id)} strategy={rectSortingStrategy}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {envelopes.map((envelope, index) => (
+            <div 
+              key={envelope.id} 
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <SortableEnvelopeCard
+                envelope={envelope}
+                onClick={() => onEnvelopeClick(envelope.id)}
+              />
+            </div>
+          ))}
+          
+          <button
+            onClick={onCreateEnvelope}
+            className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 min-h-[120px]"
+          >
+            <Plus className="w-8 h-8 text-muted-foreground mb-2" />
+            <span className="text-sm text-muted-foreground">Nouvelle enveloppe</span>
+          </button>
         </div>
-      ))}
-      
-      <button
-        onClick={onCreateEnvelope}
-        className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 min-h-[120px]"
-      >
-        <Plus className="w-8 h-8 text-muted-foreground mb-2" />
-        <span className="text-sm text-muted-foreground">Nouvelle enveloppe</span>
-      </button>
-    </div>
+      </SortableContext>
+    </DndContext>
   );
 }
+
