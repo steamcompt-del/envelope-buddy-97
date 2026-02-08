@@ -1,4 +1,4 @@
-import { Plus, Receipt, Camera } from 'lucide-react';
+import { Plus, Receipt, Camera, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,9 +10,10 @@ import {
 interface FabButtonProps {
   onAddExpense: () => void;
   onScanReceipt: () => void;
+  onOpenShoppingList?: () => void;
 }
 
-export function FabButton({ onAddExpense, onScanReceipt }: FabButtonProps) {
+export function FabButton({ onAddExpense, onScanReceipt, onOpenShoppingList }: FabButtonProps) {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <DropdownMenu>
@@ -39,6 +40,15 @@ export function FabButton({ onAddExpense, onScanReceipt }: FabButtonProps) {
             <Camera className="w-5 h-5" />
             <span>Scanner Ticket</span>
           </DropdownMenuItem>
+          {onOpenShoppingList && (
+            <DropdownMenuItem
+              onClick={onOpenShoppingList}
+              className="gap-3 py-3 cursor-pointer"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              <span>Liste de courses</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

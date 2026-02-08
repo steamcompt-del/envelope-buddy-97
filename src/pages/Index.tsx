@@ -171,6 +171,7 @@ export default function Index() {
       <FabButton
         onAddExpense={() => setExpenseOpen(true)}
         onScanReceipt={handleFabScan}
+        onOpenShoppingList={() => setShoppingListOpen(true)}
       />
       
       {/* Hidden file input for FAB scan */}
