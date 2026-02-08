@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { useBudget, Envelope, Transaction } from '@/contexts/BudgetContext';
-import { useTransactionsReceipts } from '@/hooks/useReceipts';
+import { useTransactionsReceipts, useReceipts } from '@/hooks/useReceipts';
 import {
   Dialog,
   DialogContent,
@@ -15,10 +15,11 @@ import { cn } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Upload, Expand
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Expand
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
+import { ReceiptGallery } from './ReceiptGallery';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -28,7 +29,6 @@ interface EnvelopeDetailsDialogProps {
   onAddExpense: () => void;
 }
 
-// Icon mapping for type safety
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
@@ -40,7 +40,6 @@ function DynamicIcon({ name, className }: { name: string; className?: string }) 
   return <Icon className={className} />;
 }
 
-// Color mapping
 const colorClasses: Record<string, { bg: string; text: string }> = {
   blue: { bg: 'bg-envelope-blue/15', text: 'text-envelope-blue' },
   green: { bg: 'bg-envelope-green/15', text: 'text-envelope-green' },
@@ -60,6 +59,7 @@ export function EnvelopeDetailsDialog({
   onAddExpense
 }: EnvelopeDetailsDialogProps) {
   const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateTransaction, deleteTransaction } = useBudget();
+  
   const [allocateAmount, setAllocateAmount] = useState('');
   const [showAllocate, setShowAllocate] = useState(false);
   const [allocateMode, setAllocateMode] = useState<'add' | 'remove'>('add');
@@ -67,20 +67,15 @@ export function EnvelopeDetailsDialog({
   const [editAmount, setEditAmount] = useState('');
   const [editMerchant, setEditMerchant] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editReceiptUrl, setEditReceiptUrl] = useState<string | null>(null);
-  const [editReceiptPath, setEditReceiptPath] = useState<string | null>(null);
-  const [editReceiptPreview, setEditReceiptPreview] = useState<string | null>(null);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
-  const receiptInputRef = useRef<HTMLInputElement>(null);
-  
-  // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   
+  // ALL HOOKS MUST BE BEFORE EARLY RETURN
   const envelope = envelopes.find(e => e.id === envelopeId);
   
-  // Get recent transactions for this envelope
   const envelopeTransactions = useMemo(() => {
     if (!envelope) return [];
     return transactions
@@ -89,17 +84,47 @@ export function EnvelopeDetailsDialog({
       .reverse();
   }, [transactions, envelopeId, envelope]);
   
-  // Fetch receipts for all visible transactions
   const transactionIds = useMemo(() => envelopeTransactions.map(t => t.id), [envelopeTransactions]);
-  const { getReceiptsForTransaction, refresh: refreshReceipts } = useTransactionsReceipts(transactionIds);
+  const { getReceiptsForTransaction } = useTransactionsReceipts(transactionIds);
   
+  const { 
+    receipts: editTransactionReceipts, 
+    addReceipt, 
+    removeReceipt,
+    isLoading: isLoadingReceipts 
+  } = useReceipts(editingTransaction || undefined);
+  
+  const handleAddReceiptToTransaction = useCallback(async () => {
+    receiptInputRef.current?.click();
+  }, []);
+
+  const handleReceiptFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsUploadingReceipt(true);
+    try {
+      for (const file of files) {
+        await addReceipt(file);
+      }
+    } catch (error) {
+      console.error('Error adding receipt:', error);
+    } finally {
+      setIsUploadingReceipt(false);
+      if (receiptInputRef.current) {
+        receiptInputRef.current.value = '';
+      }
+    }
+  }, [addReceipt]);
+
+  // NOW WE CAN CHECK IF ENVELOPE EXISTS
   if (!envelope) return null;
   
   const remaining = envelope.allocated - envelope.spent;
   const percentUsed = envelope.allocated > 0 ? (envelope.spent / envelope.allocated) * 100 : 0;
   const isOverspent = envelope.spent > envelope.allocated;
   const colorStyle = colorClasses[envelope.color] || colorClasses.blue;
-  
+
   const handleAllocate = async () => {
     const parsedAmount = parseFloat(allocateAmount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
@@ -128,9 +153,6 @@ export function EnvelopeDetailsDialog({
     setEditAmount(t.amount.toString().replace('.', ','));
     setEditMerchant(t.merchant || '');
     setEditDescription(t.description);
-    setEditReceiptUrl(t.receiptUrl || null);
-    setEditReceiptPath(t.receiptPath || null);
-    setEditReceiptPreview(null);
   };
   
   const cancelEditTransaction = () => {
@@ -138,9 +160,6 @@ export function EnvelopeDetailsDialog({
     setEditAmount('');
     setEditMerchant('');
     setEditDescription('');
-    setEditReceiptUrl(null);
-    setEditReceiptPath(null);
-    setEditReceiptPreview(null);
   };
   
   const saveEditTransaction = async (id: string) => {
@@ -151,8 +170,6 @@ export function EnvelopeDetailsDialog({
       amount: parsedAmount,
       merchant: editMerchant || undefined,
       description: editDescription || 'Dépense',
-      receiptUrl: editReceiptUrl || undefined,
-      receiptPath: editReceiptPath || undefined,
     });
     cancelEditTransaction();
   };
@@ -162,67 +179,10 @@ export function EnvelopeDetailsDialog({
       await deleteTransaction(id);
     }
   };
-
-  const handleReceiptChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Create preview
-    const url = URL.createObjectURL(file);
-    setEditReceiptPreview(url);
-
-    // Upload the new receipt
-    setIsUploadingReceipt(true);
-    try {
-      const { uploadReceipt, deleteReceipt } = await import('@/lib/receiptStorage');
-      
-      // Delete old receipt if exists
-      if (editReceiptPath) {
-        try {
-          await deleteReceipt(editReceiptPath);
-        } catch (error) {
-          console.error('Failed to delete old receipt:', error);
-        }
-      }
-
-      // Upload new receipt
-      const uploadResult = await uploadReceipt(file, editingTransaction || 'temp');
-      setEditReceiptUrl(uploadResult.url);
-      setEditReceiptPath(uploadResult.path);
-    } catch (error) {
-      console.error('Error uploading receipt:', error);
-      const { toast } = await import('sonner');
-      toast.error('Erreur lors de l\'upload du ticket');
-      setEditReceiptPreview(null);
-    } finally {
-      setIsUploadingReceipt(false);
-      if (receiptInputRef.current) {
-        receiptInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleRemoveReceipt = async () => {
-    if (!editReceiptPath) return;
-    
-    if (confirm('Supprimer le ticket de caisse ?')) {
-      try {
-        const { deleteReceipt } = await import('@/lib/receiptStorage');
-        await deleteReceipt(editReceiptPath);
-        setEditReceiptUrl(null);
-        setEditReceiptPath(null);
-        setEditReceiptPreview(null);
-      } catch (error) {
-        console.error('Error deleting receipt:', error);
-        const { toast } = await import('sonner');
-        toast.error('Erreur lors de la suppression du ticket');
-      }
-    }
-  };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
+      <DialogContent className="sm:max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -241,7 +201,6 @@ export function EnvelopeDetailsDialog({
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* Balance display */}
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground mb-1">Restant</p>
             <p className={cn(
@@ -252,7 +211,6 @@ export function EnvelopeDetailsDialog({
             </p>
           </div>
           
-          {/* Progress bar */}
           <div>
             <Progress 
               value={Math.min(percentUsed, 100)} 
@@ -269,7 +227,6 @@ export function EnvelopeDetailsDialog({
             </div>
           </div>
           
-          {/* Quick actions */}
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
@@ -301,7 +258,6 @@ export function EnvelopeDetailsDialog({
             </Button>
           </div>
           
-          {/* Allocate/Deallocate form */}
           {showAllocate && (
             <div className="p-3 bg-muted rounded-xl space-y-3">
               <Label>
@@ -348,7 +304,6 @@ export function EnvelopeDetailsDialog({
             </div>
           )}
           
-          {/* Recent transactions */}
           {envelopeTransactions.length > 0 && (
             <div className="space-y-2">
               <Label className="text-muted-foreground">Transactions récentes</Label>
@@ -394,57 +349,26 @@ export function EnvelopeDetailsDialog({
                           />
                         </div>
                         
-                        {/* Receipt management */}
+                        <div className="space-y-2">
+                          <Label className="text-xs">Tickets</Label>
+                          <ReceiptGallery
+                            receipts={editTransactionReceipts}
+                            onAdd={handleAddReceiptToTransaction}
+                            onDelete={removeReceipt}
+                            canEdit
+                            isAdding={isUploadingReceipt}
+                            isDeleting={isLoadingReceipts}
+                          />
+                        </div>
+                        
                         <input
                           ref={receiptInputRef}
                           type="file"
                           accept="image/*"
-                          onChange={handleReceiptChange}
+                          multiple
+                          onChange={handleReceiptFileChange}
                           className="hidden"
                         />
-                        <div className="space-y-2">
-                          {(editReceiptUrl || editReceiptPreview) && (
-                            <div className="relative rounded border border-border overflow-hidden">
-                              <img 
-                                src={editReceiptPreview || editReceiptUrl || ''} 
-                                alt="Ticket" 
-                                className="w-full h-20 object-cover"
-                              />
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="destructive"
-                                className="absolute top-1 right-1 h-6 w-6"
-                                onClick={handleRemoveReceipt}
-                                disabled={isUploadingReceipt}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => receiptInputRef.current?.click()}
-                            disabled={isUploadingReceipt}
-                            className="w-full h-8 rounded-lg text-xs"
-                          >
-                            {isUploadingReceipt ? (
-                              <>Ajout...</>
-                            ) : editReceiptUrl || editReceiptPreview ? (
-                              <>
-                                <Upload className="h-3 w-3 mr-1" />
-                                Changer
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="h-3 w-3 mr-1" />
-                                Ajouter ticket
-                              </>
-                            )}
-                          </Button>
-                        </div>
                         
                         <div className="flex gap-1 justify-end">
                           <Button
@@ -538,7 +462,6 @@ export function EnvelopeDetailsDialog({
             </div>
           )}
           
-          {/* Action buttons */}
           <div className="flex gap-2 pt-2">
             <Button
               variant="destructive"
@@ -557,7 +480,6 @@ export function EnvelopeDetailsDialog({
           </div>
         </div>
         
-        {/* Lightbox for viewing receipts */}
         <ReceiptLightbox
           images={lightboxImages}
           initialIndex={lightboxIndex}
