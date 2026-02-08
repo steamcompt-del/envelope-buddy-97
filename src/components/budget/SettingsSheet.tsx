@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTheme } from 'next-themes';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -21,6 +22,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   RefreshCw, 
   TrendingUp, 
@@ -34,6 +37,8 @@ import {
   FileDown,
   History,
   Repeat,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
@@ -65,9 +70,12 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
   } = useBudget();
   const { user, signOut } = useAuth();
   const { dueCount } = useRecurring();
+  const { theme, setTheme } = useTheme();
   const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const isDarkMode = theme === 'dark';
   
   // Calculate totals
   const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
@@ -127,6 +135,33 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
         </SheetHeader>
         
         <div className="mt-6 space-y-6">
+          {/* Theme Toggle */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Apparence
+            </h3>
+            
+            <div className="flex items-center justify-between p-4 rounded-xl bg-muted">
+              <div className="flex items-center gap-3">
+                {isDarkMode ? (
+                  <Moon className="w-5 h-5 text-primary" />
+                ) : (
+                  <Sun className="w-5 h-5 text-warning" />
+                )}
+                <Label htmlFor="theme-toggle" className="font-medium cursor-pointer">
+                  Mode sombre
+                </Label>
+              </div>
+              <Switch
+                id="theme-toggle"
+                checked={isDarkMode}
+                onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+              />
+            </div>
+          </div>
+          
+          <Separator />
+          
           {/* Monthly Stats */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
