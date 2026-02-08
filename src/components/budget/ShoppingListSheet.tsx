@@ -167,9 +167,9 @@ export function ShoppingListSheet({ open, onOpenChange }: ShoppingListSheetProps
                   placeholder="Ajouter un article..."
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 focus-visible:ring-1 focus-visible:ring-offset-0"
                 />
-                <Button type="submit" size="icon" disabled={isAdding || !newItemName.trim()}>
+                <Button type="submit" size="icon" disabled={isAdding || !newItemName.trim()} className="shrink-0">
                   {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 </Button>
               </form>
