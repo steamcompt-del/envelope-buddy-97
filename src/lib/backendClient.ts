@@ -61,6 +61,8 @@ export function getBackendClient(): SupabaseClient {
       storage: localStorage,
       persistSession: true,
       autoRefreshToken: true,
+      // Keep session alive for 7 days (refresh will happen automatically)
+      storageKey: 'budget-enveloppes-auth',
     },
   });
 
