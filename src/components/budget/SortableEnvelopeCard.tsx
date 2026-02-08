@@ -29,27 +29,23 @@ export function SortableEnvelopeCard({ envelope, onClick }: SortableEnvelopeCard
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       className={cn(
-        "relative group",
+        "relative group cursor-grab active:cursor-grabbing touch-none",
         isDragging && "z-50 opacity-90"
       )}
     >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className={cn(
-          "absolute -left-2 top-1/2 -translate-y-1/2 z-10",
-          "w-8 h-10 flex items-center justify-center",
-          "text-muted-foreground/50 hover:text-muted-foreground",
-          "cursor-grab active:cursor-grabbing",
-          "opacity-0 group-hover:opacity-100 transition-opacity",
-          "touch-none"
-        )}
-        aria-label="Réorganiser"
-      >
+      {/* Visual grip indicator */}
+      <div className={cn(
+        "absolute -left-2 top-1/2 -translate-y-1/2 z-10",
+        "w-8 h-10 flex items-center justify-center",
+        "text-muted-foreground/50 group-hover:text-muted-foreground",
+        "opacity-0 group-hover:opacity-100 transition-opacity",
+        "pointer-events-none"
+      )}>
         <GripVertical className="w-5 h-5" />
-      </button>
+      </div>
       
       <EnvelopeCard envelope={envelope} onClick={onClick} />
     </div>
