@@ -7,6 +7,7 @@ export interface Household {
   name: string;
   invite_code: string;
   created_at: string;
+  created_by: string | null;
 }
 
 export interface HouseholdMember {

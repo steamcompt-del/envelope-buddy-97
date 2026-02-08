@@ -69,6 +69,8 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     household,
     updateHouseholdName,
     regenerateInviteCode,
+    leaveHousehold,
+    deleteHousehold,
   } = useBudget();
   const { user, signOut } = useAuth();
   const { dueCount } = useRecurring();
@@ -543,8 +545,11 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
         open={showHouseholdSettings}
         onOpenChange={setShowHouseholdSettings}
         household={household}
+        currentUserId={user?.id}
         onUpdateName={updateHouseholdName}
         onRegenerateCode={regenerateInviteCode}
+        onLeaveHousehold={leaveHousehold}
+        onDeleteHousehold={deleteHousehold}
       />
     </Sheet>
   );

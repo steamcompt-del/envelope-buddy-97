@@ -6,6 +6,7 @@ import {
   createHousehold,
   joinHouseholdByCode,
   leaveHousehold,
+  deleteHousehold,
   updateHouseholdName,
   regenerateInviteCode,
   migrateUserDataToHousehold,
@@ -113,6 +114,27 @@ export function useHousehold() {
     }
   }, [user, household?.id, households]);
 
+  const deleteCurrentHousehold = useCallback(async (householdIdToDelete?: string) => {
+    if (!user) return;
+    const targetId = householdIdToDelete || household?.id;
+    if (!targetId) return;
+    
+    await deleteHousehold(targetId);
+    
+    const remaining = households.filter(h => h.id !== targetId);
+    setHouseholds(remaining);
+    
+    if (remaining.length > 0) {
+      setActiveHouseholdId(remaining[0].id);
+      localStorage.setItem(ACTIVE_HOUSEHOLD_KEY, remaining[0].id);
+      setNeedsSetup(false);
+    } else {
+      setActiveHouseholdId(null);
+      localStorage.removeItem(ACTIVE_HOUSEHOLD_KEY);
+      setNeedsSetup(true);
+    }
+  }, [user, household?.id, households]);
+
   const updateName = useCallback(async (name: string) => {
     if (!household) return;
     await updateHouseholdName(household.id, name);
@@ -139,6 +161,7 @@ export function useHousehold() {
     create,
     join,
     leave,
+    deleteHousehold: deleteCurrentHousehold,
     updateName,
     regenerateCode,
     refresh: loadHouseholds,

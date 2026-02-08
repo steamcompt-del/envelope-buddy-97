@@ -70,11 +70,13 @@ interface BudgetContextType {
   // Household state
   householdLoading: boolean;
   needsHouseholdSetup: boolean;
-  household: { id: string; name: string; invite_code: string } | null;
-  households: { id: string; name: string; invite_code: string }[];
+  household: { id: string; name: string; invite_code: string; created_by: string | null } | null;
+  households: { id: string; name: string; invite_code: string; created_by: string | null }[];
   switchHousehold: (householdId: string) => void;
   createHousehold: (name: string) => Promise<void>;
   joinHousehold: (code: string) => Promise<void>;
+  leaveHousehold: (householdId?: string) => Promise<void>;
+  deleteHousehold: (householdId?: string) => Promise<void>;
   updateHouseholdName: (name: string) => Promise<void>;
   regenerateInviteCode: () => Promise<string>;
   
@@ -162,6 +164,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     switchHousehold,
     create: createHouseholdFn,
     join: joinHouseholdFn,
+    leave: leaveHouseholdFn,
+    deleteHousehold: deleteHouseholdFn,
     updateName: updateHouseholdNameFn,
     regenerateCode: regenerateInviteCodeFn,
     refresh: refreshHousehold,
@@ -310,6 +314,14 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const joinHousehold = useCallback(async (code: string) => {
     await joinHouseholdFn(code);
   }, [joinHouseholdFn]);
+
+  const leaveHousehold = useCallback(async (householdId?: string) => {
+    await leaveHouseholdFn(householdId);
+  }, [leaveHouseholdFn]);
+
+  const deleteHousehold = useCallback(async (householdId?: string) => {
+    await deleteHouseholdFn(householdId);
+  }, [deleteHouseholdFn]);
 
   const updateHouseholdName = useCallback(async (name: string) => {
     await updateHouseholdNameFn(name);
@@ -578,6 +590,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     switchHousehold,
     createHousehold,
     joinHousehold,
+    leaveHousehold,
+    deleteHousehold,
     updateHouseholdName,
     regenerateInviteCode,
     currentMonthKey,
