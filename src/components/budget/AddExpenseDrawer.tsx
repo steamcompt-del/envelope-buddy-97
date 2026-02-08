@@ -33,6 +33,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Loader2, Receipt, Sparkles, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { MultiReceiptUploader, PendingReceipt } from './MultiReceiptUploader';
 
@@ -354,7 +355,7 @@ export function AddExpenseDrawer({
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Sélectionner une date</span>}
+                      {selectedDate ? format(selectedDate, "d MMMM yyyy", { locale: fr }) : <span>Sélectionner une date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
