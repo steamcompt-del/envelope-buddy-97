@@ -602,6 +602,16 @@ export async function startNewMonthDb(userId: string, currentMonthKey: string): 
   return nextMonthKey;
 }
 
+// Delete all user data
+export async function deleteAllUserDataDb(userId: string): Promise<void> {
+  // Delete in order: transactions, incomes, allocations, envelopes, monthly_budgets
+  await supabase.from('transactions').delete().eq('user_id', userId);
+  await supabase.from('incomes').delete().eq('user_id', userId);
+  await supabase.from('envelope_allocations').delete().eq('user_id', userId);
+  await supabase.from('envelopes').delete().eq('user_id', userId);
+  await supabase.from('monthly_budgets').delete().eq('user_id', userId);
+}
+
 // Helper
 function getNextMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split('-').map(Number);
