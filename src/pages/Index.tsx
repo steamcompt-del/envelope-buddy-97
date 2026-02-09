@@ -17,7 +17,7 @@ import { FabButton } from '@/components/budget/FabButton';
 import { HouseholdSetupDialog } from '@/components/budget/HouseholdSetupDialog';
 import { RecurringListSheet } from '@/components/budget/RecurringListSheet';
 import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
-import { ShoppingListSheet } from '@/components/budget/ShoppingListSheet';
+
 import { PullToRefresh } from '@/components/budget/PullToRefresh';
 import { useReceiptScanner } from '@/hooks/useReceiptScanner';
 import { useRecurring } from '@/hooks/useRecurring';
@@ -50,7 +50,7 @@ export default function Index() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [recurringOpen, setRecurringOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  const [shoppingListOpen, setShoppingListOpen] = useState(false);
+  
   
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   const [scannedExpenseData, setScannedExpenseData] = useState<ScannedExpenseData | null>(null);
@@ -181,7 +181,6 @@ export default function Index() {
       <FabButton
         onAddExpense={() => setExpenseOpen(true)}
         onScanReceipt={handleFabScan}
-        onOpenShoppingList={() => setShoppingListOpen(true)}
       />
       
       {/* Hidden file input for FAB scan */}
@@ -223,7 +222,6 @@ export default function Index() {
       <BudgetSuggestionsDialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen} />
       <RecurringListSheet open={recurringOpen} onOpenChange={setRecurringOpen} />
       <ActivityLogSheet open={activityOpen} onOpenChange={setActivityOpen} />
-      <ShoppingListSheet open={shoppingListOpen} onOpenChange={setShoppingListOpen} />
       
       {/* Household setup dialog */}
       <HouseholdSetupDialog
