@@ -43,6 +43,7 @@ import {
   ShoppingCart,
   Trash2,
   Calculator,
+  Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
@@ -210,15 +211,18 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
                 <p className="text-xs text-muted-foreground mt-1">Cliquer pour modifier</p>
               </button>
               
-              <div className="p-4 rounded-xl bg-muted">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingDown className="w-4 h-4 text-destructive" />
-                  <span className="text-sm text-muted-foreground">Dépenses</span>
+              <Link to="/expenses" onClick={() => onOpenChange(false)}>
+                <div className="p-4 rounded-xl bg-muted hover:bg-muted/80 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown className="w-4 h-4 text-destructive" />
+                    <span className="text-sm text-muted-foreground">Dépenses</span>
+                  </div>
+                  <p className="text-xl font-bold text-destructive">
+                    {totalSpent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Cliquer pour voir la liste</p>
                 </div>
-                <p className="text-xl font-bold text-destructive">
-                  {totalSpent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                </p>
-              </div>
+              </Link>
               
               <div className="p-4 rounded-xl bg-muted">
                 <div className="flex items-center gap-2 mb-2">
