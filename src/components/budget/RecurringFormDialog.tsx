@@ -27,7 +27,7 @@ import { RecurringTransaction, RecurringFrequency, frequencyLabels } from '@/lib
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Trash2 } from 'lucide-react';
 
 interface RecurringFormDialogProps {
   open: boolean;
@@ -37,7 +37,7 @@ interface RecurringFormDialogProps {
 
 export function RecurringFormDialog({ open, onOpenChange, editingItem }: RecurringFormDialogProps) {
   const { envelopes } = useBudget();
-  const { create, update } = useRecurring();
+  const { create, update, remove } = useRecurring();
   
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -47,6 +47,22 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
   const [nextDueDate, setNextDueDate] = useState<Date | undefined>(undefined);
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!editingItem) return;
+    if (!confirm('Supprimer cette dépense récurrente ?')) return;
+    
+    setIsDeleting(true);
+    try {
+      await remove(editingItem.id);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error deleting recurring transaction:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Reset form when dialog opens or editingItem changes
   useEffect(() => {
@@ -226,8 +242,20 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
             </Popover>
           </div>
 
-          {/* Submit */}
+          {/* Actions */}
           <div className="flex gap-2 pt-2">
+            {editingItem && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="rounded-xl"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
