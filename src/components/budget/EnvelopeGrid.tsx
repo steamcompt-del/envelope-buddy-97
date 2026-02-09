@@ -19,7 +19,6 @@ import {
 import { useBudget } from '@/contexts/BudgetContext';
 import { SortableEnvelopeCard } from './SortableEnvelopeCard';
 import { EnvelopeCard } from './EnvelopeCard';
-import { SavingsEnvelopeCard } from './SavingsEnvelopeCard';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet } from 'lucide-react';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
@@ -123,19 +122,11 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
       <DragOverlay dropAnimation={null}>
         {activeEnvelope ? (
           <div className="opacity-95 shadow-xl rounded-xl">
-            {activeEnvelope.icon === 'PiggyBank' ? (
-              <SavingsEnvelopeCard 
-                envelope={activeEnvelope} 
-                onClick={() => {}} 
-                savingsGoal={getGoalForEnvelope(activeEnvelope.id)} 
-              />
-            ) : (
-              <EnvelopeCard 
-                envelope={activeEnvelope} 
-                onClick={() => {}} 
-                savingsGoal={getGoalForEnvelope(activeEnvelope.id)} 
-              />
-            )}
+            <EnvelopeCard 
+              envelope={activeEnvelope} 
+              onClick={() => {}} 
+              savingsGoal={getGoalForEnvelope(activeEnvelope.id)} 
+            />
           </div>
         ) : null}
       </DragOverlay>
