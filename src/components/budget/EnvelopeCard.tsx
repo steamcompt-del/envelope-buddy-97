@@ -103,9 +103,9 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           <DynamicIcon name={icon} className={cn("w-5 h-5", colorStyle.text)} />
         </div>
         
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground break-words">{name}</h3>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <h3 className="font-semibold text-foreground truncate">{name}</h3>
+          <p className="text-sm text-muted-foreground truncate">
             {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} / {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
         </div>
