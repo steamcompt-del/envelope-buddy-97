@@ -29,7 +29,7 @@ const App = () => (
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <BudgetProvider>
+                    <BudgetProvider key="index">
                       <Index />
                     </BudgetProvider>
                   </ProtectedRoute>
@@ -39,7 +39,7 @@ const App = () => (
                 path="/planning"
                 element={
                   <ProtectedRoute>
-                    <BudgetProvider>
+                    <BudgetProvider key="planning">
                       <Planning />
                     </BudgetProvider>
                   </ProtectedRoute>
@@ -49,7 +49,7 @@ const App = () => (
                 path="/expenses"
                 element={
                   <ProtectedRoute>
-                    <BudgetProvider>
+                    <BudgetProvider key="expenses">
                       <Expenses />
                     </BudgetProvider>
                   </ProtectedRoute>
