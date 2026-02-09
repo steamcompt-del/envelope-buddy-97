@@ -16,8 +16,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useRecurring } from '@/hooks/useRecurring';
 import { RecurringTransaction, RecurringFrequency, frequencyLabels } from '@/lib/recurringDb';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { CalendarIcon } from 'lucide-react';
 
 interface RecurringFormDialogProps {
   open: boolean;
@@ -34,7 +44,8 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
   const [merchant, setMerchant] = useState('');
   const [envelopeId, setEnvelopeId] = useState('');
   const [frequency, setFrequency] = useState<RecurringFrequency>('monthly');
-  const [nextDueDate, setNextDueDate] = useState('');
+  const [nextDueDate, setNextDueDate] = useState<Date | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset form when dialog opens or editingItem changes
@@ -46,7 +57,7 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
         setMerchant(editingItem.merchant || '');
         setEnvelopeId(editingItem.envelopeId);
         setFrequency(editingItem.frequency);
-        setNextDueDate(editingItem.nextDueDate);
+        setNextDueDate(new Date(editingItem.nextDueDate));
       } else {
         // Default values for new item
         setAmount('');
@@ -57,7 +68,7 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
         // Default to first of next month
         const now = new Date();
         const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        setNextDueDate(nextMonth.toISOString().split('T')[0]);
+        setNextDueDate(nextMonth);
       }
     }
   }, [open, editingItem, envelopes]);
@@ -75,7 +86,7 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
           merchant: merchant || undefined,
           envelopeId,
           frequency,
-          nextDueDate,
+          nextDueDate: nextDueDate.toISOString().split('T')[0],
         });
       } else {
         await create({
@@ -84,7 +95,7 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
           merchant: merchant || undefined,
           envelopeId,
           frequency,
-          nextDueDate,
+          nextDueDate: nextDueDate.toISOString().split('T')[0],
         });
       }
       onOpenChange(false);
@@ -185,14 +196,34 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
 
           {/* Next Due Date */}
           <div className="space-y-2">
-            <Label htmlFor="recurring-date">Prochaine échéance</Label>
-            <Input
-              id="recurring-date"
-              type="date"
-              value={nextDueDate}
-              onChange={(e) => setNextDueDate(e.target.value)}
-              required
-            />
+            <Label>Prochaine échéance</Label>
+            <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal rounded-lg",
+                    !nextDueDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {nextDueDate ? format(nextDueDate, "d MMMM yyyy", { locale: fr }) : "Sélectionner une date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={nextDueDate}
+                  onSelect={(date) => {
+                    setNextDueDate(date);
+                    setDatePopoverOpen(false);
+                  }}
+                  initialFocus
+                  locale={fr}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Submit */}
