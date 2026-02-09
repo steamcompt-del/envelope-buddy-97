@@ -792,10 +792,10 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: savingsGoals } = await goalsQuery;
   const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, Number(g.target_amount)]));
 
-  // 5) Check existing allocations for next month to avoid duplicates
+  // 5) Check existing allocations for next month
   let existingAllocsQuery = supabase
     .from('envelope_allocations')
-    .select('envelope_id')
+    .select('envelope_id, allocated')
     .eq('month_key', nextMonthKey);
 
   if (ctx.householdId) {
@@ -805,45 +805,78 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   }
 
   const { data: existingAllocs } = await existingAllocsQuery;
-  const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
+  const existingAllocsMap = new Map((existingAllocs || []).map(a => [a.envelope_id, a.allocated]));
 
-  // 6) Create allocations only for envelopes that:
-  // - Have an allocation in the current month
-  // - Don't already have an allocation in the next month
-  const missingEnvelopeIds = currentMonthEnvelopeIds.filter(id => !existingSet.has(id));
+  // 6) Process allocations: insert new ones and update existing ones for rollover envelopes
+  const allocationsToInsert: {
+    user_id: string;
+    household_id: string | null;
+    envelope_id: string;
+    month_key: string;
+    allocated: number;
+    spent: number;
+  }[] = [];
+  
+  const allocationsToUpdate: { envelopeId: string; carryOverAmount: number }[] = [];
 
-  if (missingEnvelopeIds.length > 0) {
-    const allocationsToInsert = missingEnvelopeIds.map(envelopeId => {
-      const envelope = envelopeMap.get(envelopeId);
-      const hasRollover = envelope?.rollover === true;
-      const allocData = currentAllocMap.get(envelopeId) || { allocated: 0, spent: 0 };
-      const targetAmount = goalsMap.get(envelopeId) || 0;
+  for (const envelopeId of currentMonthEnvelopeIds) {
+    const envelope = envelopeMap.get(envelopeId);
+    const hasRollover = envelope?.rollover === true;
+    const allocData = currentAllocMap.get(envelopeId) || { allocated: 0, spent: 0 };
+    const targetAmount = goalsMap.get(envelopeId) || 0;
+    
+    // Calculate net balance (allocated - spent)
+    let carryOverAmount = 0;
+    if (hasRollover) {
+      const netBalance = Math.max(0, allocData.allocated - allocData.spent);
       
-      // Calculate net balance (allocated - spent)
-      let carryOverAmount = 0;
-      if (hasRollover) {
-        const netBalance = Math.max(0, allocData.allocated - allocData.spent);
-        
-        if (targetAmount > 0) {
-          // Cap the rollover at the target amount
-          carryOverAmount = Math.min(netBalance, targetAmount);
-        } else {
-          // No target, carry over the full net balance
-          carryOverAmount = netBalance;
-        }
+      if (targetAmount > 0) {
+        // Cap the rollover at the target amount
+        carryOverAmount = Math.min(netBalance, targetAmount);
+      } else {
+        // No target, carry over the full net balance
+        carryOverAmount = netBalance;
       }
+    }
 
-      return {
+    const existingAllocation = existingAllocsMap.get(envelopeId);
+    
+    if (existingAllocation === undefined) {
+      // No allocation exists for this envelope in the next month - insert new
+      allocationsToInsert.push({
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
         envelope_id: envelopeId,
         month_key: nextMonthKey,
         allocated: carryOverAmount,
         spent: 0,
-      };
-    });
+      });
+    } else if (hasRollover && carryOverAmount > 0 && existingAllocation === 0) {
+      // Allocation exists but is 0 and we have rollover amount to add
+      allocationsToUpdate.push({ envelopeId, carryOverAmount });
+    }
+  }
 
+  // Insert new allocations
+  if (allocationsToInsert.length > 0) {
     await supabase.from('envelope_allocations').insert(allocationsToInsert);
+  }
+
+  // Update existing allocations with rollover amounts
+  for (const { envelopeId, carryOverAmount } of allocationsToUpdate) {
+    let updateQuery = supabase
+      .from('envelope_allocations')
+      .update({ allocated: carryOverAmount })
+      .eq('envelope_id', envelopeId)
+      .eq('month_key', nextMonthKey);
+    
+    if (ctx.householdId) {
+      updateQuery = updateQuery.eq('household_id', ctx.householdId);
+    } else {
+      updateQuery = updateQuery.eq('user_id', ctx.userId).is('household_id', null);
+    }
+    
+    await updateQuery;
   }
 
   return nextMonthKey;
@@ -1010,7 +1043,7 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   // 5) Check existing allocations for target month
   let existingAllocsQuery = supabase
     .from('envelope_allocations')
-    .select('envelope_id')
+    .select('envelope_id, allocated')
     .eq('month_key', targetMonthKey);
 
   if (ctx.householdId) {
@@ -1020,36 +1053,71 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   }
 
   const { data: existingAllocs } = await existingAllocsQuery;
-  const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
+  const existingAllocsMap = new Map((existingAllocs || []).map(a => [a.envelope_id, a.allocated]));
 
-  // 6) Create allocations ONLY for rollover envelopes that don't already exist in target month
-  const missingEnvelopes = envelopes.filter(e => !existingSet.has(e.id));
+  // 6) Process allocations: insert new ones and update existing ones
+  const allocationsToInsert: {
+    user_id: string;
+    household_id: string | null;
+    envelope_id: string;
+    month_key: string;
+    allocated: number;
+    spent: number;
+  }[] = [];
+  
+  const allocationsToUpdate: { envelopeId: string; carryOverAmount: number }[] = [];
 
-  if (missingEnvelopes.length > 0) {
-    const allocationsToInsert = missingEnvelopes.map(envelope => {
-      const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
-      const targetAmount = goalsMap.get(envelope.id) || 0;
-      
-      // Calculate net balance to carry over
-      const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
-      
-      let carryOverAmount = netBalance;
-      if (targetAmount > 0) {
-        // Cap the rollover at the target amount
-        carryOverAmount = Math.min(netBalance, targetAmount);
-      }
+  for (const envelope of envelopes) {
+    const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
+    const targetAmount = goalsMap.get(envelope.id) || 0;
+    
+    // Calculate net balance to carry over
+    const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
+    
+    let carryOverAmount = netBalance;
+    if (targetAmount > 0) {
+      // Cap the rollover at the target amount
+      carryOverAmount = Math.min(netBalance, targetAmount);
+    }
 
-      return {
+    const existingAllocation = existingAllocsMap.get(envelope.id);
+    
+    if (existingAllocation === undefined) {
+      // No allocation exists - insert new
+      allocationsToInsert.push({
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
         envelope_id: envelope.id,
         month_key: targetMonthKey,
         allocated: carryOverAmount,
         spent: 0,
-      };
-    });
+      });
+    } else if (carryOverAmount > 0 && existingAllocation === 0) {
+      // Allocation exists but is 0 and we have rollover amount to add
+      allocationsToUpdate.push({ envelopeId: envelope.id, carryOverAmount });
+    }
+  }
 
+  // Insert new allocations
+  if (allocationsToInsert.length > 0) {
     await supabase.from('envelope_allocations').insert(allocationsToInsert);
+  }
+
+  // Update existing allocations with rollover amounts
+  for (const { envelopeId, carryOverAmount } of allocationsToUpdate) {
+    let updateQuery = supabase
+      .from('envelope_allocations')
+      .update({ allocated: carryOverAmount })
+      .eq('envelope_id', envelopeId)
+      .eq('month_key', targetMonthKey);
+    
+    if (ctx.householdId) {
+      updateQuery = updateQuery.eq('household_id', ctx.householdId);
+    } else {
+      updateQuery = updateQuery.eq('user_id', ctx.userId).is('household_id', null);
+    }
+    
+    await updateQuery;
   }
 }
 
