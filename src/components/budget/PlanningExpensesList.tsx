@@ -30,13 +30,13 @@ export function PlanningExpensesList({
   const [newCategory, setNewCategory] = useState('');
 
   const addExpense = useCallback(() => {
-    if (!newDescription.trim() || !newAmount || !newCategory) return;
+    if (!newDescription.trim() || !newAmount) return;
     
     const expense: PlanningExpense = {
       id: crypto.randomUUID(),
       description: newDescription.trim(),
       amount: Number(newAmount),
-      category: newCategory,
+      category: newCategory || 'uncategorized', // Allow uncategorized expenses
     };
     
     onExpensesChange([...expenses, expense]);
@@ -85,9 +85,10 @@ export function PlanningExpensesList({
           />
           <Select value={newCategory} onValueChange={setNewCategory}>
             <SelectTrigger className="col-span-4">
-              <SelectValue placeholder="Catégorie" />
+              <SelectValue placeholder="Catégorie (optionnel)" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="uncategorized">Sans catégorie</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
@@ -98,7 +99,7 @@ export function PlanningExpensesList({
           <Button 
             size="icon" 
             onClick={addExpense}
-            disabled={!newDescription.trim() || !newAmount || !newCategory}
+            disabled={!newDescription.trim() || !newAmount}
             className="col-span-1"
           >
             <Plus className="h-4 w-4" />
@@ -110,7 +111,9 @@ export function PlanningExpensesList({
           <ScrollArea className="max-h-[300px]">
             <div className="space-y-2">
               {expenses.map((expense) => {
-                const categoryName = categories.find(c => c.id === expense.category)?.name || 'Inconnu';
+                const categoryName = expense.category === 'uncategorized' 
+                  ? expense.description 
+                  : (categories.find(c => c.id === expense.category)?.name || expense.description);
                 return (
                   <div 
                     key={expense.id}
@@ -144,7 +147,9 @@ export function PlanningExpensesList({
             <p className="text-sm font-medium text-muted-foreground">Résumé par catégorie:</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {Object.entries(totalByCategory).map(([catId, total]) => {
-                const categoryName = categories.find(c => c.id === catId)?.name || 'Inconnu';
+                const categoryName = catId === 'uncategorized' 
+                  ? 'Non catégorisé' 
+                  : (categories.find(c => c.id === catId)?.name || 'Inconnu');
                 return (
                   <div key={catId} className="p-2 rounded bg-muted/50">
                     <p className="text-xs text-muted-foreground">{categoryName}</p>
