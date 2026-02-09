@@ -12,6 +12,7 @@ interface DbEnvelope {
   icon: string;
   color: string;
   position: number;
+  rollover: boolean;
   created_at: string;
 }
 
@@ -151,6 +152,7 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
         color: env.color,
         allocated: Number(allocation.allocated),
         spent: Number(allocation.spent),
+        rollover: env.rollover,
       };
     });
 
@@ -395,7 +397,7 @@ export async function reorderEnvelopesDb(ctx: QueryContext, orderedIds: string[]
   await Promise.all(updates);
 }
 
-export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string }): Promise<void> {
+export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string; rollover?: boolean }): Promise<void> {
   await supabase.from('envelopes').update(updates).eq('id', envelopeId);
 }
 
@@ -737,8 +739,8 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     });
   }
 
-  // 2) Fetch all envelopes with their details (including icon for savings detection)
-  let envelopesQuery = supabase.from('envelopes').select('id, icon');
+  // 2) Fetch all envelopes with their details (including rollover flag)
+  let envelopesQuery = supabase.from('envelopes').select('id, rollover');
   if (ctx.householdId) {
     envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
   } else {
@@ -748,10 +750,10 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: envelopes } = await envelopesQuery;
   if (!envelopes || envelopes.length === 0) return nextMonthKey;
 
-  // 3) Fetch current month allocations for savings envelopes (to carry over)
+  // 3) Fetch current month allocations for rollover envelopes (to carry over)
   let currentAllocsQuery = supabase
     .from('envelope_allocations')
-    .select('envelope_id, allocated')
+    .select('envelope_id, allocated, spent')
     .eq('month_key', currentMonthKey);
 
   if (ctx.householdId) {
@@ -762,6 +764,7 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
 
   const { data: currentAllocs } = await currentAllocsQuery;
   const currentAllocMap = new Map((currentAllocs || []).map(a => [a.envelope_id, Number(a.allocated)]));
+  const currentSpentMap = new Map((currentAllocs || []).map(a => [a.envelope_id, Number(a.spent)]));
 
   // 4) Fetch savings goals to check if goal is reached
   let goalsQuery = supabase
@@ -797,18 +800,20 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
 
   if (missingEnvelopes.length > 0) {
     const allocationsToInsert = missingEnvelopes.map(envelope => {
-      const isSavingsEnvelope = envelope.icon === 'PiggyBank';
+      const hasRollover = envelope.rollover === true;
       const currentAllocated = currentAllocMap.get(envelope.id) || 0;
+      const currentSpent = currentSpentMap.get(envelope.id) || 0;
       const targetAmount = goalsMap.get(envelope.id) || 0;
       
-      // Carry over savings envelope balance only if goal not yet reached
+      // Calculate remaining (unspent) amount to carry over
       let carryOverAmount = 0;
-      if (isSavingsEnvelope && currentAllocated > 0) {
-        // If no goal set or goal not reached, carry over the full amount
+      if (hasRollover && currentAllocated > 0) {
+        const remaining = Math.max(0, currentAllocated - currentSpent);
+        // If there's a goal, only carry over if goal not yet reached
         if (targetAmount === 0 || currentAllocated < targetAmount) {
-          carryOverAmount = currentAllocated;
+          carryOverAmount = remaining;
         }
-        // If goal reached, don't carry over (start fresh or user can decide)
+        // If goal reached, don't carry over (start fresh)
       }
 
       return {
