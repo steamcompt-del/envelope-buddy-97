@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'react-router-dom';
-import { Home, ShoppingCart, Receipt, Settings } from 'lucide-react';
+import { Home, ShoppingCart, Receipt, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -13,7 +13,7 @@ const navItems: NavItem[] = [
   { label: 'Budget', icon: <Home className="w-5 h-5" />, path: '/', exact: true },
   { label: 'Dépenses', icon: <Receipt className="w-5 h-5" />, path: '/expenses' },
   { label: 'Courses', icon: <ShoppingCart className="w-5 h-5" />, path: '/shopping' },
-  { label: 'Plus', icon: <Settings className="w-5 h-5" />, path: '/settings' },
+  { label: 'Récurrents', icon: <Repeat className="w-5 h-5" />, path: '/recurring' },
 ];
 
 export function BottomNav() {

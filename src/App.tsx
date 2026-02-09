@@ -13,6 +13,7 @@ import Planning from "./pages/Planning";
 import Expenses from "./pages/Expenses";
 import Shopping from "./pages/Shopping";
 import Settings from "./pages/Settings";
+import Recurring from "./pages/Recurring";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -83,6 +84,18 @@ const App = () => (
                     <ProtectedLayout>
                       <BudgetProvider key="settings">
                         <Settings />
+                      </BudgetProvider>
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/recurring"
+                element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <BudgetProvider key="recurring">
+                        <Recurring />
                       </BudgetProvider>
                     </ProtectedLayout>
                   </ProtectedRoute>
