@@ -100,7 +100,7 @@ interface BudgetContextType {
   startNewMonth: () => void;
   
   // Income actions
-  addIncome: (amount: number, description: string) => Promise<void>;
+  addIncome: (amount: number, description: string, date?: Date) => Promise<void>;
   updateIncome: (id: string, amount: number, description: string) => Promise<void>;
   deleteIncome: (id: string) => Promise<void>;
   
@@ -352,10 +352,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [getQueryContext]);
 
   // Income actions
-  const addIncome = useCallback(async (amount: number, description: string) => {
+  const addIncome = useCallback(async (amount: number, description: string, date?: Date) => {
     const ctx = getQueryContext();
     if (!ctx) return;
-    const incomeId = await addIncomeDb(ctx, currentMonthKey, amount, description);
+    const incomeId = await addIncomeDb(ctx, currentMonthKey, amount, description, date);
     await logActivity(ctx, 'income_added', 'income', incomeId, { amount, description });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, loadMonthData]);
