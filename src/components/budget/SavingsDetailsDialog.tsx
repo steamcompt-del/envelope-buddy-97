@@ -419,7 +419,7 @@ export function SavingsDetailsDialog({
                       </span>
                       <span className={cn(
                         "font-medium",
-                        isWithdrawal ? "text-primary" : "text-envelope-green"
+                        isWithdrawal ? "text-destructive" : "text-envelope-green"
                       )}>
                         {isWithdrawal ? '-' : '+'}{Math.abs(amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                       </span>

@@ -332,11 +332,11 @@ export default function Expenses() {
                         )}
                         
                         {/* Amount */}
-                        <p className={cn(
-                          "font-semibold flex-shrink-0",
-                          isWithdrawal ? "text-primary" : "text-destructive"
-                        )}>
-                          {isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                         <p className={cn(
+                           "font-semibold flex-shrink-0",
+                           isWithdrawal ? "text-destructive" : "text-destructive"
+                         )}>
+                           {isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </button>
                     );
