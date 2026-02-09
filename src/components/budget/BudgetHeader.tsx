@@ -13,7 +13,11 @@ interface BudgetHeaderProps {
 }
 
 export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: BudgetHeaderProps) {
-  const { toBeBudgeted } = useBudget();
+  const { toBeBudgeted, envelopes } = useBudget();
+  
+  // Calculate total spent across all envelopes
+  const totalSpent = envelopes.reduce((sum, env) => sum + env.spent, 0);
+  const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
   
   const isPositive = toBeBudgeted > 0;
   const isZero = toBeBudgeted === 0;
@@ -30,25 +34,42 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
         {/* Budget info row */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">À budgétiser</p>
-            <div className="flex items-baseline gap-2">
-              <span 
-                className={cn(
-                  "text-xl sm:text-3xl font-bold tracking-tight transition-colors truncate",
-                  isPositive && "text-primary",
-                  isZero && "text-muted-foreground",
-                  toBeBudgeted < 0 && "text-destructive"
-                )}
-              >
-                {toBeBudgeted.toLocaleString('fr-FR', { 
-                  style: 'currency', 
-                  currency: 'EUR',
-                  minimumFractionDigits: 2 
-                })}
-              </span>
-              {isPositive && (
-                <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
-              )}
+            <div className="flex items-center gap-4">
+              {/* À budgétiser */}
+              <div>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">À budgétiser</p>
+                <div className="flex items-baseline gap-2">
+                  <span 
+                    className={cn(
+                      "text-xl sm:text-2xl font-bold tracking-tight transition-colors",
+                      isPositive && "text-primary",
+                      isZero && "text-muted-foreground",
+                      toBeBudgeted < 0 && "text-destructive"
+                    )}
+                  >
+                    {toBeBudgeted.toLocaleString('fr-FR', { 
+                      style: 'currency', 
+                      currency: 'EUR',
+                      minimumFractionDigits: 2 
+                    })}
+                  </span>
+                  {isPositive && (
+                    <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
+                  )}
+                </div>
+              </div>
+              
+              {/* Total dépensé */}
+              <div className="border-l border-border pl-4">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Dépensé</p>
+                <span className="text-xl sm:text-2xl font-bold tracking-tight text-destructive">
+                  {totalSpent.toLocaleString('fr-FR', { 
+                    style: 'currency', 
+                    currency: 'EUR',
+                    minimumFractionDigits: 2 
+                  })}
+                </span>
+              </div>
             </div>
           </div>
           
