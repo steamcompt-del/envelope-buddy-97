@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useBudget } from '@/contexts/BudgetContext';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings, Receipt } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MonthSelector } from './MonthSelector';
 import { HouseholdSwitcher } from './HouseholdSwitcher';
@@ -88,26 +88,14 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
         
         {/* Actions row */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Link to="/expenses">
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-xl h-8 w-8 sm:h-9 sm:w-9"
-              >
-                <Receipt className="h-4 w-4" />
-              </Button>
-            </Link>
-            
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onOpenSettings}
-              className="rounded-xl h-8 w-8 sm:h-9 sm:w-9"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onOpenSettings}
+            className="rounded-xl h-8 w-8 sm:h-9 sm:w-9"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
           
           <div className="flex items-center gap-1 sm:gap-2">
             <Button
