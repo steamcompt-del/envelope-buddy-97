@@ -72,34 +72,113 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
   const { name, allocated, spent, icon, color } = envelope;
   
   const isSavings = icon === 'PiggyBank';
+  const colorStyle = colorClasses[color] || colorClasses.blue;
   
-  // For savings envelopes: allocated is the total savings, spent represents withdrawals
+  // For savings envelopes: allocated is the total saved, spent represents withdrawals
+  // Net savings = what's actually available (allocated - spent)
+  const netSavings = allocated - spent;
+  
   // For regular envelopes: standard spent/allocated behavior
   const remaining = allocated - spent;
   const percentUsed = allocated > 0 ? (spent / allocated) * 100 : 0;
   const isOverspent = spent > allocated;
   
-  const colorStyle = colorClasses[color] || colorClasses.blue;
+  // Savings goal calculations
+  const targetAmount = savingsGoal?.target_amount || 0;
+  const savingsPercent = targetAmount > 0
+    ? Math.min((netSavings / targetAmount) * 100, 100)
+    : 0;
+  const isSavingsComplete = targetAmount > 0 && netSavings >= targetAmount;
   
   // Progress color logic
-  let progressColor: string;
-  let displayLabel: string;
-  let displayPercent: number;
+  const progressColor = isSavings
+    ? getSavingsProgressColorHsl(savingsPercent)
+    : getProgressColorHsl(percentUsed, isOverspent);
   
-  if (isSavings && savingsGoal) {
-    // For savings: show progress toward goal
-    displayPercent = savingsGoal.target_amount > 0
-      ? Math.min((allocated / savingsGoal.target_amount) * 100, 100)
-      : 0;
-    progressColor = getSavingsProgressColorHsl(displayPercent);
-    displayLabel = 'Objectif atteint';
-  } else {
-    // For regular envelopes: show spending progress
-    displayPercent = percentUsed;
-    progressColor = getProgressColorHsl(percentUsed, isOverspent);
-    displayLabel = 'Dépensé';
+  // Render savings envelope
+  if (isSavings) {
+    return (
+      <button
+        onClick={onClick}
+        className={cn(
+          "w-full p-4 rounded-xl border text-left transition-all duration-200",
+          "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
+          "bg-card",
+          colorStyle.border
+        )}
+      >
+        <div className="flex items-start gap-3 overflow-hidden">
+          <div className={cn(
+            "flex items-center justify-center w-10 h-10 rounded-lg",
+            colorStyle.bg
+          )}>
+            <DynamicIcon name={icon} className={cn("w-5 h-5", colorStyle.text)} />
+          </div>
+          
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <h3 className="font-semibold text-foreground break-all">{name}</h3>
+            {savingsGoal ? (
+              <p className="text-sm text-muted-foreground truncate">
+                {savingsGoal.name || 'Objectif'} : {targetAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground truncate">
+                Aucun objectif défini
+              </p>
+            )}
+          </div>
+          
+          <div className="text-right shrink-0">
+            <p className={cn(
+              "font-semibold text-lg",
+              isSavingsComplete ? "text-envelope-green" : "text-foreground"
+            )}>
+              {netSavings.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </p>
+            <p className="text-xs text-muted-foreground">épargné</p>
+          </div>
+        </div>
+        
+        {/* Progress toward goal */}
+        {savingsGoal && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-muted-foreground">
+                {isSavingsComplete ? '✓ Objectif atteint' : 'Progression'}
+              </span>
+              <span className={cn(
+                "text-xs font-semibold",
+                isSavingsComplete ? "text-envelope-green" : "text-foreground"
+              )}>
+                {Math.round(savingsPercent)}%
+              </span>
+            </div>
+            <Progress 
+              value={Math.min(savingsPercent, 100)} 
+              className="h-2 [&>div]:transition-colors"
+              style={{ '--progress-color': progressColor } as React.CSSProperties}
+            />
+            {!isSavingsComplete && targetAmount > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Reste {(targetAmount - netSavings).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} à épargner
+              </p>
+            )}
+          </div>
+        )}
+        
+        {/* Show withdrawals if any */}
+        {spent > 0 && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <p className="text-xs text-muted-foreground">
+              Retraits : {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </p>
+          </div>
+        )}
+      </button>
+    );
   }
   
+  // Render regular envelope
   return (
     <button
       onClick={onClick}
@@ -138,15 +217,15 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
       
       <div className="mt-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-muted-foreground">{displayLabel}</span>
-          <span className="text-xs font-semibold text-foreground">{Math.round(displayPercent)}%</span>
+          <span className="text-xs text-muted-foreground">Dépensé</span>
+          <span className="text-xs font-semibold text-foreground">{Math.round(percentUsed)}%</span>
         </div>
         <Progress 
-          value={Math.min(displayPercent, 100)} 
+          value={Math.min(percentUsed, 100)} 
           className="h-2 [&>div]:transition-colors"
           style={{ '--progress-color': progressColor } as React.CSSProperties}
         />
-        {!isSavings && isOverspent && (
+        {isOverspent && (
           <p className="text-xs text-destructive mt-1 font-medium">
             Dépassement de {Math.abs(remaining).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
