@@ -13,7 +13,6 @@ import {
   updateEnvelopeDb,
   deleteEnvelopeDb,
   reorderEnvelopesDb,
-  transferToMonthDb,
   allocateToEnvelopeDb,
   deallocateFromEnvelopeDb,
   transferBetweenEnvelopesDb,
@@ -111,7 +110,6 @@ interface BudgetContextType {
   allocateToEnvelope: (envelopeId: string, amount: number) => Promise<void>;
   deallocateFromEnvelope: (envelopeId: string, amount: number) => Promise<void>;
   transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => Promise<void>;
-  transferToMonth: (envelopeId: string, targetMonthKey: string, amount: number) => Promise<void>;
   
   // Transaction actions
   addTransaction: (envelopeId: string, amount: number, description: string, merchant?: string, receiptUrl?: string, receiptPath?: string, date?: string) => Promise<{ transactionId: string; alert?: { envelopeName: string; percent: number; isOver: boolean } }>;
@@ -471,23 +469,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
-  const transferToMonth = useCallback(async (envelopeId: string, targetMonthKey: string, amount: number) => {
-    const ctx = getQueryContext();
-    if (!ctx) return;
-    const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
-    if (!envelope) return;
-    const available = envelope.allocated - envelope.spent;
-    if (amount > available) return;
-    await transferToMonthDb(ctx, currentMonthKey, targetMonthKey, envelopeId, amount);
-    await logActivity(ctx, 'transfer_made', 'envelope', envelopeId, { 
-      amount, 
-      envelope_name: envelope.name,
-      from_month: currentMonthKey,
-      to_month: targetMonthKey 
-    });
-    await loadMonthData();
-  }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
-
   // Transaction actions
   const addTransaction = useCallback(async (
     envelopeId: string,
@@ -652,7 +633,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     allocateToEnvelope,
     deallocateFromEnvelope,
     transferBetweenEnvelopes,
-    transferToMonth,
     addTransaction,
     updateTransaction,
     deleteTransaction,
