@@ -1,6 +1,8 @@
 import { Envelope } from '@/contexts/BudgetContext';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { ArrowDownCircle } from 'lucide-react';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
@@ -103,10 +105,18 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
         className={cn(
           "w-full p-4 rounded-xl border text-left transition-all duration-200",
           "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
-          "bg-card",
+          "bg-card relative",
           colorStyle.border
         )}
       >
+        {envelope.rollover && (
+          <div className="absolute top-3 right-3">
+            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+              <ArrowDownCircle className="w-3 h-3" />
+              Report
+            </Badge>
+          </div>
+        )}
         <div className="flex items-start gap-3 overflow-hidden">
           <div className={cn(
             "flex items-center justify-center w-10 h-10 rounded-lg",
@@ -185,10 +195,18 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
       className={cn(
         "w-full p-4 rounded-xl border text-left transition-all duration-200",
         "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
-        "bg-card",
+        "bg-card relative",
         colorStyle.border
       )}
     >
+      {envelope.rollover && (
+        <div className="absolute top-3 right-3">
+          <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+            <ArrowDownCircle className="w-3 h-3" />
+            Report
+          </Badge>
+        </div>
+      )}
       <div className="flex items-start gap-3 overflow-hidden">
         <div className={cn(
           "flex items-center justify-center w-10 h-10 rounded-lg",
