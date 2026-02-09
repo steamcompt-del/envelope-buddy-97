@@ -286,22 +286,24 @@ export function EnvelopeDetailsDialog({
             </div>
           </div>
           
-          {/* Savings Goal Section */}
-          {savingsGoal ? (
-            <SavingsGoalProgress
-              goal={savingsGoal}
-              currentAmount={envelope.allocated}
-              onClick={() => setShowGoalDialog(true)}
-            />
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => setShowGoalDialog(true)}
-              className="w-full rounded-xl gap-2"
-            >
-              <Target className="w-4 h-4" />
-              Définir un objectif d'épargne
-            </Button>
+          {/* Savings Goal Section - Only for savings envelopes */}
+          {envelope.icon === 'PiggyBank' && (
+            savingsGoal ? (
+              <SavingsGoalProgress
+                goal={savingsGoal}
+                currentAmount={envelope.allocated}
+                onClick={() => setShowGoalDialog(true)}
+              />
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setShowGoalDialog(true)}
+                className="w-full rounded-xl gap-2"
+              >
+                <Target className="w-4 h-4" />
+                Définir un objectif d'épargne
+              </Button>
+            )
           )}
           
           <div className="grid grid-cols-3 gap-2">
