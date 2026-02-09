@@ -358,6 +358,9 @@ export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name
   const { data: maxPositionData } = await posQuery.single();
   const newPosition = (maxPositionData?.position ?? -1) + 1;
 
+  // Auto-enable rollover for savings envelopes (PiggyBank icon)
+  const shouldRollover = icon === 'PiggyBank';
+
   const { data: envelope, error } = await supabase
     .from('envelopes')
     .insert({ 
@@ -366,7 +369,8 @@ export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name
       name, 
       icon, 
       color, 
-      position: newPosition 
+      position: newPosition,
+      rollover: shouldRollover
     })
     .select('id')
     .single();
