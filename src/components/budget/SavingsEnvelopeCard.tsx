@@ -83,7 +83,7 @@ export function SavingsEnvelopeCard({ envelope, onClick, savingsGoal }: SavingsE
               <PiggyBank className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0 overflow-hidden">
-              <h3 className="font-semibold text-foreground truncate text-sm">{name}</h3>
+              <h3 className="font-semibold text-foreground break-all text-sm">{name}</h3>
               {savingsGoal?.name && (
                 <p className="text-xs text-muted-foreground truncate">{savingsGoal.name}</p>
               )}
