@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -7,6 +7,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -16,6 +18,8 @@ import {
 } from '@dnd-kit/sortable';
 import { useBudget } from '@/contexts/BudgetContext';
 import { SortableEnvelopeCard } from './SortableEnvelopeCard';
+import { EnvelopeCard } from './EnvelopeCard';
+import { SavingsEnvelopeCard } from './SavingsEnvelopeCard';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet } from 'lucide-react';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
@@ -28,6 +32,7 @@ interface EnvelopeGridProps {
 export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGridProps) {
   const { envelopes, reorderEnvelopes } = useBudget();
   const { getGoalForEnvelope } = useSavingsGoals();
+  const [activeId, setActiveId] = useState<string | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -40,8 +45,13 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
     })
   );
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
     
     if (over && active.id !== over.id) {
       const oldIndex = envelopes.findIndex((e) => e.id === active.id);
@@ -51,6 +61,12 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
       reorderEnvelopes(newOrder.map(e => e.id));
     }
   }, [envelopes, reorderEnvelopes]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  const activeEnvelope = activeId ? envelopes.find(e => e.id === activeId) : null;
   
   if (envelopes.length === 0) {
     return (
@@ -74,7 +90,9 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <SortableContext items={envelopes.map(e => e.id)} strategy={rectSortingStrategy}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -101,6 +119,26 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
           </button>
         </div>
       </SortableContext>
+      
+      <DragOverlay dropAnimation={null}>
+        {activeEnvelope ? (
+          <div className="opacity-95 shadow-xl rounded-xl">
+            {activeEnvelope.icon === 'PiggyBank' ? (
+              <SavingsEnvelopeCard 
+                envelope={activeEnvelope} 
+                onClick={() => {}} 
+                savingsGoal={getGoalForEnvelope(activeEnvelope.id)} 
+              />
+            ) : (
+              <EnvelopeCard 
+                envelope={activeEnvelope} 
+                onClick={() => {}} 
+                savingsGoal={getGoalForEnvelope(activeEnvelope.id)} 
+              />
+            )}
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
