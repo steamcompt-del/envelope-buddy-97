@@ -44,9 +44,11 @@ export function AIEnvelopeCreator({ expenses, totalIncome, categories }: AIEnvel
     setSummary(null);
 
     try {
-      // Build expense summary by category
+      // Build expense summary - use description as category if uncategorized
       const totalByCategory = expenses.reduce((acc, exp) => {
-        const catName = categories.find(c => c.id === exp.category)?.name || exp.description;
+        const catName = exp.category === 'uncategorized' 
+          ? exp.description 
+          : (categories.find(c => c.id === exp.category)?.name || exp.description);
         acc[catName] = (acc[catName] || 0) + exp.amount;
         return acc;
       }, {} as Record<string, number>);
