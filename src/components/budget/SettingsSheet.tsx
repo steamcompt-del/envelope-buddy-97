@@ -55,13 +55,10 @@ interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenIncomeList?: () => void;
-  onOpenSuggestions?: () => void;
-  onOpenRecurring?: () => void;
   onOpenActivity?: () => void;
-  onOpenShoppingList?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSuggestions, onOpenRecurring, onOpenActivity, onOpenShoppingList }: SettingsSheetProps) {
+export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActivity }: SettingsSheetProps) {
   const { 
     envelopes, 
     transactions, 
@@ -149,14 +146,14 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Paramètres & Statistiques</SheetTitle>
+          <SheetTitle>Paramètres</SheetTitle>
           <SheetDescription>
             {monthDisplay}
           </SheetDescription>
         </SheetHeader>
         
-        <div className="mt-6 space-y-6">
-          {/* Theme Toggle */}
+        <div className="mt-6 space-y-8">
+          {/* ===== SECTION 1: APPARENCE ===== */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Apparence
@@ -183,129 +180,32 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           
           <Separator />
           
-          {/* Monthly Stats */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Résumé du mois
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => onOpenIncomeList?.()}
-                className="p-4 rounded-xl bg-muted hover:bg-muted/80 transition-colors text-left"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-primary" />
-                  <span className="text-sm text-muted-foreground">Revenus</span>
-                </div>
-                <p className="text-xl font-bold text-primary">
-                  {totalIncome.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">Cliquer pour modifier</p>
-              </button>
-              
-              <Link to="/expenses" onClick={() => onOpenChange(false)}>
-                <div className="p-4 rounded-xl bg-muted hover:bg-muted/80 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="w-4 h-4 text-destructive" />
-                    <span className="text-sm text-muted-foreground">Dépenses</span>
-                  </div>
-                  <p className="text-xl font-bold text-destructive">
-                    {totalSpent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">Cliquer pour voir la liste</p>
-                </div>
-              </Link>
-              
-              <div className="p-4 rounded-xl bg-muted">
-                <div className="flex items-center gap-2 mb-2">
-                  <PieChart className="w-4 h-4 text-foreground" />
-                  <span className="text-sm text-muted-foreground">Alloué</span>
-                </div>
-                <p className="text-xl font-bold">
-                  {totalAllocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                </p>
-              </div>
-              
-              <div className="p-4 rounded-xl bg-muted">
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet className="w-4 h-4 text-foreground" />
-                  <span className="text-sm text-muted-foreground">Non alloué</span>
-                </div>
-                <p className="text-xl font-bold">
-                  {toBeBudgeted.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <Separator />
-          
-          {/* Recurring Transactions */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Automatisation
-            </h3>
-            
-            <p className="text-sm text-muted-foreground">
-              Gérez vos dépenses récurrentes (loyer, abonnements...).
-            </p>
-            
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                setTimeout(() => onOpenRecurring?.(), 100);
-              }}
-              variant="outline"
-              className="w-full rounded-xl gap-2"
-            >
-              <Repeat className="w-4 h-4" />
-              Dépenses récurrentes
-              {dueCount > 0 && (
-                <Badge variant="destructive" className="ml-auto">
-                  {dueCount} à payer
-                </Badge>
-              )}
-            </Button>
-          </div>
-          
-          <Separator />
-          
-          {/* Shopping List */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Liste de courses
-            </h3>
-            
-            <p className="text-sm text-muted-foreground">
-              Créez votre liste avec des suggestions basées sur vos achats.
-            </p>
-            
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                setTimeout(() => onOpenShoppingList?.(), 100);
-              }}
-              variant="outline"
-              className="w-full rounded-xl gap-2"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Liste de courses
-            </Button>
-          </div>
-          
-          <Separator />
-          {/* Activity Log (only for households) */}
+          {/* ===== SECTION 2: MON MÉNAGE ===== */}
           {household && (
             <>
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Collaboration
+                  Mon ménage
                 </h3>
                 
-                <p className="text-sm text-muted-foreground">
-                  Voyez qui a fait quoi dans votre ménage partagé.
-                </p>
+                <div className="p-4 rounded-xl bg-muted">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    <span className="font-medium">{household.name}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Code : <span className="font-mono font-bold">{household.invite_code}</span>
+                  </p>
+                </div>
+                
+                <Button
+                  onClick={() => setShowHouseholdSettings(true)}
+                  variant="outline"
+                  className="w-full rounded-xl gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  Gérer le ménage
+                </Button>
                 
                 <Button
                   onClick={() => {
@@ -324,60 +224,96 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
             </>
           )}
           
-          {/* Budget Planning */}
+          {/* ===== SECTION 3: DONNÉES ===== */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Planification
+              Données
             </h3>
             
-            <p className="text-sm text-muted-foreground">
-              Calculez vos dépenses prévues et planifiez vos allocations.
-            </p>
-            
-            <Link to="/planning" onClick={() => onOpenChange(false)}>
-              <Button
-                variant="outline"
-                className="w-full rounded-xl gap-2"
+            {/* Monthly Stats */}
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => onOpenIncomeList?.()}
+                className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors text-left text-sm"
               >
-                <Calculator className="w-4 h-4" />
-                Feuille de calcul
-              </Button>
-            </Link>
-          </div>
-          
-          <Separator />
-          
-          {/* Monthly Management */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Gestion mensuelle
-            </h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                </div>
+                <p className="font-bold text-primary">
+                  {totalIncome.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </p>
+                <p className="text-xs text-muted-foreground">Revenus</p>
+              </button>
+              
+              <Link to="/expenses" onClick={() => onOpenChange(false)}>
+                <div className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer text-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingDown className="w-4 h-4 text-destructive" />
+                  </div>
+                  <p className="font-bold text-destructive">
+                    {totalSpent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Dépenses</p>
+                </div>
+              </Link>
+              
+              <div className="p-3 rounded-lg bg-muted text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <PieChart className="w-4 h-4 text-foreground" />
+                </div>
+                <p className="font-bold">
+                  {totalAllocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </p>
+                <p className="text-xs text-muted-foreground">Alloué</p>
+              </div>
+              
+              <div className="p-3 rounded-lg bg-muted text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet className="w-4 h-4 text-foreground" />
+                </div>
+                <p className="font-bold">
+                  {toBeBudgeted.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </p>
+                <p className="text-xs text-muted-foreground">À budgéter</p>
+              </div>
+            </div>
             
-            <p className="text-sm text-muted-foreground">
-              Transférez vos enveloppes vers un nouveau mois avec report automatique des soldes.
-            </p>
+            {/* Envelope breakdown */}
+            {envelopes.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-xs text-muted-foreground mb-3 font-medium">Par enveloppe :</p>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {envelopes.map((env) => {
+                    const percent = env.allocated > 0 ? (env.spent / env.allocated) * 100 : 0;
+                    const isOver = env.spent > env.allocated;
+                    
+                    return (
+                      <div key={env.id} className="flex items-center justify-between text-xs">
+                        <span className="font-medium truncate">{env.name}</span>
+                        <div className="text-right whitespace-nowrap">
+                          <span className={isOver ? "text-destructive" : "text-foreground"}>
+                            {env.spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {' / '}{env.allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             
+            {/* Action buttons */}
             <Button
               onClick={() => setShowMonthlyManagement(true)}
               variant="outline"
-              className="w-full rounded-xl gap-2"
+              className="w-full rounded-xl gap-2 text-sm"
             >
               <Calendar className="w-4 h-4" />
-              Passer à un autre mois
+              Mois suivant
             </Button>
-          </div>
-          
-          <Separator />
-          
-          {/* Export PDF */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Exporter
-            </h3>
-            
-            <p className="text-sm text-muted-foreground">
-              Téléchargez un récapitulatif complet du mois en PDF.
-            </p>
             
             <Button
               onClick={() => {
@@ -389,128 +325,19 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
                   transactions,
                   incomes,
                 });
-                toast.success('PDF généré avec succès !');
+                toast.success('PDF généré !');
               }}
               variant="outline"
-              className="w-full rounded-xl gap-2"
+              className="w-full rounded-xl gap-2 text-sm"
             >
               <FileDown className="w-4 h-4" />
-              Exporter en PDF
+              Exporter PDF
             </Button>
-          </div>
-          
-          <Separator />
-          
-          {/* AI Suggestions */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Conseils IA
-            </h3>
-            
-            <p className="text-sm text-muted-foreground">
-              Obtenez des suggestions personnalisées pour optimiser votre budget.
-            </p>
-            
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                setTimeout(() => onOpenSuggestions?.(), 100);
-              }}
-              variant="outline"
-              className="w-full rounded-xl gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              Suggestions IA
-            </Button>
-          </div>
-          
-          {/* Household Settings */}
-          {household && (
-            <>
-              <Separator />
-              
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Ménage partagé
-                </h3>
-                
-                <div className="p-4 rounded-xl bg-muted">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-primary" />
-                    <span className="font-medium">{household.name}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Code d'invitation : <span className="font-mono font-bold">{household.invite_code}</span>
-                  </p>
-                </div>
-                
-                <Button
-                  onClick={() => setShowHouseholdSettings(true)}
-                  variant="outline"
-                  className="w-full rounded-xl gap-2"
-                >
-                  <Users className="w-4 h-4" />
-                  Gérer le ménage
-                </Button>
-              </div>
-            </>
-          )}
-          
-          <Separator />
-          
-          {/* Envelope breakdown */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Par enveloppe
-            </h3>
-            
-            {envelopes.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Aucune enveloppe créée
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {envelopes.map((env) => {
-                  const percent = env.allocated > 0 ? (env.spent / env.allocated) * 100 : 0;
-                  const isOver = env.spent > env.allocated;
-                  
-                  return (
-                    <div key={env.id} className="flex items-center justify-between py-2">
-                      <span className="font-medium">{env.name}</span>
-                      <div className="text-right">
-                        <span className={isOver ? "text-destructive" : "text-foreground"}>
-                          {env.spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {' / '}{env.allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                        </span>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({Math.round(percent)}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          
-          <Separator />
-          
-          {/* Delete Month Data */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Supprimer ce mois
-            </h3>
-            
-            <p className="text-sm text-muted-foreground">
-              Efface complètement les données du mois : dépenses, revenus, allocations.
-            </p>
             
             <Button
               onClick={() => setShowDeleteMonthDialog(true)}
               variant="outline"
-              className="w-full rounded-xl gap-2 text-destructive hover:text-destructive"
+              className="w-full rounded-xl gap-2 text-sm text-destructive hover:text-destructive"
             >
               <Trash2 className="w-4 h-4" />
               Supprimer {monthDisplay}
@@ -519,15 +346,26 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           
           <Separator />
           
-          {/* Full Reset (danger zone) */}
+          {/* ===== SECTION 4: À PROPOS ===== */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-destructive uppercase tracking-wider">
-              Zone danger
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              À propos
             </h3>
             
-            <p className="text-sm text-muted-foreground">
-              Supprime toutes les données de l'application (tous les mois).
-            </p>
+            <div className="text-center text-xs text-muted-foreground space-y-2 p-4 rounded-xl bg-muted">
+              <p>{envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''}</p>
+              <p>{transactions.length} transaction{transactions.length !== 1 ? 's' : ''} ce mois</p>
+              {user && <p className="pt-2 border-t">Connecté : {user.email}</p>}
+            </div>
+            
+            <Button
+              onClick={signOut}
+              variant="outline"
+              className="w-full rounded-xl gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Se déconnecter
+            </Button>
             
             <Button
               onClick={handleFullReset}
@@ -536,30 +374,9 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
               disabled={isDeleting}
             >
               <RefreshCw className={`w-4 h-4 ${isDeleting ? 'animate-spin' : ''}`} />
-              {isDeleting ? 'Suppression...' : 'Tout effacer'}
+              {isDeleting ? 'Suppression...' : 'Effacer tout'}
             </Button>
           </div>
-          
-          <Separator />
-          
-          {/* Info */}
-          <div className="text-center text-xs text-muted-foreground space-y-1">
-            <p>{envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''}</p>
-            <p>{transactions.length} transaction{transactions.length !== 1 ? 's' : ''} ce mois</p>
-            {user && <p className="pt-2">Connecté : {user.email}</p>}
-          </div>
-          
-          <Separator />
-          
-          {/* Logout */}
-          <Button
-            onClick={signOut}
-            variant="outline"
-            className="w-full rounded-xl gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Se déconnecter
-          </Button>
         </div>
       </SheetContent>
       
