@@ -1,9 +1,15 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { ArrowLeft, Settings } from 'lucide-react';
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+  
+  const handleClose = () => {
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-background pb-16">
       {/* Header */}
@@ -23,7 +29,7 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="container py-6">
-        <SettingsSheet open={true} onOpenChange={() => {}} />
+        <SettingsSheet open={true} onOpenChange={handleClose} />
       </div>
     </div>
   );
