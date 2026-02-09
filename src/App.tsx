@@ -7,9 +7,12 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BudgetProvider } from "@/contexts/BudgetContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedLayout } from "@/components/ProtectedLayout";
 import Index from "./pages/Index";
 import Planning from "./pages/Planning";
 import Expenses from "./pages/Expenses";
+import Shopping from "./pages/Shopping";
+import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -29,19 +32,11 @@ const App = () => (
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <BudgetProvider key="index">
-                      <Index />
-                    </BudgetProvider>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/planning"
-                element={
-                  <ProtectedRoute>
-                    <BudgetProvider key="planning">
-                      <Planning />
-                    </BudgetProvider>
+                    <ProtectedLayout>
+                      <BudgetProvider key="index">
+                        <Index />
+                      </BudgetProvider>
+                    </ProtectedLayout>
                   </ProtectedRoute>
                 }
               />
@@ -49,9 +44,47 @@ const App = () => (
                 path="/expenses"
                 element={
                   <ProtectedRoute>
-                    <BudgetProvider key="expenses">
-                      <Expenses />
-                    </BudgetProvider>
+                    <ProtectedLayout>
+                      <BudgetProvider key="expenses">
+                        <Expenses />
+                      </BudgetProvider>
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/planning"
+                element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <BudgetProvider key="planning">
+                        <Planning />
+                      </BudgetProvider>
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/shopping"
+                element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <BudgetProvider key="shopping">
+                        <Shopping />
+                      </BudgetProvider>
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <BudgetProvider key="settings">
+                        <Settings />
+                      </BudgetProvider>
+                    </ProtectedLayout>
                   </ProtectedRoute>
                 }
               />
