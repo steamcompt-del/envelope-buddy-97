@@ -60,8 +60,8 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
             </div>
           </div>
           
-          {/* Total dépensé / revenus */}
-          <div className="bg-muted/30 rounded-xl p-2 sm:p-3">
+          {/* Total dépensé / revenus - clickable to expenses page */}
+          <Link to="/expenses" className="bg-muted/30 rounded-xl p-2 sm:p-3 hover:bg-muted/50 transition-colors cursor-pointer">
             <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">
               Dépensé {totalIncome > 0 && <span className="opacity-70">({spentPercent}%)</span>}
             </p>
@@ -83,7 +83,7 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
                 </span>
               )}
             </div>
-          </div>
+          </Link>
         </div>
         
         {/* Actions row */}
