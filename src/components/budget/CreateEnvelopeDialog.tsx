@@ -74,7 +74,7 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const parsedBudget = parseFloat(budgetAmount) || 0;
-  const exceedsBudget = parsedBudget > toBeBudgeted;
+  const exceedsBudget = Math.round(parsedBudget * 100) > Math.round(toBeBudgeted * 100);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
