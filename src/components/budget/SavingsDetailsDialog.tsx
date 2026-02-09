@@ -117,7 +117,8 @@ export function SavingsDetailsDialog({
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
     if (allocateMode === 'add') {
-      if (parsedAmount <= toBeBudgeted) {
+      // Use cents comparison to avoid floating point precision issues
+      if (Math.round(parsedAmount * 100) <= Math.round(toBeBudgeted * 100)) {
         await allocateToEnvelope(envelopeId, parsedAmount);
       }
     } else {
