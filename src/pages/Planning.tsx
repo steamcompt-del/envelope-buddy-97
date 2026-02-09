@@ -4,7 +4,7 @@ import { useBudget } from '@/contexts/BudgetContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlanningExpensesList, PlanningExpense } from '@/components/budget/PlanningExpensesList';
-import { AISuggestionsCard } from '@/components/budget/AISuggestionsCard';
+import { AIEnvelopeCreator } from '@/components/budget/AIEnvelopeCreator';
 import { ArrowLeft, Receipt, Wallet } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
@@ -46,7 +46,7 @@ export default function Planning() {
               Mes dépenses du mois
             </h1>
             <p className="text-sm text-muted-foreground">
-              Entrez vos dépenses pour obtenir des conseils IA
+              Entrez vos dépenses pour créer des enveloppes automatiquement
             </p>
           </div>
         </div>
@@ -83,8 +83,8 @@ export default function Planning() {
           categories={expenseCategories}
         />
         
-        {/* AI Suggestions */}
-        <AISuggestionsCard
+        {/* AI Envelope Creator */}
+        <AIEnvelopeCreator
           expenses={planningExpenses}
           totalIncome={totalIncome}
           categories={expenseCategories}
