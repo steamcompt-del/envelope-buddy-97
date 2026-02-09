@@ -31,7 +31,7 @@ import { fr } from 'date-fns/locale';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
@@ -81,9 +81,8 @@ export function EnvelopeDetailsDialog({
   const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope, updateTransaction, deleteTransaction } = useBudget();
   const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = useSavingsGoals();
   
-  const [allocateAmount, setAllocateAmount] = useState('');
   const [showAllocate, setShowAllocate] = useState(false);
-  const [allocateMode, setAllocateMode] = useState<'add' | 'remove'>('add');
+  const [allocationInput, setAllocationInput] = useState('');
   const [editingTransaction, setEditingTransaction] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editMerchant, setEditMerchant] = useState('');
@@ -171,22 +170,41 @@ export function EnvelopeDetailsDialog({
     }
   };
 
-  const handleAllocate = async () => {
-    const parsedAmount = parseFloat(allocateAmount.replace(',', '.'));
-    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+  const handleStartEditAllocation = () => {
+    setAllocationInput(envelope.allocated.toString().replace('.', ','));
+    setShowAllocate(true);
+  };
+
+  const handleSaveAllocation = async () => {
+    const newTotal = parseFloat(allocationInput.replace(',', '.'));
+    if (isNaN(newTotal) || newTotal < 0) return;
     
-    if (allocateMode === 'add') {
-      // Use cents comparison to avoid floating point precision issues
-      if (Math.round(parsedAmount * 100) <= Math.round(toBeBudgeted * 100)) {
-        await allocateToEnvelope(envelopeId, parsedAmount);
-      }
-    } else {
-      await deallocateFromEnvelope(envelopeId, parsedAmount);
+    const currentAllocated = envelope.allocated;
+    const difference = newTotal - currentAllocated;
+    
+    if (difference > 0) {
+      // Adding allocation - check if we have enough toBeBudgeted
+      if (Math.round(difference * 100) > Math.round(toBeBudgeted * 100)) return;
+      await allocateToEnvelope(envelopeId, difference);
+    } else if (difference < 0) {
+      // Removing allocation - check if we can remove this much (can't go below spent)
+      const maxRemovable = currentAllocated - envelope.spent;
+      if (Math.abs(difference) > maxRemovable) return;
+      await deallocateFromEnvelope(envelopeId, Math.abs(difference));
     }
     
-    setAllocateAmount('');
+    setAllocationInput('');
     setShowAllocate(false);
   };
+
+  const handleCancelEditAllocation = () => {
+    setShowAllocate(false);
+    setAllocationInput('');
+  };
+
+  // Calculate max and min for validation hint
+  const maxAllocation = envelope.allocated + toBeBudgeted;
+  const minAllocation = envelope.spent;
   
   const handleDelete = async () => {
     if (confirm(`Supprimer l'enveloppe "${envelope.name}" ?`)) {
@@ -358,26 +376,71 @@ export function EnvelopeDetailsDialog({
             )
           )}
           
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setShowAllocate(true); setAllocateMode('add'); }}
-              className="rounded-xl flex-col h-auto py-3"
-            >
-              <Plus className="w-4 h-4 mb-1" />
-              <span className="text-xs">Allouer</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setShowAllocate(true); setAllocateMode('remove'); }}
-              className="rounded-xl flex-col h-auto py-3"
-              disabled={remaining <= 0}
-            >
-              <Minus className="w-4 h-4 mb-1" />
-              <span className="text-xs">Retirer</span>
-            </Button>
+          {/* Allocation Section */}
+          <div className="p-3 bg-muted/50 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-muted-foreground text-sm">Allocation</Label>
+              {!showAllocate && (
+                <button
+                  onClick={handleStartEditAllocation}
+                  className="flex items-center gap-1.5 group"
+                >
+                  <span className="text-lg font-semibold">
+                    {envelope.allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  </span>
+                  <Pencil className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )}
+            </div>
+            
+            {showAllocate && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={allocationInput}
+                      onChange={(e) => setAllocationInput(e.target.value)}
+                      className="pr-8 rounded-lg text-lg font-semibold"
+                      autoFocus
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">€</span>
+                  </div>
+                  <Button
+                    onClick={handleSaveAllocation}
+                    size="sm"
+                    className="rounded-lg px-3"
+                    disabled={(() => {
+                      const newTotal = parseFloat(allocationInput.replace(',', '.'));
+                      if (isNaN(newTotal) || newTotal < 0) return true;
+                      if (newTotal < minAllocation) return true;
+                      if (newTotal > maxAllocation) return true;
+                      return false;
+                    })()}
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelEditAllocation}
+                    className="rounded-lg px-3"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Min: {minAllocation.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} (dépensé) • 
+                  Max: {maxAllocation.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} (disponible)
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -387,52 +450,16 @@ export function EnvelopeDetailsDialog({
               <ArrowRightLeft className="w-4 h-4 mb-1" />
               <span className="text-xs">Transférer</span>
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddExpense}
+              className="rounded-xl flex-col h-auto py-3"
+            >
+              <Plus className="w-4 h-4 mb-1" />
+              <span className="text-xs">Dépense</span>
+            </Button>
           </div>
-          
-          {showAllocate && (
-            <div className="p-3 bg-muted rounded-xl space-y-3">
-              <Label>
-                {allocateMode === 'add' 
-                  ? `Ajouter (max: ${toBeBudgeted.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })})`
-                  : `Retirer (max: ${remaining.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })})`
-                }
-              </Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={allocateAmount}
-                    onChange={(e) => setAllocateAmount(e.target.value)}
-                    className="pr-8 rounded-lg"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
-                </div>
-                <Button
-                  onClick={handleAllocate}
-                  size="sm"
-                  className="rounded-lg"
-                  disabled={
-                    !allocateAmount || 
-                    parseFloat(allocateAmount.replace(',', '.')) <= 0 ||
-                    (allocateMode === 'add' && Math.round(parseFloat(allocateAmount.replace(',', '.')) * 100) > Math.round(toBeBudgeted * 100)) ||
-                    (allocateMode === 'remove' && Math.round(parseFloat(allocateAmount.replace(',', '.')) * 100) > Math.round(remaining * 100))
-                  }
-                >
-                  OK
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setShowAllocate(false); setAllocateAmount(''); }}
-                  className="rounded-lg"
-                >
-                  ✕
-                </Button>
-              </div>
-            </div>
-          )}
           
           {envelopeTransactions.length > 0 && (
             <div className="space-y-2">
