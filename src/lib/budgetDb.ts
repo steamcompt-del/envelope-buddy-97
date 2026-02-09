@@ -280,10 +280,14 @@ export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: n
   return income.id;
 }
 
-export async function updateIncomeDb(ctx: QueryContext, monthKey: string, incomeId: string, newAmount: number, newDescription: string, oldAmount: number): Promise<void> {
+export async function updateIncomeDb(ctx: QueryContext, monthKey: string, incomeId: string, newAmount: number, newDescription: string, oldAmount: number, newDate?: Date): Promise<void> {
   await supabase
     .from('incomes')
-    .update({ amount: newAmount, description: newDescription })
+    .update({ 
+      amount: newAmount, 
+      description: newDescription,
+      date: newDate ? newDate.toISOString() : undefined,
+    })
     .eq('id', incomeId);
 
   const diff = newAmount - oldAmount;

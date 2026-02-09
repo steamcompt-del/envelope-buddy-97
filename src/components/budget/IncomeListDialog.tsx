@@ -11,9 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Banknote, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Banknote, Pencil, Trash2, Check, X, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 interface IncomeListDialogProps {
   open: boolean;
@@ -25,6 +28,8 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editDate, setEditDate] = useState<Date | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   
   const sortedIncomes = [...incomes].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -34,19 +39,21 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
     setEditingId(income.id);
     setEditAmount(income.amount.toString().replace('.', ','));
     setEditDescription(income.description);
+    setEditDate(new Date(income.date));
   };
   
   const cancelEdit = () => {
     setEditingId(null);
     setEditAmount('');
     setEditDescription('');
+    setEditDate(undefined);
   };
   
   const saveEdit = async (id: string) => {
     const parsedAmount = parseFloat(editAmount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
-    await updateIncome(id, parsedAmount, editDescription || 'Revenu');
+    await updateIncome(id, parsedAmount, editDescription || 'Revenu', editDate);
     cancelEdit();
   };
   
@@ -103,18 +110,47 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
                             €
                           </span>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`edit-desc-${income.id}`}>Description</Label>
-                        <Input
-                          id={`edit-desc-${income.id}`}
-                          type="text"
-                          value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          className="rounded-xl"
-                        />
-                      </div>
-                      <div className="flex gap-2">
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor={`edit-desc-${income.id}`}>Description</Label>
+                         <Input
+                           id={`edit-desc-${income.id}`}
+                           type="text"
+                           value={editDescription}
+                           onChange={(e) => setEditDescription(e.target.value)}
+                           className="rounded-xl"
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <Label>Date</Label>
+                         <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                           <PopoverTrigger asChild>
+                             <button
+                               className={cn(
+                                 "w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-left text-sm",
+                                 !editDate && "text-muted-foreground"
+                               )}
+                             >
+                               <CalendarIcon className="w-4 h-4" />
+                               {editDate ? format(editDate, "d MMMM yyyy", { locale: fr }) : "Sélectionner"}
+                             </button>
+                           </PopoverTrigger>
+                           <PopoverContent className="w-auto p-0" align="start">
+                             <Calendar
+                               mode="single"
+                               selected={editDate}
+                               onSelect={(date) => {
+                                 setEditDate(date);
+                                 setDatePopoverOpen(false);
+                               }}
+                               initialFocus
+                               locale={fr}
+                               className="p-3 pointer-events-auto"
+                             />
+                           </PopoverContent>
+                         </Popover>
+                       </div>
+                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
