@@ -10,9 +10,10 @@ interface BudgetHeaderProps {
   onAllocate: () => void;
   onAddIncome: () => void;
   onOpenSettings: () => void;
+  onOpenIncomeHistory: () => void;
 }
 
-export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: BudgetHeaderProps) {
+export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIncomeHistory }: BudgetHeaderProps) {
   const { toBeBudgeted, envelopes, incomes } = useBudget();
   
   // Calculate total spent across all envelopes
@@ -36,8 +37,11 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
         
         {/* Budget stats - stack on mobile, row on desktop */}
         <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3">
-          {/* À budgétiser */}
-          <div className="bg-muted/30 rounded-xl p-2 sm:p-3">
+          {/* À budgétiser - clickable to income history */}
+          <button 
+            onClick={onOpenIncomeHistory}
+            className="bg-muted/30 rounded-xl p-2 sm:p-3 hover:bg-muted/50 transition-colors cursor-pointer text-left"
+          >
             <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">À budgétiser</p>
             <div className="flex items-baseline gap-1">
               <span 
@@ -58,7 +62,7 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
                 <span className="inline-flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
               )}
             </div>
-          </div>
+          </button>
           
           {/* Total dépensé / revenus - clickable to expenses page */}
           <Link to="/expenses" className="bg-muted/30 rounded-xl p-2 sm:p-3 hover:bg-muted/50 transition-colors cursor-pointer">
