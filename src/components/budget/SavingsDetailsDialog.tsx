@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useBudget, Envelope } from '@/contexts/BudgetContext';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useActivity } from '@/hooks/useActivity';
@@ -18,7 +18,7 @@ import { format, parseISO, differenceInDays, differenceInMonths, addMonths } fro
 import { fr } from 'date-fns/locale';
 import { 
   PiggyBank, Target, TrendingUp, Plus, Minus, ArrowRightLeft,
-  Trash2, Settings, History, Flag, Calendar, Sparkles, Star
+  Trash2, Settings, History, Flag, Calendar, Sparkles, Star, Pencil
 } from 'lucide-react';
 import { CircularProgress } from './CircularProgress';
 import { SavingsGoalDialog } from './SavingsGoalDialog';
@@ -39,7 +39,7 @@ export function SavingsDetailsDialog({
   envelopeId,
   onTransfer,
 }: SavingsDetailsDialogProps) {
-  const { envelopes, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope } = useBudget();
+  const { envelopes, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope } = useBudget();
   const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = useSavingsGoals();
   const { activities } = useActivity();
   
@@ -47,6 +47,9 @@ export function SavingsDetailsDialog({
   const [showAllocate, setShowAllocate] = useState(false);
   const [allocateMode, setAllocateMode] = useState<'add' | 'remove'>('add');
   const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
+  const nameInputRef = useRef<HTMLInputElement>(null);
   
   const envelope = envelopes.find(e => e.id === envelopeId);
   const savingsGoal = getGoalForEnvelope(envelopeId);
@@ -149,6 +152,35 @@ export function SavingsDetailsDialog({
       await deleteGoal(savingsGoal.id);
     }
   };
+
+  const startEditName = () => {
+    setEditName(envelope.name);
+    setIsEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+
+  const cancelEditName = () => {
+    setIsEditingName(false);
+    setEditName('');
+  };
+
+  const saveEnvelopeName = async () => {
+    const trimmedName = editName.trim();
+    if (trimmedName && trimmedName !== envelope.name) {
+      await updateEnvelope(envelopeId, { name: trimmedName });
+    }
+    setIsEditingName(false);
+    setEditName('');
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEnvelopeName();
+    } else if (e.key === 'Escape') {
+      cancelEditName();
+    }
+  };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,11 +190,31 @@ export function SavingsDetailsDialog({
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
               <PiggyBank className="w-6 h-6 text-primary" />
             </div>
-            <div className="flex-1">
-              <DialogTitle className="text-xl flex items-center gap-2">
-                {envelope.name}
-                {isComplete && <Star className="w-5 h-5 text-envelope-yellow fill-envelope-yellow" />}
-              </DialogTitle>
+            <div className="flex-1 min-w-0">
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={nameInputRef}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={handleNameKeyDown}
+                    onBlur={saveEnvelopeName}
+                    className="h-8 text-lg font-semibold rounded-lg"
+                    placeholder="Nom de l'enveloppe"
+                  />
+                </div>
+              ) : (
+                <button 
+                  onClick={startEditName}
+                  className="flex items-center gap-2 group text-left"
+                >
+                  <DialogTitle className="text-xl flex items-center gap-2">
+                    {envelope.name}
+                    {isComplete && <Star className="w-5 h-5 text-envelope-yellow fill-envelope-yellow" />}
+                  </DialogTitle>
+                  <Pencil className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )}
               {savingsGoal?.name && (
                 <p className="text-sm text-muted-foreground">{savingsGoal.name}</p>
               )}
