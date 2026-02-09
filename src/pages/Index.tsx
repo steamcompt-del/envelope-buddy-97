@@ -217,10 +217,7 @@ export default function Index() {
         open={settingsOpen} 
         onOpenChange={setSettingsOpen}
         onOpenIncomeList={() => setIncomeListOpen(true)}
-        onOpenSuggestions={() => setSuggestionsOpen(true)}
-        onOpenRecurring={() => setRecurringOpen(true)}
         onOpenActivity={() => setActivityOpen(true)}
-        onOpenShoppingList={() => setShoppingListOpen(true)}
       />
       <IncomeListDialog open={incomeListOpen} onOpenChange={setIncomeListOpen} />
       <BudgetSuggestionsDialog open={suggestionsOpen} onOpenChange={setSuggestionsOpen} />
