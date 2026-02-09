@@ -54,6 +54,7 @@ interface TransactionWithEnvelope extends Transaction {
     icon: string;
     color: string;
   };
+  isWithdrawal?: boolean; // True if this is a savings withdrawal
 }
 
 export default function Expenses() {
@@ -73,10 +74,14 @@ export default function Expenses() {
   // Enrich transactions with envelope info
   const enrichedTransactions: TransactionWithEnvelope[] = useMemo(() => {
     const envelopeMap = new Map(envelopes.map(e => [e.id, e]));
-    return transactions.map(t => ({
-      ...t,
-      envelope: envelopeMap.get(t.envelopeId),
-    }));
+    return transactions.map(t => {
+      const envelope = envelopeMap.get(t.envelopeId);
+      return {
+        ...t,
+        envelope,
+        isWithdrawal: envelope?.icon === 'PiggyBank',
+      };
+    });
   }, [transactions, envelopes]);
 
   // Filter and sort transactions
@@ -263,12 +268,16 @@ export default function Expenses() {
                       : colorClasses.blue;
                     const receipts = getReceiptsForTransaction(t.id);
                     const hasReceipts = receipts.length > 0 || !!t.receiptUrl;
+                    const isWithdrawal = t.isWithdrawal;
                     
                     return (
                       <button 
                         key={t.id}
                         onClick={() => handleOpenEditSheet(t)}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border transition-colors hover:bg-muted/50 text-left"
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-xl border transition-colors hover:bg-muted/50 text-left",
+                          isWithdrawal ? "bg-primary/5 border-primary/20" : "bg-card"
+                        )}
                       >
                         {/* Envelope icon */}
                         <div className={cn(
@@ -283,9 +292,16 @@ export default function Expenses() {
                         
                         {/* Transaction info */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {t.merchant || t.description}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">
+                              {t.merchant || t.description}
+                            </p>
+                            {isWithdrawal && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0">
+                                Retrait
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>{t.envelope?.name || 'Sans catégorie'}</span>
                             {t.merchant && t.description && t.merchant !== t.description && (
@@ -316,8 +332,11 @@ export default function Expenses() {
                         )}
                         
                         {/* Amount */}
-                        <p className="font-semibold text-destructive flex-shrink-0">
-                          -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        <p className={cn(
+                          "font-semibold flex-shrink-0",
+                          isWithdrawal ? "text-primary" : "text-destructive"
+                        )}>
+                          {isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </button>
                     );
