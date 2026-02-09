@@ -182,10 +182,23 @@ export function TransferToMonthDialog({
           
           {/* Amount */}
           <div className="space-y-2">
-            <Label htmlFor="transfer-month-amount">Montant</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="transfer-month-amount">Montant</Label>
+              {selectedEnvelope && maxTransfer > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto py-1 px-2 text-xs text-primary"
+                  onClick={() => setAmount(maxTransfer.toString().replace('.', ','))}
+                >
+                  Tout transférer
+                </Button>
+              )}
+            </div>
             {selectedEnvelope && (
               <p className="text-xs text-muted-foreground">
-                Max: {maxTransfer.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                Disponible: {maxTransfer.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </p>
             )}
             <div className="relative">
