@@ -182,6 +182,16 @@ Suggère des enveloppes budgétaires adaptées avec les montants d'allocation ap
         ).join("\n")}`
       : "";
 
+    // Calculate spending analysis
+    const spendingAnalysis = envelopes.map((e: { name: string; allocated: number; spent: number }) => {
+      const percentUsed = e.allocated > 0 ? Math.round((e.spent / e.allocated) * 100) : 0;
+      const status = percentUsed > 100 ? 'DÉPASSÉ' : percentUsed > 80 ? 'ATTENTION' : 'OK';
+      return `- ${e.name}: ${e.spent}€ dépensés sur ${e.allocated}€ alloués (${percentUsed}%) [${status}]`;
+    }).join("\n");
+
+    const totalSpent = envelopes.reduce((sum: number, e: { spent: number }) => sum + e.spent, 0);
+    const totalAllocated = envelopes.reduce((sum: number, e: { allocated: number }) => sum + e.allocated, 0);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -189,23 +199,41 @@ Suggère des enveloppes budgétaires adaptées avec les montants d'allocation ap
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5",
+        model: "google/gemini-3-flash-preview",
         messages: [
           {
             role: "system",
-            content: `Tu es un conseiller financier personnel. Tu aides à optimiser les budgets mensuels.
-Analyse les dépenses et suggère des allocations budgétaires équilibrées.
-Réponds en français de manière concise et pratique.`,
+            content: `Tu es un coach budgétaire personnel expert. Tu analyses UNIQUEMENT les dépenses et la gestion du budget de l'utilisateur.
+
+RÈGLES STRICTES:
+- Parle UNIQUEMENT de ses dépenses, enveloppes et budget
+- Identifie les catégories où il dépense trop par rapport à son allocation
+- Compare ses dépenses à des ratios budgétaires sains (ex: courses max 15-20% du revenu, loisirs max 10%, etc.)
+- Donne des conseils CONCRETS et PERSONNALISÉS basés sur SES données
+- Si une enveloppe est dépassée, explique pourquoi c'est problématique
+- Suggère des ajustements de budget réalistes
+- Sois direct et pratique, pas de généralités
+
+FORMAT DE RÉPONSE:
+1. 📊 **Analyse de tes dépenses** - Points clés sur ses habitudes
+2. ⚠️ **Alertes** - Catégories problématiques (si applicable)
+3. 💡 **Conseils personnalisés** - 2-3 actions concrètes
+
+Réponds en français, sois concis mais percutant.`,
           },
           {
             role: "user",
-            content: `Mon revenu mensuel est de ${totalIncome}€.
+            content: `Analyse mon budget:
 
-Mes enveloppes actuelles:
-${envelopeData}${historyText}
+💰 Revenu mensuel: ${totalIncome}€
+📊 Total alloué: ${totalAllocated}€
+💸 Total dépensé: ${totalSpent}€
+📈 Reste à budgétiser: ${totalIncome - totalAllocated}€
 
-Donne-moi 3 conseils personnalisés pour optimiser mon budget, et suggère des montants d'allocation pour chaque enveloppe.
-Réponds sous forme de liste courte et actionnable.`,
+Détail par enveloppe:
+${spendingAnalysis}${historyText}
+
+Dis-moi si je dépense trop dans certaines catégories et comment améliorer ma gestion.`,
           },
         ],
       }),
