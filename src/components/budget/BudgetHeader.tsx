@@ -1,6 +1,7 @@
+import { Link } from 'react-router-dom';
 import { useBudget } from '@/contexts/BudgetContext';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MonthSelector } from './MonthSelector';
 import { HouseholdSwitcher } from './HouseholdSwitcher';
@@ -52,6 +53,16 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
           </div>
           
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <Link to="/expenses">
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-xl h-8 w-8 sm:h-9 sm:w-9"
+              >
+                <Receipt className="h-4 w-4" />
+              </Button>
+            </Link>
+            
             <Button
               variant="outline"
               size="icon"
