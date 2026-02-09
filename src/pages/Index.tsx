@@ -9,6 +9,7 @@ import { AllocateFundsDialog } from '@/components/budget/AllocateFundsDialog';
 import { TransferFundsDialog } from '@/components/budget/TransferFundsDialog';
 import { AddExpenseDrawer, ScannedExpenseData } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
+import { SavingsDetailsDialog } from '@/components/budget/SavingsDetailsDialog';
 import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
 import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDialog';
@@ -44,6 +45,7 @@ export default function Index() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [savingsDetailsOpen, setSavingsDetailsOpen] = useState(false);
   const [incomeListOpen, setIncomeListOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [recurringOpen, setRecurringOpen] = useState(false);
@@ -71,8 +73,15 @@ export default function Index() {
   }, [dueCount, loading]);
   
   const handleEnvelopeClick = (envelopeId: string) => {
+    const envelope = envelopes.find(e => e.id === envelopeId);
     setSelectedEnvelopeId(envelopeId);
-    setDetailsOpen(true);
+    
+    // Open different dialog based on envelope type
+    if (envelope?.icon === 'PiggyBank') {
+      setSavingsDetailsOpen(true);
+    } else {
+      setDetailsOpen(true);
+    }
   };
   
   const handleFabScan = () => {
@@ -226,13 +235,21 @@ export default function Index() {
       />
       
       {selectedEnvelopeId && (
-        <EnvelopeDetailsDialog
-          open={detailsOpen}
-          onOpenChange={setDetailsOpen}
-          envelopeId={selectedEnvelopeId}
-          onTransfer={handleTransferFromDetails}
-          onAddExpense={handleAddExpenseFromDetails}
-        />
+        <>
+          <EnvelopeDetailsDialog
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
+            envelopeId={selectedEnvelopeId}
+            onTransfer={handleTransferFromDetails}
+            onAddExpense={handleAddExpenseFromDetails}
+          />
+          <SavingsDetailsDialog
+            open={savingsDetailsOpen}
+            onOpenChange={setSavingsDetailsOpen}
+            envelopeId={selectedEnvelopeId}
+            onTransfer={handleTransferFromDetails}
+          />
+        </>
       )}
     </div>
   );
