@@ -930,7 +930,7 @@ export async function deleteAllUserDataDb(ctx: QueryContext): Promise<void> {
 }
 
 // Copy envelopes to a specific target month
-// Uses the rollover flag to determine which envelopes should carry over their net balance
+// ONLY envelopes with rollover=true are copied (per user requirement)
 // The rollover is capped at the savings goal target if one exists
 export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<void> {
   // 1) Ensure target monthly budget row exists
@@ -956,8 +956,12 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     });
   }
 
-  // 2) Fetch all envelopes with their details (including rollover flag)
-  let envelopesQuery = supabase.from('envelopes').select('id, rollover');
+  // 2) Fetch ONLY envelopes with rollover enabled (per user requirement)
+  let envelopesQuery = supabase
+    .from('envelopes')
+    .select('id, rollover')
+    .eq('rollover', true);
+    
   if (ctx.householdId) {
     envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
   } else {
@@ -1014,27 +1018,21 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   const { data: existingAllocs } = await existingAllocsQuery;
   const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
 
-  // 6) Create allocations for missing envelopes
+  // 6) Create allocations ONLY for rollover envelopes that don't already exist in target month
   const missingEnvelopes = envelopes.filter(e => !existingSet.has(e.id));
 
   if (missingEnvelopes.length > 0) {
     const allocationsToInsert = missingEnvelopes.map(envelope => {
-      const hasRollover = envelope.rollover === true;
       const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
       const targetAmount = goalsMap.get(envelope.id) || 0;
       
-      // Calculate net balance to carry over for rollover envelopes
-      let carryOverAmount = 0;
-      if (hasRollover) {
-        const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
-        
-        if (targetAmount > 0) {
-          // Cap the rollover at the target amount
-          carryOverAmount = Math.min(netBalance, targetAmount);
-        } else {
-          // No target, carry over the full net balance
-          carryOverAmount = netBalance;
-        }
+      // Calculate net balance to carry over
+      const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
+      
+      let carryOverAmount = netBalance;
+      if (targetAmount > 0) {
+        // Cap the rollover at the target amount
+        carryOverAmount = Math.min(netBalance, targetAmount);
       }
 
       return {
