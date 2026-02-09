@@ -34,62 +34,61 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
           <MonthSelector />
         </div>
         
-        {/* Budget info row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-4">
-              {/* À budgétiser */}
-              <div>
-                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">À budgétiser</p>
-                <div className="flex items-baseline gap-2">
-                  <span 
-                    className={cn(
-                      "text-xl sm:text-2xl font-bold tracking-tight transition-colors",
-                      isPositive && "text-primary",
-                      isZero && "text-muted-foreground",
-                      toBeBudgeted < 0 && "text-destructive"
-                    )}
-                  >
-                    {toBeBudgeted.toLocaleString('fr-FR', { 
-                      style: 'currency', 
-                      currency: 'EUR',
-                      minimumFractionDigits: 2 
-                    })}
-                  </span>
-                  {isPositive && (
-                    <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
-                  )}
-                </div>
-              </div>
-              
-              {/* Total dépensé / revenus */}
-              <div className="border-l border-border pl-4">
-                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">
-                  Dépensé {totalIncome > 0 && <span className="text-muted-foreground/70">({spentPercent}%)</span>}
-                </p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-destructive">
-                    {totalSpent.toLocaleString('fr-FR', { 
-                      style: 'currency', 
-                      currency: 'EUR',
-                      minimumFractionDigits: 2 
-                    })}
-                  </span>
-                  {totalIncome > 0 && (
-                    <span className="text-sm text-muted-foreground">
-                      / {totalIncome.toLocaleString('fr-FR', { 
-                        style: 'currency', 
-                        currency: 'EUR',
-                        minimumFractionDigits: 0 
-                      })}
-                    </span>
-                  )}
-                </div>
-              </div>
+        {/* Budget stats - stack on mobile, row on desktop */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3">
+          {/* À budgétiser */}
+          <div className="bg-muted/30 rounded-xl p-2 sm:p-3">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">À budgétiser</p>
+            <div className="flex items-baseline gap-1">
+              <span 
+                className={cn(
+                  "text-lg sm:text-2xl font-bold tracking-tight transition-colors truncate",
+                  isPositive && "text-primary",
+                  isZero && "text-muted-foreground",
+                  toBeBudgeted < 0 && "text-destructive"
+                )}
+              >
+                {toBeBudgeted.toLocaleString('fr-FR', { 
+                  style: 'currency', 
+                  currency: 'EUR',
+                  minimumFractionDigits: 0 
+                })}
+              </span>
+              {isPositive && (
+                <span className="inline-flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
+              )}
             </div>
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          {/* Total dépensé / revenus */}
+          <div className="bg-muted/30 rounded-xl p-2 sm:p-3">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">
+              Dépensé {totalIncome > 0 && <span className="opacity-70">({spentPercent}%)</span>}
+            </p>
+            <div className="flex items-baseline gap-1 flex-wrap">
+              <span className="text-lg sm:text-2xl font-bold tracking-tight text-destructive truncate">
+                {totalSpent.toLocaleString('fr-FR', { 
+                  style: 'currency', 
+                  currency: 'EUR',
+                  minimumFractionDigits: 0 
+                })}
+              </span>
+              {totalIncome > 0 && (
+                <span className="text-[10px] sm:text-sm text-muted-foreground whitespace-nowrap">
+                  / {totalIncome.toLocaleString('fr-FR', { 
+                    style: 'currency', 
+                    currency: 'EUR',
+                    minimumFractionDigits: 0 
+                  })}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Actions row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Link to="/expenses">
               <Button
                 variant="outline"
@@ -108,7 +107,9 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
             >
               <Settings className="h-4 w-4" />
             </Button>
-            
+          </div>
+          
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -116,14 +117,14 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
               className="rounded-xl gap-1 px-2 sm:px-3 h-8 sm:h-9 text-xs sm:text-sm"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Revenu</span>
+              <span className="hidden xs:inline">Revenu</span>
             </Button>
             
             {isPositive && (
               <Button
                 onClick={onAllocate}
                 size="sm"
-                className="rounded-xl gradient-primary shadow-button animate-pulse-glow h-8 sm:h-9 px-2 sm:px-4 text-xs sm:text-sm"
+                className="rounded-xl gradient-primary shadow-button animate-pulse-glow h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
               >
                 Allouer
               </Button>
