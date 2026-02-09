@@ -105,7 +105,7 @@ interface BudgetContextType {
   deleteIncome: (id: string) => Promise<void>;
   
   // Envelope actions
-  createEnvelope: (name: string, icon: string, color: string) => Promise<void>;
+  createEnvelope: (name: string, icon: string, color: string) => Promise<string | undefined>;
   updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => Promise<void>;
   deleteEnvelope: (id: string) => Promise<void>;
   reorderEnvelopes: (orderedIds: string[]) => Promise<void>;
@@ -381,12 +381,13 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
   // Envelope actions
-  const createEnvelope = useCallback(async (name: string, icon: string, color: string) => {
+  const createEnvelope = useCallback(async (name: string, icon: string, color: string): Promise<string | undefined> => {
     const ctx = getQueryContext();
-    if (!ctx) return;
+    if (!ctx) return undefined;
     const envelopeId = await createEnvelopeDb(ctx, currentMonthKey, name, icon, color);
     await logActivity(ctx, 'envelope_created', 'envelope', envelopeId, { name });
     await loadMonthData();
+    return envelopeId;
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 
   const updateEnvelope = useCallback(async (id: string, updates: Partial<Omit<Envelope, 'id'>>) => {

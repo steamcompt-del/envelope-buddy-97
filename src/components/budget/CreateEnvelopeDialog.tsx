@@ -10,11 +10,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Check
+  Coffee, Wallet, Check, Euro
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -65,22 +65,40 @@ const iconOptions = [
 ];
 
 export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialogProps) {
-  const { createEnvelope } = useBudget();
+  const { createEnvelope, allocateToEnvelope, toBeBudgeted } = useBudget();
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Wallet');
   const [selectedColor, setSelectedColor] = useState('blue');
   const [showCustom, setShowCustom] = useState(false);
+  const [budgetAmount, setBudgetAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const parsedBudget = parseFloat(budgetAmount) || 0;
+  const exceedsBudget = parsedBudget > toBeBudgeted;
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isSubmitting) return;
     
-    await createEnvelope(name.trim(), selectedIcon, selectedColor);
-    setName('');
-    setSelectedIcon('Wallet');
-    setSelectedColor('blue');
-    setShowCustom(false);
-    onOpenChange(false);
+    setIsSubmitting(true);
+    try {
+      const envelopeId = await createEnvelope(name.trim(), selectedIcon, selectedColor);
+      
+      // Allocate budget if specified and valid
+      if (parsedBudget > 0 && !exceedsBudget && envelopeId) {
+        await allocateToEnvelope(envelopeId, parsedBudget);
+      }
+      
+      // Reset form
+      setName('');
+      setSelectedIcon('Wallet');
+      setSelectedColor('blue');
+      setShowCustom(false);
+      setBudgetAmount('');
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleTemplateSelect = (template: typeof defaultEnvelopeTemplates[0]) => {
@@ -119,6 +137,39 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
               ))}
             </div>
             
+            {/* Budget allocation field */}
+            <div className="space-y-2 pt-2 border-t">
+              <Label htmlFor="template-budget" className="flex items-center gap-2">
+                <Euro className="h-4 w-4 text-muted-foreground" />
+                Budget initial (optionnel)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="template-budget"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  className="rounded-xl pr-10"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
+              </div>
+              {toBeBudgeted > 0 && (
+                <p className={cn(
+                  "text-xs",
+                  exceedsBudget ? "text-destructive" : "text-muted-foreground"
+                )}>
+                  {exceedsBudget 
+                    ? `Dépasse le disponible (${formatCurrency(toBeBudgeted)})`
+                    : `Disponible: ${formatCurrency(toBeBudgeted)}`
+                  }
+                </p>
+              )}
+            </div>
+            
             <Button
               type="button"
               variant="outline"
@@ -131,9 +182,10 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
             {name && (
               <Button
                 onClick={handleSubmit}
+                disabled={isSubmitting || exceedsBudget}
                 className="w-full rounded-xl gradient-primary shadow-button"
               >
-                Créer "{name}"
+                {isSubmitting ? 'Création...' : `Créer "${name}"${parsedBudget > 0 ? ` avec ${formatCurrency(parsedBudget)}` : ''}`}
               </Button>
             )}
           </div>
@@ -195,6 +247,39 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
               </div>
             </div>
             
+            {/* Budget allocation field */}
+            <div className="space-y-2 pt-2 border-t">
+              <Label htmlFor="custom-budget" className="flex items-center gap-2">
+                <Euro className="h-4 w-4 text-muted-foreground" />
+                Budget initial (optionnel)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="custom-budget"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  className="rounded-xl pr-10"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
+              </div>
+              {toBeBudgeted > 0 && (
+                <p className={cn(
+                  "text-xs",
+                  exceedsBudget ? "text-destructive" : "text-muted-foreground"
+                )}>
+                  {exceedsBudget 
+                    ? `Dépasse le disponible (${formatCurrency(toBeBudgeted)})`
+                    : `Disponible: ${formatCurrency(toBeBudgeted)}`
+                  }
+                </p>
+              )}
+            </div>
+            
             <div className="flex gap-2 pt-2">
               <Button
                 type="button"
@@ -206,10 +291,10 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
               </Button>
               <Button
                 type="submit"
-                disabled={!name.trim()}
+                disabled={!name.trim() || isSubmitting || exceedsBudget}
                 className="flex-1 rounded-xl gradient-primary shadow-button"
               >
-                Créer
+                {isSubmitting ? 'Création...' : 'Créer'}
               </Button>
             </div>
           </form>
