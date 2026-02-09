@@ -415,8 +415,9 @@ export function EnvelopeDetailsDialog({
                     disabled={(() => {
                       const newTotal = parseFloat(allocationInput.replace(',', '.'));
                       if (isNaN(newTotal) || newTotal < 0) return true;
-                      if (newTotal < minAllocation) return true;
-                      if (newTotal > maxAllocation) return true;
+                      // Use cents comparison to avoid floating point precision issues
+                      if (Math.round(newTotal * 100) < Math.round(minAllocation * 100)) return true;
+                      if (Math.round(newTotal * 100) > Math.round(maxAllocation * 100)) return true;
                       return false;
                     })()}
                   >
