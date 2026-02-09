@@ -41,7 +41,7 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: Sortabl
       style={style}
       className={cn(
         "relative group",
-        isDragging && "z-50 opacity-90 shadow-lg"
+        isDragging && "opacity-0"
       )}
     >
       {/* Drag handle */}
