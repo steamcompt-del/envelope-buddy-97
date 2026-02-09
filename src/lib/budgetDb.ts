@@ -710,7 +710,8 @@ export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, t
 
 // Start new month - ensures allocations exist for the new month
 // Only envelopes that have allocations in the CURRENT month are duplicated to the new month
-// Envelopes with rollover=true carry over their unspent balance
+// Envelopes with rollover=true carry over their net balance (allocated - spent)
+// The rollover is capped at the savings goal target if one exists
 export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<string> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -768,10 +769,12 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
 
   // Create maps for easy lookup
   const envelopeMap = new Map(envelopes.map(e => [e.id, e]));
-  const currentAllocMap = new Map(currentAllocs.map(a => [a.envelope_id, Number(a.allocated)]));
-  const currentSpentMap = new Map(currentAllocs.map(a => [a.envelope_id, Number(a.spent)]));
+  const currentAllocMap = new Map(currentAllocs.map(a => [a.envelope_id, { 
+    allocated: Number(a.allocated), 
+    spent: Number(a.spent) 
+  }]));
 
-  // 4) Fetch savings goals to check if goal is reached
+  // 4) Fetch savings goals to check target amounts
   let goalsQuery = supabase
     .from('savings_goals')
     .select('envelope_id, target_amount');
@@ -809,19 +812,21 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     const allocationsToInsert = missingEnvelopeIds.map(envelopeId => {
       const envelope = envelopeMap.get(envelopeId);
       const hasRollover = envelope?.rollover === true;
-      const currentAllocated = currentAllocMap.get(envelopeId) || 0;
-      const currentSpent = currentSpentMap.get(envelopeId) || 0;
+      const allocData = currentAllocMap.get(envelopeId) || { allocated: 0, spent: 0 };
       const targetAmount = goalsMap.get(envelopeId) || 0;
       
-      // Calculate remaining (unspent) amount to carry over
+      // Calculate net balance (allocated - spent)
       let carryOverAmount = 0;
-      if (hasRollover && currentAllocated > 0) {
-        const remaining = Math.max(0, currentAllocated - currentSpent);
-        // If there's a goal, only carry over if goal not yet reached
-        if (targetAmount === 0 || currentAllocated < targetAmount) {
-          carryOverAmount = remaining;
+      if (hasRollover) {
+        const netBalance = Math.max(0, allocData.allocated - allocData.spent);
+        
+        if (targetAmount > 0) {
+          // Cap the rollover at the target amount
+          carryOverAmount = Math.min(netBalance, targetAmount);
+        } else {
+          // No target, carry over the full net balance
+          carryOverAmount = netBalance;
         }
-        // If goal reached, don't carry over (start fresh)
       }
 
       return {
@@ -925,6 +930,8 @@ export async function deleteAllUserDataDb(ctx: QueryContext): Promise<void> {
 }
 
 // Copy envelopes to a specific target month
+// Uses the rollover flag to determine which envelopes should carry over their net balance
+// The rollover is capped at the savings goal target if one exists
 export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<void> {
   // 1) Ensure target monthly budget row exists
   let existsQuery = supabase
@@ -949,8 +956,8 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     });
   }
 
-  // 2) Fetch all envelopes with their details
-  let envelopesQuery = supabase.from('envelopes').select('id, icon');
+  // 2) Fetch all envelopes with their details (including rollover flag)
+  let envelopesQuery = supabase.from('envelopes').select('id, rollover');
   if (ctx.householdId) {
     envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
   } else {
@@ -960,10 +967,10 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   const { data: envelopes } = await envelopesQuery;
   if (!envelopes || envelopes.length === 0) return;
 
-  // 3) Fetch source month allocations (to carry over for savings)
+  // 3) Fetch source month allocations (to carry over for rollover envelopes)
   let sourceAllocsQuery = supabase
     .from('envelope_allocations')
-    .select('envelope_id, allocated')
+    .select('envelope_id, allocated, spent')
     .eq('month_key', sourceMonthKey);
 
   if (ctx.householdId) {
@@ -973,7 +980,10 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   }
 
   const { data: sourceAllocs } = await sourceAllocsQuery;
-  const sourceAllocMap = new Map((sourceAllocs || []).map(a => [a.envelope_id, Number(a.allocated)]));
+  const sourceAllocMap = new Map((sourceAllocs || []).map(a => [a.envelope_id, {
+    allocated: Number(a.allocated),
+    spent: Number(a.spent),
+  }]));
 
   // 4) Fetch savings goals
   let goalsQuery = supabase
@@ -1009,15 +1019,21 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
 
   if (missingEnvelopes.length > 0) {
     const allocationsToInsert = missingEnvelopes.map(envelope => {
-      const isSavingsEnvelope = envelope.icon === 'PiggyBank';
-      const sourceAllocated = sourceAllocMap.get(envelope.id) || 0;
+      const hasRollover = envelope.rollover === true;
+      const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
       const targetAmount = goalsMap.get(envelope.id) || 0;
       
-      // Carry over savings envelope balance only if goal not yet reached
+      // Calculate net balance to carry over for rollover envelopes
       let carryOverAmount = 0;
-      if (isSavingsEnvelope && sourceAllocated > 0) {
-        if (targetAmount === 0 || sourceAllocated < targetAmount) {
-          carryOverAmount = sourceAllocated;
+      if (hasRollover) {
+        const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
+        
+        if (targetAmount > 0) {
+          // Cap the rollover at the target amount
+          carryOverAmount = Math.min(netBalance, targetAmount);
+        } else {
+          // No target, carry over the full net balance
+          carryOverAmount = netBalance;
         }
       }
 
