@@ -16,14 +16,14 @@ import { fr } from 'date-fns/locale';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, ArrowLeft, Search, ImageIcon, Filter
+  Coffee, Wallet, ArrowLeft, Search, ImageIcon, Filter, Loader2
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { ReceiptLightbox, ReceiptImage } from '@/components/budget/ReceiptLightbox';
 import { HouseholdSwitcher } from '@/components/budget/HouseholdSwitcher';
 import { MonthSelector } from '@/components/budget/MonthSelector';
-import { Loader2 } from 'lucide-react';
+import { EditTransactionSheet } from '@/components/budget/EditTransactionSheet';
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
@@ -63,6 +63,8 @@ export default function Expenses() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
   
   // Get all transaction IDs for receipts
   const transactionIds = useMemo(() => transactions.map(t => t.id), [transactions]);
@@ -141,6 +143,11 @@ export default function Expenses() {
       setLightboxIndex(0);
       setLightboxOpen(true);
     }
+  };
+  
+  const handleOpenEditSheet = (transaction: TransactionWithEnvelope) => {
+    setEditingTransaction(transaction);
+    setEditSheetOpen(true);
   };
 
   if (loading) {
@@ -258,9 +265,10 @@ export default function Expenses() {
                     const hasReceipts = receipts.length > 0 || !!t.receiptUrl;
                     
                     return (
-                      <div 
-                        key={t.id} 
-                        className="flex items-center gap-3 p-3 rounded-xl bg-card border transition-colors hover:bg-muted/50"
+                      <button 
+                        key={t.id}
+                        onClick={() => handleOpenEditSheet(t)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border transition-colors hover:bg-muted/50 text-left"
                       >
                         {/* Envelope icon */}
                         <div className={cn(
@@ -296,19 +304,22 @@ export default function Expenses() {
                         
                         {/* Receipt indicator */}
                         {hasReceipts && (
-                          <button
-                            onClick={() => handleOpenLightbox(t)}
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenLightbox(t);
+                            }}
                             className="p-1.5 rounded-lg hover:bg-muted transition-colors"
                           >
                             <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                          </button>
+                          </div>
                         )}
                         
                         {/* Amount */}
                         <p className="font-semibold text-destructive flex-shrink-0">
                           -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                         </p>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -324,6 +335,13 @@ export default function Expenses() {
         initialIndex={lightboxIndex}
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
+      />
+      
+      {/* Edit transaction sheet */}
+      <EditTransactionSheet
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        transaction={editingTransaction}
       />
     </div>
   );
