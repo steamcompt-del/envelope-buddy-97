@@ -105,18 +105,10 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
         className={cn(
           "w-full p-4 rounded-xl border text-left transition-all duration-200",
           "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
-          "bg-card relative",
+          "bg-card",
           colorStyle.border
         )}
       >
-        {envelope.rollover && (
-          <div className="absolute top-3 right-3">
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
-              <ArrowDownCircle className="w-3 h-3" />
-              Report
-            </Badge>
-          </div>
-        )}
         <div className="flex items-start gap-3 overflow-hidden">
           <div className={cn(
             "flex items-center justify-center w-10 h-10 rounded-lg",
@@ -126,7 +118,15 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           </div>
           
           <div className="flex-1 min-w-0 overflow-hidden">
-            <h3 className="font-semibold text-foreground break-all">{name}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-foreground break-all">{name}</h3>
+              {envelope.rollover && (
+                <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0">
+                  <ArrowDownCircle className="w-2.5 h-2.5" />
+                  Report
+                </Badge>
+              )}
+            </div>
             {savingsGoal ? (
               <p className="text-sm text-muted-foreground truncate">
                 {savingsGoal.name || 'Objectif'} : {targetAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
@@ -195,18 +195,10 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
       className={cn(
         "w-full p-4 rounded-xl border text-left transition-all duration-200",
         "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
-        "bg-card relative",
+        "bg-card",
         colorStyle.border
       )}
     >
-      {envelope.rollover && (
-        <div className="absolute top-3 right-3">
-          <Badge variant="secondary" className="flex items-center gap-1 text-xs">
-            <ArrowDownCircle className="w-3 h-3" />
-            Report
-          </Badge>
-        </div>
-      )}
       <div className="flex items-start gap-3 overflow-hidden">
         <div className={cn(
           "flex items-center justify-center w-10 h-10 rounded-lg",
@@ -216,7 +208,15 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
         </div>
         
         <div className="flex-1 min-w-0 overflow-hidden">
-          <h3 className="font-semibold text-foreground break-all">{name}</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-foreground break-all">{name}</h3>
+            {envelope.rollover && (
+              <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0">
+                <ArrowDownCircle className="w-2.5 h-2.5" />
+                Report
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground truncate">
             {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} / {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
