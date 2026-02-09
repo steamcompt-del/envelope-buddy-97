@@ -406,7 +406,9 @@ export function SavingsDetailsDialog({
               </Label>
               <div className="space-y-1 max-h-40 overflow-y-auto">
                 {allocationHistory.map((activity) => {
-                  const amount = (activity.details as any)?.amount || 0;
+                  const amount = Number((activity.details as any)?.amount || 0);
+                  const isWithdrawal = amount < 0;
+
                   return (
                     <div 
                       key={activity.id}
@@ -415,8 +417,11 @@ export function SavingsDetailsDialog({
                       <span className="text-muted-foreground">
                         {format(new Date(activity.createdAt), 'dd MMM', { locale: fr })}
                       </span>
-                      <span className="font-medium text-envelope-green">
-                        +{amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      <span className={cn(
+                        "font-medium",
+                        isWithdrawal ? "text-primary" : "text-envelope-green"
+                      )}>
+                        {isWithdrawal ? '-' : '+'}{Math.abs(amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                       </span>
                     </div>
                   );
