@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ import {
   Sun,
   ShoppingCart,
   Trash2,
+  Calculator,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
@@ -324,6 +326,29 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
               <Separator />
             </>
           )}
+          
+          {/* Budget Planning */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Planification
+            </h3>
+            
+            <p className="text-sm text-muted-foreground">
+              Calculez vos dépenses prévues et planifiez vos allocations.
+            </p>
+            
+            <Link to="/planning" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                className="w-full rounded-xl gap-2"
+              >
+                <Calculator className="w-4 h-4" />
+                Feuille de calcul
+              </Button>
+            </Link>
+          </div>
+          
+          <Separator />
           
           {/* Start New Month */}
           <div className="space-y-4">
