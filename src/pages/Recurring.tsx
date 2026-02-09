@@ -130,7 +130,10 @@ export default function RecurringPage() {
                   onEdit={() => handleEdit(item)}
                   onDelete={() => handleDelete(item.id)}
                 >
-                  <div className="flex items-center justify-between p-3 bg-card rounded-xl border">
+                  <div 
+                    className="flex items-center justify-between p-3 bg-card rounded-xl border cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleEdit(item)}
+                  >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{item.description}</p>
                       <p className="text-xs text-muted-foreground">
@@ -144,7 +147,10 @@ export default function RecurringPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleApply(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleApply(item.id);
+                        }}
                         disabled={applyingId === item.id}
                         className="rounded-xl h-8"
                       >
@@ -178,7 +184,10 @@ export default function RecurringPage() {
                   onEdit={() => handleEdit(item)}
                   onDelete={() => handleDelete(item.id)}
                 >
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-xl">
+                  <div 
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleEdit(item)}
+                  >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{item.description}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -219,7 +228,10 @@ export default function RecurringPage() {
                   onEdit={() => handleEdit(item)}
                   onDelete={() => handleDelete(item.id)}
                 >
-                  <div className="flex items-center justify-between p-3 bg-muted/20 rounded-xl">
+                  <div 
+                    className="flex items-center justify-between p-3 bg-muted/20 rounded-xl cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => handleEdit(item)}
+                  >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate text-muted-foreground line-through">
                         {item.description}
