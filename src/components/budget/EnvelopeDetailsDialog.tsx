@@ -78,7 +78,7 @@ export function EnvelopeDetailsDialog({
   onTransfer,
   onAddExpense
 }: EnvelopeDetailsDialogProps) {
-  const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateTransaction, deleteTransaction } = useBudget();
+  const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope, updateTransaction, deleteTransaction } = useBudget();
   const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = useSavingsGoals();
   
   const [allocateAmount, setAllocateAmount] = useState('');
@@ -97,8 +97,10 @@ export function EnvelopeDetailsDialog({
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
-  
+  const nameInputRef = useRef<HTMLInputElement>(null);
   // ALL HOOKS MUST BE BEFORE EARLY RETURN
   const envelope = envelopes.find(e => e.id === envelopeId);
   
@@ -191,6 +193,35 @@ export function EnvelopeDetailsDialog({
       onOpenChange(false);
     }
   };
+
+  const startEditName = () => {
+    setEditName(envelope.name);
+    setIsEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+
+  const cancelEditName = () => {
+    setIsEditingName(false);
+    setEditName('');
+  };
+
+  const saveEnvelopeName = async () => {
+    const trimmedName = editName.trim();
+    if (trimmedName && trimmedName !== envelope.name) {
+      await updateEnvelope(envelopeId, { name: trimmedName });
+    }
+    setIsEditingName(false);
+    setEditName('');
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEnvelopeName();
+    } else if (e.key === 'Escape') {
+      cancelEditName();
+    }
+  };
   
   const startEditTransaction = (t: Transaction) => {
     setEditingTransaction(t.id);
@@ -250,8 +281,28 @@ export function EnvelopeDetailsDialog({
             )}>
               <DynamicIcon name={envelope.icon} className={cn("w-6 h-6", colorStyle.text)} />
             </div>
-            <div className="flex-1">
-              <DialogTitle className="text-xl">{envelope.name}</DialogTitle>
+            <div className="flex-1 min-w-0">
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={nameInputRef}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={handleNameKeyDown}
+                    onBlur={saveEnvelopeName}
+                    className="h-8 text-lg font-semibold rounded-lg"
+                    placeholder="Nom de l'enveloppe"
+                  />
+                </div>
+              ) : (
+                <button 
+                  onClick={startEditName}
+                  className="flex items-center gap-2 group text-left"
+                >
+                  <DialogTitle className="text-xl">{envelope.name}</DialogTitle>
+                  <Pencil className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )}
               <p className="text-sm text-muted-foreground">
                 {envelope.spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} dépensé sur {envelope.allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </p>
