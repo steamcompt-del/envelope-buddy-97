@@ -226,7 +226,7 @@ export async function ensureMonthExists(ctx: QueryContext, monthKey: string): Pr
 }
 
 // Income operations
-export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: number, description: string): Promise<string> {
+export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: number, description: string, date?: Date): Promise<string> {
   // Ensure monthly_budgets entry exists first
   await ensureMonthExists(ctx, monthKey);
 
@@ -239,6 +239,7 @@ export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: n
       month_key: monthKey,
       amount,
       description,
+      date: date ? date.toISOString() : new Date().toISOString(),
     })
     .select('id')
     .single();

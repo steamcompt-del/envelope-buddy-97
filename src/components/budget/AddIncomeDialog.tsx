@@ -10,7 +10,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Banknote } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Banknote, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface AddIncomeDialogProps {
   open: boolean;
@@ -21,6 +30,8 @@ export function AddIncomeDialog({ open, onOpenChange }: AddIncomeDialogProps) {
   const { addIncome } = useBudget();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [date, setDate] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,14 +39,24 @@ export function AddIncomeDialog({ open, onOpenChange }: AddIncomeDialogProps) {
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
-    await addIncome(parsedAmount, description || 'Revenu');
+    await addIncome(parsedAmount, description || 'Revenu', date);
     setAmount('');
     setDescription('');
+    setDate(new Date());
     onOpenChange(false);
   };
   
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setAmount('');
+      setDescription('');
+      setDate(new Date());
+    }
+    onOpenChange(newOpen);
+  };
+  
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
@@ -82,11 +103,44 @@ export function AddIncomeDialog({ open, onOpenChange }: AddIncomeDialogProps) {
             />
           </div>
           
+          <div className="space-y-2">
+            <Label>Date</Label>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal rounded-xl",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "PPP", { locale: fr }) : "Sélectionner une date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(newDate) => {
+                    if (newDate) {
+                      setDate(newDate);
+                      setCalendarOpen(false);
+                    }
+                  }}
+                  initialFocus
+                  locale={fr}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
           <div className="flex gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               className="flex-1 rounded-xl"
             >
               Annuler
