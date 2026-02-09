@@ -822,7 +822,7 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   return nextMonthKey;
 }
 
-// Delete all data for a specific month (including envelopes)
+// Delete all data for a specific month (transactions, incomes, allocations, but NOT envelopes)
 export async function deleteMonthDataDb(ctx: QueryContext, monthKey: string): Promise<void> {
   if (ctx.householdId) {
     // Delete transactions for this month
@@ -846,12 +846,6 @@ export async function deleteMonthDataDb(ctx: QueryContext, monthKey: string): Pr
       .delete()
       .eq('household_id', ctx.householdId)
       .eq('month_key', monthKey);
-    
-    // Delete envelopes
-    await supabase
-      .from('envelopes')
-      .delete()
-      .eq('household_id', ctx.householdId);
     
     // Delete monthly budget for this month
     await supabase
@@ -884,13 +878,6 @@ export async function deleteMonthDataDb(ctx: QueryContext, monthKey: string): Pr
       .eq('user_id', ctx.userId)
       .is('household_id', null)
       .eq('month_key', monthKey);
-    
-    // Delete envelopes
-    await supabase
-      .from('envelopes')
-      .delete()
-      .eq('user_id', ctx.userId)
-      .is('household_id', null);
     
     // Delete monthly budget for this month
     await supabase
