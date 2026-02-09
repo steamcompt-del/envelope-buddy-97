@@ -1,14 +1,16 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useBudget } from '@/contexts/BudgetContext';
-import { usePlanningData, PlanningItem } from '@/hooks/usePlanningData';
+import { usePlanningData } from '@/hooks/usePlanningData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlanningExpensesList, PlanningExpense } from '@/components/budget/PlanningExpensesList';
+import { AISuggestionsCard } from '@/components/budget/AISuggestionsCard';
 import { 
   ArrowLeft, 
   Calculator, 
@@ -22,6 +24,7 @@ import {
   Target,
   Lightbulb,
   Loader2,
+  Receipt,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -63,6 +66,13 @@ export default function Planning() {
   );
   
   const [isApplying, setIsApplying] = useState(false);
+  const [planningExpenses, setPlanningExpenses] = useState<PlanningExpense[]>([]);
+  
+  // Categories for expense input
+  const expenseCategories = useMemo(() => 
+    envelopes.map(env => ({ id: env.id, name: env.name })),
+    [envelopes]
+  );
   
   // Calculate totals
   const totalPlanned = useMemo(() => 
@@ -254,18 +264,48 @@ export default function Planning() {
           </CardContent>
         </Card>
         
-        {/* Envelope Planning Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
+        {/* Tabs for different planning modes */}
+        <Tabs defaultValue="expenses" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="expenses" className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Dépenses réelles
+            </TabsTrigger>
+            <TabsTrigger value="spreadsheet" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
               Feuille de calcul
-            </CardTitle>
-            <CardDescription>
-              Ajustez les montants prévus pour chaque enveloppe
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="expenses" className="space-y-4 mt-4">
+            {/* Real expenses input */}
+            <PlanningExpensesList
+              expenses={planningExpenses}
+              onExpensesChange={setPlanningExpenses}
+              categories={expenseCategories}
+            />
+            
+            {/* AI Suggestions */}
+            <AISuggestionsCard
+              expenses={planningExpenses}
+              totalIncome={expectedIncome}
+              categories={expenseCategories}
+            />
+          </TabsContent>
+          
+          <TabsContent value="spreadsheet" className="mt-4">
+            {/* Envelope Planning Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Feuille de calcul
+                </CardTitle>
+                <CardDescription>
+                  Ajustez les montants prévus pour chaque enveloppe
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-3">
                 {plannedEnvelopes.map((env) => {
@@ -383,6 +423,8 @@ export default function Planning() {
             </CardContent>
           </Card>
         )}
+          </TabsContent>
+        </Tabs>
       </main>
       
       {/* Apply Button */}
