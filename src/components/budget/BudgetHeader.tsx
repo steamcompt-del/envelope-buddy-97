@@ -13,11 +13,14 @@ interface BudgetHeaderProps {
 }
 
 export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: BudgetHeaderProps) {
-  const { toBeBudgeted, envelopes } = useBudget();
+  const { toBeBudgeted, envelopes, incomes } = useBudget();
   
   // Calculate total spent across all envelopes
   const totalSpent = envelopes.reduce((sum, env) => sum + env.spent, 0);
-  const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
+  // Calculate total income for the month
+  const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
+  // Spending percentage
+  const spentPercent = totalIncome > 0 ? Math.round((totalSpent / totalIncome) * 100) : 0;
   
   const isPositive = toBeBudgeted > 0;
   const isZero = toBeBudgeted === 0;
@@ -59,16 +62,29 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings }: Budget
                 </div>
               </div>
               
-              {/* Total dépensé */}
+              {/* Total dépensé / revenus */}
               <div className="border-l border-border pl-4">
-                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Dépensé</p>
-                <span className="text-xl sm:text-2xl font-bold tracking-tight text-destructive">
-                  {totalSpent.toLocaleString('fr-FR', { 
-                    style: 'currency', 
-                    currency: 'EUR',
-                    minimumFractionDigits: 2 
-                  })}
-                </span>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">
+                  Dépensé {totalIncome > 0 && <span className="text-muted-foreground/70">({spentPercent}%)</span>}
+                </p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-destructive">
+                    {totalSpent.toLocaleString('fr-FR', { 
+                      style: 'currency', 
+                      currency: 'EUR',
+                      minimumFractionDigits: 2 
+                    })}
+                  </span>
+                  {totalIncome > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      / {totalIncome.toLocaleString('fr-FR', { 
+                        style: 'currency', 
+                        currency: 'EUR',
+                        minimumFractionDigits: 0 
+                      })}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
