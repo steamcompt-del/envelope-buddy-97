@@ -450,9 +450,20 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     if (!ctx) return;
     const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     if (!envelope) return;
+
+    // Available = net amount remaining in the envelope
     const available = envelope.allocated - envelope.spent;
     const actualAmount = Math.min(amount, available);
+
     await deallocateFromEnvelopeDb(ctx, currentMonthKey, envelopeId, actualAmount);
+
+    // Log as a negative allocation so savings screens can render it as a withdrawal
+    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, {
+      amount: -actualAmount,
+      envelope_name: envelope.name,
+      kind: 'withdrawal',
+    });
+
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
