@@ -39,7 +39,8 @@ export function AllocateFundsDialog({
     
     const parsedAmount = parseFloat(amount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
-    if (parsedAmount > toBeBudgeted) return;
+    // Use cents comparison to avoid floating point precision issues
+    if (Math.round(parsedAmount * 100) > Math.round(toBeBudgeted * 100)) return;
     
     await allocateToEnvelope(selectedEnvelope, parsedAmount);
     setAmount('');
