@@ -31,7 +31,7 @@ import { fr } from 'date-fns/locale';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target, CalendarArrowUp
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
@@ -46,6 +46,7 @@ interface EnvelopeDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   envelopeId: string;
   onTransfer: () => void;
+  onTransferToMonth: () => void;
   onAddExpense: () => void;
 }
 
@@ -76,6 +77,7 @@ export function EnvelopeDetailsDialog({
   onOpenChange, 
   envelopeId,
   onTransfer,
+  onTransferToMonth,
   onAddExpense
 }: EnvelopeDetailsDialogProps) {
   const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope, updateTransaction, deleteTransaction } = useBudget();
@@ -440,7 +442,7 @@ export function EnvelopeDetailsDialog({
           </div>
           
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -449,6 +451,16 @@ export function EnvelopeDetailsDialog({
             >
               <ArrowRightLeft className="w-4 h-4 mb-1" />
               <span className="text-xs">Transférer</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { onOpenChange(false); onTransferToMonth(); }}
+              className="rounded-xl flex-col h-auto py-3"
+              disabled={remaining <= 0}
+            >
+              <CalendarArrowUp className="w-4 h-4 mb-1" />
+              <span className="text-xs">Vers mois</span>
             </Button>
             <Button
               variant="outline"

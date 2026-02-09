@@ -7,6 +7,7 @@ import { AddIncomeDialog } from '@/components/budget/AddIncomeDialog';
 import { CreateEnvelopeDialog } from '@/components/budget/CreateEnvelopeDialog';
 import { AllocateFundsDialog } from '@/components/budget/AllocateFundsDialog';
 import { TransferFundsDialog } from '@/components/budget/TransferFundsDialog';
+import { TransferToMonthDialog } from '@/components/budget/TransferToMonthDialog';
 import { AddExpenseDrawer, ScannedExpenseData } from '@/components/budget/AddExpenseDrawer';
 import { EnvelopeDetailsDialog } from '@/components/budget/EnvelopeDetailsDialog';
 import { SavingsDetailsDialog } from '@/components/budget/SavingsDetailsDialog';
@@ -42,6 +43,7 @@ export default function Index() {
   const [createEnvelopeOpen, setCreateEnvelopeOpen] = useState(false);
   const [allocateOpen, setAllocateOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [transferToMonthOpen, setTransferToMonthOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -128,6 +130,10 @@ export default function Index() {
   const handleTransferFromDetails = () => {
     setTransferOpen(true);
   };
+
+  const handleTransferToMonthFromDetails = () => {
+    setTransferToMonthOpen(true);
+  };
   
   const handleAddExpenseFromDetails = () => {
     setExpenseOpen(true);
@@ -207,6 +213,11 @@ export default function Index() {
         onOpenChange={setTransferOpen}
         fromEnvelopeId={selectedEnvelopeId}
       />
+      <TransferToMonthDialog 
+        open={transferToMonthOpen} 
+        onOpenChange={setTransferToMonthOpen}
+        fromEnvelopeId={selectedEnvelopeId}
+      />
       <AddExpenseDrawer 
         open={expenseOpen} 
         onOpenChange={handleExpenseDrawerClose}
@@ -242,6 +253,7 @@ export default function Index() {
             onOpenChange={setDetailsOpen}
             envelopeId={selectedEnvelopeId}
             onTransfer={handleTransferFromDetails}
+            onTransferToMonth={handleTransferToMonthFromDetails}
             onAddExpense={handleAddExpenseFromDetails}
           />
           <SavingsDetailsDialog

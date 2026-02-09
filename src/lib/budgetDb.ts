@@ -544,6 +544,58 @@ export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: st
   }
 }
 
+// Transfer allocation from one month to another
+export async function transferToMonthDb(
+  ctx: QueryContext, 
+  fromMonthKey: string, 
+  toMonthKey: string, 
+  envelopeId: string, 
+  amount: number
+): Promise<void> {
+  // Ensure target month exists
+  await ensureMonthExists(ctx, toMonthKey);
+  
+  // Deduct from source month allocation
+  const { data: fromAlloc } = await supabase
+    .from('envelope_allocations')
+    .select('id, allocated')
+    .eq('envelope_id', envelopeId)
+    .eq('month_key', fromMonthKey)
+    .single();
+
+  if (fromAlloc) {
+    await supabase
+      .from('envelope_allocations')
+      .update({ allocated: Math.max(0, Number(fromAlloc.allocated) - amount) })
+      .eq('id', fromAlloc.id);
+  }
+
+  // Add to target month allocation
+  const { data: toAlloc } = await supabase
+    .from('envelope_allocations')
+    .select('id, allocated')
+    .eq('envelope_id', envelopeId)
+    .eq('month_key', toMonthKey)
+    .single();
+
+  if (toAlloc) {
+    await supabase
+      .from('envelope_allocations')
+      .update({ allocated: Number(toAlloc.allocated) + amount })
+      .eq('id', toAlloc.id);
+  } else {
+    // Create allocation for this envelope in target month
+    await supabase.from('envelope_allocations').insert({
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
+      envelope_id: envelopeId,
+      month_key: toMonthKey,
+      allocated: amount,
+      spent: 0,
+    });
+  }
+}
+
 // Transaction operations
 export async function addTransactionDb(
   ctx: QueryContext,
