@@ -35,6 +35,7 @@ export interface Envelope {
   spent: number;
   icon: string;
   color: string;
+  rollover: boolean;
 }
 
 export interface Transaction {
