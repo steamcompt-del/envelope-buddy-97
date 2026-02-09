@@ -30,6 +30,7 @@ import { fr } from 'date-fns/locale';
 import { Trash2, CalendarIcon, Loader2, Receipt } from 'lucide-react';
 import { ReceiptGallery } from './ReceiptGallery';
 import { TransactionNotesField } from './TransactionNotesField';
+import { ReceiptItemsList } from './ReceiptItemsList';
 import { toast } from 'sonner';
 
 interface EditTransactionSheetProps {
@@ -284,6 +285,15 @@ export function EditTransactionSheet({
               canEdit={true}
             />
           </div>
+          
+          {/* Receipt items detail */}
+          {receipts.length > 0 && (
+            <div className="space-y-2">
+              {receipts.map((receipt) => (
+                <ReceiptItemsList key={receipt.id} receipt={receipt} />
+              ))}
+            </div>
+          )}
           
           {/* Actions */}
           <div className="flex gap-2 pt-4">
