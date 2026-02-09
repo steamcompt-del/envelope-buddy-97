@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Sparkles, Loader2, Wand2, Check, Info } from 'lucide-react';
 import { getBackendClient } from '@/lib/backendClient';
 import { toast } from 'sonner';
@@ -32,6 +34,7 @@ export function AIEnvelopeCreator({ expenses, totalIncome, categories }: AIEnvel
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [autoAllocate, setAutoAllocate] = useState(true);
 
   const getSuggestions = async () => {
     if (expenses.length === 0) {
@@ -106,32 +109,70 @@ export function AIEnvelopeCreator({ expenses, totalIncome, categories }: AIEnvel
     
     try {
       let created = 0;
-      let allocated = 0;
+      let allocatedCount = 0;
+      const envelopesToAllocate: Array<{ name: string; amount: number }> = [];
 
+      // First pass: create envelopes that don't exist
       for (const env of selected) {
-        // Check if envelope already exists
         const existingEnvelope = envelopes.find(
           e => e.name.toLowerCase() === env.name.toLowerCase()
         );
 
         if (!existingEnvelope) {
-          // Create new envelope
           await createEnvelope(env.name, env.icon, env.color);
           created++;
         }
+        
+        if (autoAllocate) {
+          envelopesToAllocate.push({ name: env.name, amount: env.allocation });
+        }
       }
 
-      // Refresh data to get new envelope IDs
+      // Refresh data and wait for state to update
       await refreshData();
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Wait a bit for state to update
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Auto-allocate if enabled - we need to refresh again to get new envelopes
+      if (autoAllocate && envelopesToAllocate.length > 0) {
+        // Fetch fresh envelopes directly from Supabase
+        const supabase = getBackendClient();
+        const { data: freshEnvelopes } = await supabase
+          .from('envelopes')
+          .select('id, name')
+          .order('position', { ascending: true });
+        
+        const { data: budgetData } = await supabase
+          .from('monthly_budgets')
+          .select('to_be_budgeted')
+          .single();
+        
+        let availableBudget = budgetData?.to_be_budgeted || toBeBudgeted;
+        
+        for (const toAllocate of envelopesToAllocate) {
+          const envelope = freshEnvelopes?.find(
+            e => e.name.toLowerCase() === toAllocate.name.toLowerCase()
+          );
+          
+          if (envelope && availableBudget > 0) {
+            const amountToAllocate = Math.min(toAllocate.amount, availableBudget);
+            if (amountToAllocate > 0) {
+              await allocateToEnvelope(envelope.id, amountToAllocate);
+              availableBudget -= amountToAllocate;
+              allocatedCount++;
+            }
+          }
+        }
+        
+        // Final refresh to show updated allocations
+        await refreshData();
+      }
 
-      toast.success(
-        `${created} enveloppe(s) créée(s). Utilisez "Allouer" sur chaque enveloppe pour définir les budgets.`
-      );
+      const message = autoAllocate && allocatedCount > 0
+        ? `${created} enveloppe(s) créée(s) et ${allocatedCount} budget(s) alloué(s) !`
+        : `${created} enveloppe(s) créée(s). Utilisez "Allouer" sur chaque enveloppe pour définir les budgets.`;
+      
+      toast.success(message);
 
-      // Clear suggestions after applying
       setSuggestedEnvelopes([]);
       setSummary(null);
     } catch (error) {
@@ -283,8 +324,32 @@ export function AIEnvelopeCreator({ expenses, totalIncome, categories }: AIEnvel
                 </span>
               </div>
 
-              {toBeBudgeted < selectedTotal && (
+              {/* Auto-allocate toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex flex-col gap-0.5">
+                  <Label htmlFor="auto-allocate" className="text-sm font-medium cursor-pointer">
+                    Allouer automatiquement
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    Budgets alloués dès la création
+                  </span>
+                </div>
+                <Switch
+                  id="auto-allocate"
+                  checked={autoAllocate}
+                  onCheckedChange={setAutoAllocate}
+                />
+              </div>
+
+              {autoAllocate && toBeBudgeted < selectedTotal && (
                 <p className="text-sm text-destructive">
+                  ⚠️ Le total dépasse votre budget disponible ({formatCurrency(toBeBudgeted)}). 
+                  Les allocations seront partielles.
+                </p>
+              )}
+
+              {!autoAllocate && toBeBudgeted < selectedTotal && (
+                <p className="text-sm text-orange-600 dark:text-orange-400">
                   ⚠️ Le total dépasse votre budget disponible ({formatCurrency(toBeBudgeted)})
                 </p>
               )}
