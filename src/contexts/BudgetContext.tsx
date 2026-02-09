@@ -433,7 +433,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   const allocateToEnvelope = useCallback(async (envelopeId: string, amount: number) => {
     const ctx = getQueryContext();
-    if (!ctx || amount > currentMonth.toBeBudgeted) return;
+    // Use cents comparison to avoid floating point precision issues
+    if (!ctx || Math.round(amount * 100) > Math.round(currentMonth.toBeBudgeted * 100)) return;
     const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     await allocateToEnvelopeDb(ctx, currentMonthKey, envelopeId, amount);
     await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name });
