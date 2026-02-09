@@ -4,13 +4,15 @@ import { Progress } from '@/components/ui/progress';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet
+  Coffee, Wallet, Target
 } from 'lucide-react';
 import { ComponentType } from 'react';
+import { SavingsGoal } from '@/lib/savingsGoalsDb';
 
 interface EnvelopeCardProps {
   envelope: Envelope;
   onClick: () => void;
+  savingsGoal?: SavingsGoal;
 }
 
 // Icon mapping for type safety
@@ -59,7 +61,14 @@ function getProgressColorHsl(percentUsed: number, isOverspent: boolean): string 
   return "hsl(160 84% 45%)"; // green (success)
 }
 
-export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
+function getSavingsProgressColorHsl(percent: number): string {
+  if (percent >= 100) return "hsl(160 84% 45%)"; // green (complete)
+  if (percent >= 75) return "hsl(160 84% 45%)"; // green
+  if (percent >= 50) return "hsl(45 93% 47%)"; // yellow
+  return "hsl(25 95% 53%)"; // orange
+}
+
+export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
   const remaining = allocated - spent;
@@ -68,6 +77,13 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
   
   const colorStyle = colorClasses[color] || colorClasses.blue;
   const progressColor = getProgressColorHsl(percentUsed, isOverspent);
+  
+  // Savings goal progress (use allocated as current amount for savings envelopes)
+  const savingsPercent = savingsGoal && savingsGoal.target_amount > 0
+    ? Math.min((allocated / savingsGoal.target_amount) * 100, 100)
+    : 0;
+  const savingsProgressColor = getSavingsProgressColorHsl(savingsPercent);
+  const isSavingsComplete = savingsGoal && allocated >= savingsGoal.target_amount;
   
   return (
     <button
@@ -121,6 +137,39 @@ export function EnvelopeCard({ envelope, onClick }: EnvelopeCardProps) {
           </p>
         )}
       </div>
+      
+      {/* Savings Goal Progress */}
+      {savingsGoal && (
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1">
+              <Target className="w-3 h-3 text-primary" />
+              <span className="text-xs text-muted-foreground">
+                {savingsGoal.name || 'Objectif'}
+              </span>
+            </div>
+            <span className={cn(
+              "text-xs font-semibold",
+              isSavingsComplete ? "text-envelope-green" : "text-foreground"
+            )}>
+              {Math.round(savingsPercent)}%
+            </span>
+          </div>
+          <Progress 
+            value={savingsPercent} 
+            className="h-1.5"
+            style={{ '--progress-color': savingsProgressColor } as React.CSSProperties}
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-muted-foreground">
+              {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {savingsGoal.target_amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </span>
+          </div>
+        </div>
+      )}
     </button>
   );
 }

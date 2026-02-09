@@ -4,13 +4,15 @@ import { Envelope } from '@/contexts/BudgetContext';
 import { EnvelopeCard } from './EnvelopeCard';
 import { GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SavingsGoal } from '@/lib/savingsGoalsDb';
 
 interface SortableEnvelopeCardProps {
   envelope: Envelope;
   onClick: () => void;
+  savingsGoal?: SavingsGoal;
 }
 
-export function SortableEnvelopeCard({ envelope, onClick }: SortableEnvelopeCardProps) {
+export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: SortableEnvelopeCardProps) {
   const {
     attributes,
     listeners,
@@ -51,7 +53,7 @@ export function SortableEnvelopeCard({ envelope, onClick }: SortableEnvelopeCard
         <GripVertical className="w-5 h-5" />
       </button>
       
-      <EnvelopeCard envelope={envelope} onClick={onClick} />
+      <EnvelopeCard envelope={envelope} onClick={onClick} savingsGoal={savingsGoal} />
     </div>
   );
 }

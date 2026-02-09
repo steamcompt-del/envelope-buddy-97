@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useCallback } from 'react';
 import { useBudget, Envelope, Transaction } from '@/contexts/BudgetContext';
 import { useTransactionsReceipts, useReceipts } from '@/hooks/useReceipts';
+import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import {
   Dialog,
   DialogContent,
@@ -30,13 +31,15 @@ import { fr } from 'date-fns/locale';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Minus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
 import { ReceiptGallery } from './ReceiptGallery';
 import { SwipeableRow } from './SwipeableRow';
 import { TransactionNotesField } from './TransactionNotesField';
+import { SavingsGoalDialog } from './SavingsGoalDialog';
+import { SavingsGoalProgress } from './SavingsGoalProgress';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -76,6 +79,7 @@ export function EnvelopeDetailsDialog({
   onAddExpense
 }: EnvelopeDetailsDialogProps) {
   const { envelopes, transactions, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateTransaction, deleteTransaction } = useBudget();
+  const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = useSavingsGoals();
   
   const [allocateAmount, setAllocateAmount] = useState('');
   const [showAllocate, setShowAllocate] = useState(false);
@@ -92,6 +96,7 @@ export function EnvelopeDetailsDialog({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [showGoalDialog, setShowGoalDialog] = useState(false);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   
   // ALL HOOKS MUST BE BEFORE EARLY RETURN
@@ -144,6 +149,25 @@ export function EnvelopeDetailsDialog({
   const percentUsed = envelope.allocated > 0 ? (envelope.spent / envelope.allocated) * 100 : 0;
   const isOverspent = envelope.spent > envelope.allocated;
   const colorStyle = colorClasses[envelope.color] || colorClasses.blue;
+  const savingsGoal = getGoalForEnvelope(envelopeId);
+
+  const handleSaveGoal = async (targetAmount: number, targetDate?: string, name?: string) => {
+    if (savingsGoal) {
+      await updateGoal(savingsGoal.id, {
+        target_amount: targetAmount,
+        target_date: targetDate || null,
+        name: name || null,
+      });
+    } else {
+      await createGoal(envelopeId, targetAmount, targetDate, name);
+    }
+  };
+
+  const handleDeleteGoal = async () => {
+    if (savingsGoal) {
+      await deleteGoal(savingsGoal.id);
+    }
+  };
 
   const handleAllocate = async () => {
     const parsedAmount = parseFloat(allocateAmount.replace(',', '.'));
@@ -261,6 +285,24 @@ export function EnvelopeDetailsDialog({
               )}
             </div>
           </div>
+          
+          {/* Savings Goal Section */}
+          {savingsGoal ? (
+            <SavingsGoalProgress
+              goal={savingsGoal}
+              currentAmount={envelope.allocated}
+              onClick={() => setShowGoalDialog(true)}
+            />
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => setShowGoalDialog(true)}
+              className="w-full rounded-xl gap-2"
+            >
+              <Target className="w-4 h-4" />
+              Définir un objectif d'épargne
+            </Button>
+          )}
           
           <div className="grid grid-cols-3 gap-2">
             <Button
@@ -582,6 +624,16 @@ export function EnvelopeDetailsDialog({
           initialIndex={lightboxIndex}
           open={lightboxOpen}
           onOpenChange={setLightboxOpen}
+        />
+        
+        <SavingsGoalDialog
+          open={showGoalDialog}
+          onOpenChange={setShowGoalDialog}
+          envelopeId={envelopeId}
+          envelopeName={envelope.name}
+          existingGoal={savingsGoal}
+          onSave={handleSaveGoal}
+          onDelete={savingsGoal ? handleDeleteGoal : undefined}
         />
       </DialogContent>
     </Dialog>
