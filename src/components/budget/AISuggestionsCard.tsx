@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Sparkles, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { getBackendClient } from '@/lib/backendClient';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { PlanningExpense } from './PlanningExpensesList';
@@ -43,6 +43,7 @@ export function AISuggestionsCard({ expenses, totalIncome, categories }: AISugge
         spent,
       }));
 
+      const supabase = getBackendClient();
       const { data, error } = await supabase.functions.invoke('suggest-budget', {
         body: {
           envelopes: envelopesData,
