@@ -18,6 +18,7 @@ import { useBudget } from '@/contexts/BudgetContext';
 import { SortableEnvelopeCard } from './SortableEnvelopeCard';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet } from 'lucide-react';
+import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 
 interface EnvelopeGridProps {
   onEnvelopeClick: (envelopeId: string) => void;
@@ -26,6 +27,7 @@ interface EnvelopeGridProps {
 
 export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGridProps) {
   const { envelopes, reorderEnvelopes } = useBudget();
+  const { getGoalForEnvelope } = useSavingsGoals();
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -85,6 +87,7 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
               <SortableEnvelopeCard
                 envelope={envelope}
                 onClick={() => onEnvelopeClick(envelope.id)}
+                savingsGoal={getGoalForEnvelope(envelope.id)}
               />
             </div>
           ))}
@@ -101,4 +104,3 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
     </DndContext>
   );
 }
-
