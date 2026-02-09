@@ -95,7 +95,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
         colorStyle.border
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 overflow-hidden">
         <div className={cn(
           "flex items-center justify-center w-10 h-10 rounded-lg",
           colorStyle.bg
@@ -110,7 +110,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           </p>
         </div>
         
-        <div className="text-right">
+        <div className="text-right shrink-0">
           <p className={cn(
             "font-semibold text-lg",
             isOverspent ? "text-destructive" : "text-foreground"
