@@ -415,8 +415,8 @@ export function EnvelopeDetailsDialog({
                   disabled={
                     !allocateAmount || 
                     parseFloat(allocateAmount.replace(',', '.')) <= 0 ||
-                    (allocateMode === 'add' && parseFloat(allocateAmount.replace(',', '.')) > toBeBudgeted) ||
-                    (allocateMode === 'remove' && parseFloat(allocateAmount.replace(',', '.')) > remaining)
+                    (allocateMode === 'add' && Math.round(parseFloat(allocateAmount.replace(',', '.')) * 100) > Math.round(toBeBudgeted * 100)) ||
+                    (allocateMode === 'remove' && Math.round(parseFloat(allocateAmount.replace(',', '.')) * 100) > Math.round(remaining * 100))
                   }
                 >
                   OK

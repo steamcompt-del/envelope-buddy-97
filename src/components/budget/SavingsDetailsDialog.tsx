@@ -378,8 +378,8 @@ export function SavingsDetailsDialog({
                   disabled={
                     !allocateAmount || 
                     parseFloat(allocateAmount.replace(',', '.')) <= 0 ||
-                    (allocateMode === 'add' && parseFloat(allocateAmount.replace(',', '.')) > toBeBudgeted) ||
-                    (allocateMode === 'remove' && parseFloat(allocateAmount.replace(',', '.')) > envelope.allocated)
+                    (allocateMode === 'add' && Math.round(parseFloat(allocateAmount.replace(',', '.')) * 100) > Math.round(toBeBudgeted * 100)) ||
+                    (allocateMode === 'remove' && Math.round(parseFloat(allocateAmount.replace(',', '.')) * 100) > Math.round(envelope.allocated * 100))
                   }
                 >
                   OK
