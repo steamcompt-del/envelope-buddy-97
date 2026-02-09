@@ -14,7 +14,10 @@ interface BudgetHeaderProps {
 }
 
 export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIncomeHistory }: BudgetHeaderProps) {
-  const { toBeBudgeted, envelopes, incomes } = useBudget();
+  const { toBeBudgeted: rawToBeBudgeted, envelopes, incomes } = useBudget();
+  
+  // Normalize near-zero values to avoid "-0 €" display due to floating point precision
+  const toBeBudgeted = Math.abs(rawToBeBudgeted) < 0.01 ? 0 : rawToBeBudgeted;
   
   // Calculate total spent across all envelopes
   const totalSpent = envelopes.reduce((sum, env) => sum + env.spent, 0);
