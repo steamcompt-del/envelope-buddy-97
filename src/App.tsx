@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { BudgetProvider } from "@/contexts/BudgetContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import Planning from "./pages/Planning";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +30,16 @@ const App = () => (
                   <ProtectedRoute>
                     <BudgetProvider>
                       <Index />
+                    </BudgetProvider>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/planning"
+                element={
+                  <ProtectedRoute>
+                    <BudgetProvider>
+                      <Planning />
                     </BudgetProvider>
                   </ProtectedRoute>
                 }
