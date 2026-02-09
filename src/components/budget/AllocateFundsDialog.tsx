@@ -135,7 +135,7 @@ export function AllocateFundsDialog({
                 !selectedEnvelope || 
                 !amount || 
                 parseFloat(amount.replace(',', '.')) <= 0 ||
-                parseFloat(amount.replace(',', '.')) > toBeBudgeted
+                Math.round(parseFloat(amount.replace(',', '.')) * 100) > Math.round(toBeBudgeted * 100)
               }
               className="flex-1 rounded-xl gradient-primary shadow-button"
             >
