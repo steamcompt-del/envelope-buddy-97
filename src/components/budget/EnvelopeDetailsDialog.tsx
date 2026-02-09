@@ -11,6 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -79,6 +86,7 @@ export function EnvelopeDetailsDialog({
   const [editDescription, setEditDescription] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editDate, setEditDate] = useState<Date | undefined>(undefined);
+  const [editEnvelopeId, setEditEnvelopeId] = useState<string>('');
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -167,6 +175,7 @@ export function EnvelopeDetailsDialog({
     setEditDescription(t.description);
     setEditNotes(t.notes || '');
     setEditDate(new Date(t.date));
+    setEditEnvelopeId(t.envelopeId);
   };
   
   const cancelEditTransaction = () => {
@@ -176,6 +185,7 @@ export function EnvelopeDetailsDialog({
     setEditDescription('');
     setEditNotes('');
     setEditDate(undefined);
+    setEditEnvelopeId('');
     setDatePopoverOpen(false);
   };
   
@@ -189,8 +199,14 @@ export function EnvelopeDetailsDialog({
       description: editDescription || 'Dépense',
       notes: editNotes || undefined,
       date: editDate ? editDate.toISOString() : undefined,
+      envelopeId: editEnvelopeId !== envelopeId ? editEnvelopeId : undefined,
     });
     cancelEditTransaction();
+    
+    // Si la transaction a été déplacée vers une autre enveloppe, fermer la dialog
+    if (editEnvelopeId !== envelopeId) {
+      onOpenChange(false);
+    }
   };
   
   const handleDeleteTransaction = async (id: string) => {
@@ -396,6 +412,22 @@ export function EnvelopeDetailsDialog({
                               </PopoverContent>
                             </Popover>
                           </div>
+                        </div>
+                        
+                        <div>
+                          <Label className="text-xs">Transférer vers</Label>
+                          <Select value={editEnvelopeId} onValueChange={setEditEnvelopeId}>
+                            <SelectTrigger className="h-8 text-sm rounded-lg">
+                              <SelectValue placeholder="Choisir une enveloppe" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {envelopes.map((env) => (
+                                <SelectItem key={env.id} value={env.id}>
+                                  {env.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         
                         <TransactionNotesField
