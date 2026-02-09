@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
@@ -20,7 +21,7 @@ import { useBudget } from '@/contexts/BudgetContext';
 import { SortableEnvelopeCard } from './SortableEnvelopeCard';
 import { EnvelopeCard } from './EnvelopeCard';
 import { Button } from '@/components/ui/button';
-import { Plus, Wallet } from 'lucide-react';
+import { Plus, Wallet, Sparkles } from 'lucide-react';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 
 interface EnvelopeGridProps {
@@ -75,12 +76,20 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
         </div>
         <h2 className="text-xl font-semibold mb-2">Aucune enveloppe</h2>
         <p className="text-muted-foreground mb-6 max-w-sm">
-          Créez votre première enveloppe pour commencer à organiser votre budget.
+          Créez votre première enveloppe ou laissez l'IA vous aider.
         </p>
-        <Button onClick={onCreateEnvelope} className="rounded-xl gap-2">
-          <Plus className="w-4 h-4" />
-          Créer une enveloppe
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={onCreateEnvelope} variant="outline" className="rounded-xl gap-2">
+            <Plus className="w-4 h-4" />
+            Créer manuellement
+          </Button>
+          <Link to="/planning">
+            <Button className="rounded-xl gap-2">
+              <Sparkles className="w-4 h-4" />
+              Assistant IA
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
