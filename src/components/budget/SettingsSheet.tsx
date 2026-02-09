@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
+import { MonthlyManagementDialog } from '@/components/budget/MonthlyManagementDialog';
 import { exportMonthlyReportPDF } from '@/lib/exportPdf';
 import { useRecurring } from '@/hooks/useRecurring';
 
@@ -80,9 +81,9 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
   const { user, signOut } = useAuth();
   const { dueCount } = useRecurring();
   const { theme, setTheme } = useTheme();
-  const [showNewMonthDialog, setShowNewMonthDialog] = useState(false);
   const [showDeleteMonthDialog, setShowDeleteMonthDialog] = useState(false);
   const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);
+  const [showMonthlyManagement, setShowMonthlyManagement] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingMonth, setIsDeletingMonth] = useState(false);
   
@@ -127,14 +128,6 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
     }
   };
   
-  const handleStartNewMonth = () => {
-    startNewMonth();
-    setShowNewMonthDialog(false);
-    onOpenChange(false);
-    toast.success(`Nouveau mois démarré : ${nextMonthDisplay}`, {
-      description: 'Les allocations ont été conservées, les dépenses remises à zéro.'
-    });
-  };
   
   const handleFullReset = async () => {
     if (confirm('⚠️ ATTENTION: Cela supprimera TOUTES les données (tous les mois, revenus, enveloppes, transactions). Êtes-vous sûr ?')) {
@@ -354,23 +347,23 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
           
           <Separator />
           
-          {/* Start New Month */}
+          {/* Monthly Management */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Gestion mensuelle
             </h3>
             
             <p className="text-sm text-muted-foreground">
-              Démarrez un nouveau mois avec vos enveloppes vides (allocations et dépenses à zéro).
+              Transférez vos enveloppes vers un nouveau mois avec report automatique des soldes.
             </p>
             
             <Button
-              onClick={() => setShowNewMonthDialog(true)}
+              onClick={() => setShowMonthlyManagement(true)}
               variant="outline"
               className="w-full rounded-xl gap-2"
             >
               <Calendar className="w-4 h-4" />
-              Démarrer {nextMonthDisplay}
+              Passer à un autre mois
             </Button>
           </div>
           
@@ -570,24 +563,11 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenSugg
         </div>
       </SheetContent>
       
-      {/* New Month Confirmation Dialog */}
-      <AlertDialog open={showNewMonthDialog} onOpenChange={setShowNewMonthDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Démarrer un nouveau mois ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Cela va créer le mois de <strong>{nextMonthDisplay}</strong> avec vos {envelopes.length} enveloppe{envelopes.length !== 1 ? 's' : ''} vides (allocations et dépenses à zéro). 
-              Le mois actuel ({monthDisplay}) restera accessible dans l'historique.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleStartNewMonth}>
-              Démarrer {nextMonthDisplay}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Monthly Management Dialog */}
+      <MonthlyManagementDialog
+        open={showMonthlyManagement}
+        onOpenChange={setShowMonthlyManagement}
+      />
       
       {/* Delete Month Data Confirmation Dialog */}
       <AlertDialog open={showDeleteMonthDialog} onOpenChange={setShowDeleteMonthDialog}>
