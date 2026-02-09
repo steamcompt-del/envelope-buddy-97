@@ -29,7 +29,7 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: Sortabl
   } = useSortable({ id: envelope.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
@@ -41,7 +41,7 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: Sortabl
       style={style}
       className={cn(
         "relative group",
-        isDragging && "z-50 opacity-90"
+        isDragging && "z-50 opacity-90 shadow-lg"
       )}
     >
       {/* Drag handle */}
