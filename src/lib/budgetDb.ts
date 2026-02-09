@@ -906,6 +906,117 @@ export async function deleteAllUserDataDb(ctx: QueryContext): Promise<void> {
   }
 }
 
+// Copy envelopes to a specific target month
+export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<void> {
+  // 1) Ensure target monthly budget row exists
+  let existsQuery = supabase
+    .from('monthly_budgets')
+    .select('id')
+    .eq('month_key', targetMonthKey);
+
+  if (ctx.householdId) {
+    existsQuery = existsQuery.eq('household_id', ctx.householdId);
+  } else {
+    existsQuery = existsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: existing } = await existsQuery.single();
+
+  if (!existing) {
+    await supabase.from('monthly_budgets').insert({
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
+      month_key: targetMonthKey,
+      to_be_budgeted: 0,
+    });
+  }
+
+  // 2) Fetch all envelopes with their details
+  let envelopesQuery = supabase.from('envelopes').select('id, icon');
+  if (ctx.householdId) {
+    envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
+  } else {
+    envelopesQuery = envelopesQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: envelopes } = await envelopesQuery;
+  if (!envelopes || envelopes.length === 0) return;
+
+  // 3) Fetch source month allocations (to carry over for savings)
+  let sourceAllocsQuery = supabase
+    .from('envelope_allocations')
+    .select('envelope_id, allocated')
+    .eq('month_key', sourceMonthKey);
+
+  if (ctx.householdId) {
+    sourceAllocsQuery = sourceAllocsQuery.eq('household_id', ctx.householdId);
+  } else {
+    sourceAllocsQuery = sourceAllocsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: sourceAllocs } = await sourceAllocsQuery;
+  const sourceAllocMap = new Map((sourceAllocs || []).map(a => [a.envelope_id, Number(a.allocated)]));
+
+  // 4) Fetch savings goals
+  let goalsQuery = supabase
+    .from('savings_goals')
+    .select('envelope_id, target_amount');
+
+  if (ctx.householdId) {
+    goalsQuery = goalsQuery.eq('household_id', ctx.householdId);
+  } else {
+    goalsQuery = goalsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: savingsGoals } = await goalsQuery;
+  const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, Number(g.target_amount)]));
+
+  // 5) Check existing allocations for target month
+  let existingAllocsQuery = supabase
+    .from('envelope_allocations')
+    .select('envelope_id')
+    .eq('month_key', targetMonthKey);
+
+  if (ctx.householdId) {
+    existingAllocsQuery = existingAllocsQuery.eq('household_id', ctx.householdId);
+  } else {
+    existingAllocsQuery = existingAllocsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: existingAllocs } = await existingAllocsQuery;
+  const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
+
+  // 6) Create allocations for missing envelopes
+  const missingEnvelopes = envelopes.filter(e => !existingSet.has(e.id));
+
+  if (missingEnvelopes.length > 0) {
+    const allocationsToInsert = missingEnvelopes.map(envelope => {
+      const isSavingsEnvelope = envelope.icon === 'PiggyBank';
+      const sourceAllocated = sourceAllocMap.get(envelope.id) || 0;
+      const targetAmount = goalsMap.get(envelope.id) || 0;
+      
+      // Carry over savings envelope balance only if goal not yet reached
+      let carryOverAmount = 0;
+      if (isSavingsEnvelope && sourceAllocated > 0) {
+        if (targetAmount === 0 || sourceAllocated < targetAmount) {
+          carryOverAmount = sourceAllocated;
+        }
+      }
+
+      return {
+        user_id: ctx.userId,
+        household_id: ctx.householdId || null,
+        envelope_id: envelope.id,
+        month_key: targetMonthKey,
+        allocated: carryOverAmount,
+        spent: 0,
+      };
+    });
+
+    await supabase.from('envelope_allocations').insert(allocationsToInsert);
+  }
+}
+
 // Helper
 function getNextMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split('-').map(Number);

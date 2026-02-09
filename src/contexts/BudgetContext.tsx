@@ -20,6 +20,7 @@ import {
   updateTransactionDb,
   deleteTransactionDb,
   startNewMonthDb,
+  copyEnvelopesToMonthDb,
   deleteMonthDataDb,
   deleteAllUserDataDb,
   QueryContext,
@@ -95,6 +96,7 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
+  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<void>;
   startNewMonth: () => void;
   
   // Income actions
@@ -564,6 +566,14 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     setCurrentMonthKey(nextMonthKey);
   }, [getQueryContext, currentMonthKey]);
 
+  // Copy envelopes to any target month
+  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string) => {
+    const ctx = getQueryContext();
+    if (!ctx) return;
+    await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey);
+    await loadMonthData(false);
+  }, [getQueryContext, currentMonthKey, loadMonthData]);
+
   // Legacy reset
   const resetMonth = useCallback(() => {
     console.warn('resetMonth is deprecated');
@@ -622,6 +632,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     setCurrentMonth,
     getAvailableMonths,
     createNewMonth,
+    copyEnvelopesToMonth,
     startNewMonth,
     addIncome,
     updateIncome,
