@@ -709,7 +709,8 @@ export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, t
 }
 
 // Start new month - ensures allocations exist for the new month
-// Savings envelopes (icon = 'PiggyBank') carry over their allocated amount until goal is reached
+// Only envelopes that have allocations in the CURRENT month are duplicated to the new month
+// Envelopes with rollover=true carry over their unspent balance
 export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<string> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -739,18 +740,7 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     });
   }
 
-  // 2) Fetch all envelopes with their details (including rollover flag)
-  let envelopesQuery = supabase.from('envelopes').select('id, rollover');
-  if (ctx.householdId) {
-    envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
-  } else {
-    envelopesQuery = envelopesQuery.eq('user_id', ctx.userId).is('household_id', null);
-  }
-
-  const { data: envelopes } = await envelopesQuery;
-  if (!envelopes || envelopes.length === 0) return nextMonthKey;
-
-  // 3) Fetch current month allocations for rollover envelopes (to carry over)
+  // 2) Fetch ONLY envelopes that have an allocation in the CURRENT month (not all envelopes)
   let currentAllocsQuery = supabase
     .from('envelope_allocations')
     .select('envelope_id, allocated, spent')
@@ -763,8 +753,23 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   }
 
   const { data: currentAllocs } = await currentAllocsQuery;
-  const currentAllocMap = new Map((currentAllocs || []).map(a => [a.envelope_id, Number(a.allocated)]));
-  const currentSpentMap = new Map((currentAllocs || []).map(a => [a.envelope_id, Number(a.spent)]));
+  if (!currentAllocs || currentAllocs.length === 0) return nextMonthKey;
+
+  // Get envelope IDs from current month allocations
+  const currentMonthEnvelopeIds = currentAllocs.map(a => a.envelope_id);
+
+  // 3) Fetch envelope details (rollover flag) only for envelopes that exist in current month
+  const { data: envelopes } = await supabase
+    .from('envelopes')
+    .select('id, rollover')
+    .in('id', currentMonthEnvelopeIds);
+
+  if (!envelopes || envelopes.length === 0) return nextMonthKey;
+
+  // Create maps for easy lookup
+  const envelopeMap = new Map(envelopes.map(e => [e.id, e]));
+  const currentAllocMap = new Map(currentAllocs.map(a => [a.envelope_id, Number(a.allocated)]));
+  const currentSpentMap = new Map(currentAllocs.map(a => [a.envelope_id, Number(a.spent)]));
 
   // 4) Fetch savings goals to check if goal is reached
   let goalsQuery = supabase
@@ -780,7 +785,7 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: savingsGoals } = await goalsQuery;
   const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, Number(g.target_amount)]));
 
-  // 5) Check existing allocations for next month
+  // 5) Check existing allocations for next month to avoid duplicates
   let existingAllocsQuery = supabase
     .from('envelope_allocations')
     .select('envelope_id')
@@ -795,15 +800,18 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: existingAllocs } = await existingAllocsQuery;
   const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
 
-  // 6) Create allocations for missing envelopes
-  const missingEnvelopes = envelopes.filter(e => !existingSet.has(e.id));
+  // 6) Create allocations only for envelopes that:
+  // - Have an allocation in the current month
+  // - Don't already have an allocation in the next month
+  const missingEnvelopeIds = currentMonthEnvelopeIds.filter(id => !existingSet.has(id));
 
-  if (missingEnvelopes.length > 0) {
-    const allocationsToInsert = missingEnvelopes.map(envelope => {
-      const hasRollover = envelope.rollover === true;
-      const currentAllocated = currentAllocMap.get(envelope.id) || 0;
-      const currentSpent = currentSpentMap.get(envelope.id) || 0;
-      const targetAmount = goalsMap.get(envelope.id) || 0;
+  if (missingEnvelopeIds.length > 0) {
+    const allocationsToInsert = missingEnvelopeIds.map(envelopeId => {
+      const envelope = envelopeMap.get(envelopeId);
+      const hasRollover = envelope?.rollover === true;
+      const currentAllocated = currentAllocMap.get(envelopeId) || 0;
+      const currentSpent = currentSpentMap.get(envelopeId) || 0;
+      const targetAmount = goalsMap.get(envelopeId) || 0;
       
       // Calculate remaining (unspent) amount to carry over
       let carryOverAmount = 0;
@@ -819,7 +827,7 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
       return {
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
-        envelope_id: envelope.id,
+        envelope_id: envelopeId,
         month_key: nextMonthKey,
         allocated: carryOverAmount,
         spent: 0,
