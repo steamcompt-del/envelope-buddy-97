@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { 
@@ -32,24 +31,18 @@ import {
   Wallet,
   PieChart,
   Calendar,
-  Sparkles,
   LogOut,
   Users,
   FileDown,
   History,
-  Repeat,
   Moon,
   Sun,
-  ShoppingCart,
   Trash2,
-  Calculator,
-  Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
 import { MonthlyManagementDialog } from '@/components/budget/MonthlyManagementDialog';
 import { exportMonthlyReportPDF } from '@/lib/exportPdf';
-import { useRecurring } from '@/hooks/useRecurring';
 
 interface SettingsSheetProps {
   open: boolean;
@@ -76,7 +69,6 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
     deleteHousehold,
   } = useBudget();
   const { user, signOut } = useAuth();
-  const { dueCount } = useRecurring();
   const { theme, setTheme } = useTheme();
   const [showDeleteMonthDialog, setShowDeleteMonthDialog] = useState(false);
   const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);

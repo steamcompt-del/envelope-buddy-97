@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlanningExpensesList, PlanningExpense } from '@/components/budget/PlanningExpensesList';
 import { AIEnvelopeCreator } from '@/components/budget/AIEnvelopeCreator';
-import { ArrowLeft, Receipt, Wallet } from 'lucide-react';
+import { ArrowLeft, Receipt, Wallet, Sparkles } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default function Planning() {
@@ -31,22 +31,22 @@ export default function Planning() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container flex items-center gap-4 py-4">
           <Link to="/">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="rounded-xl h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-primary" />
-              Mes dépenses du mois
+              <Sparkles className="h-5 w-5 text-primary" />
+              Assistant Budget IA
             </h1>
             <p className="text-sm text-muted-foreground">
-              Entrez vos dépenses pour créer des enveloppes automatiquement
+              Créez vos enveloppes automatiquement
             </p>
           </div>
         </div>
