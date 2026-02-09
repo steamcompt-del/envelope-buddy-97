@@ -701,7 +701,8 @@ export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, t
   }
 }
 
-// Start new month - ensures allocations exist for the new month (duplicates envelopes as empty allocations)
+// Start new month - ensures allocations exist for the new month
+// Savings envelopes (icon = 'PiggyBank') carry over their allocated amount until goal is reached
 export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<string> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -731,8 +732,8 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     });
   }
 
-  // 2) Ensure allocations exist for ALL envelopes in the new month
-  let envelopesQuery = supabase.from('envelopes').select('id');
+  // 2) Fetch all envelopes with their details (including icon for savings detection)
+  let envelopesQuery = supabase.from('envelopes').select('id, icon');
   if (ctx.householdId) {
     envelopesQuery = envelopesQuery.eq('household_id', ctx.householdId);
   } else {
@@ -742,6 +743,36 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: envelopes } = await envelopesQuery;
   if (!envelopes || envelopes.length === 0) return nextMonthKey;
 
+  // 3) Fetch current month allocations for savings envelopes (to carry over)
+  let currentAllocsQuery = supabase
+    .from('envelope_allocations')
+    .select('envelope_id, allocated')
+    .eq('month_key', currentMonthKey);
+
+  if (ctx.householdId) {
+    currentAllocsQuery = currentAllocsQuery.eq('household_id', ctx.householdId);
+  } else {
+    currentAllocsQuery = currentAllocsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: currentAllocs } = await currentAllocsQuery;
+  const currentAllocMap = new Map((currentAllocs || []).map(a => [a.envelope_id, Number(a.allocated)]));
+
+  // 4) Fetch savings goals to check if goal is reached
+  let goalsQuery = supabase
+    .from('savings_goals')
+    .select('envelope_id, target_amount');
+
+  if (ctx.householdId) {
+    goalsQuery = goalsQuery.eq('household_id', ctx.householdId);
+  } else {
+    goalsQuery = goalsQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: savingsGoals } = await goalsQuery;
+  const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, Number(g.target_amount)]));
+
+  // 5) Check existing allocations for next month
   let existingAllocsQuery = supabase
     .from('envelope_allocations')
     .select('envelope_id')
@@ -756,21 +787,36 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   const { data: existingAllocs } = await existingAllocsQuery;
   const existingSet = new Set((existingAllocs || []).map(a => a.envelope_id));
 
-  const missingEnvelopeIds = envelopes
-    .map(e => e.id)
-    .filter(id => !existingSet.has(id));
+  // 6) Create allocations for missing envelopes
+  const missingEnvelopes = envelopes.filter(e => !existingSet.has(e.id));
 
-  if (missingEnvelopeIds.length > 0) {
-    await supabase.from('envelope_allocations').insert(
-      missingEnvelopeIds.map(envelopeId => ({
+  if (missingEnvelopes.length > 0) {
+    const allocationsToInsert = missingEnvelopes.map(envelope => {
+      const isSavingsEnvelope = envelope.icon === 'PiggyBank';
+      const currentAllocated = currentAllocMap.get(envelope.id) || 0;
+      const targetAmount = goalsMap.get(envelope.id) || 0;
+      
+      // Carry over savings envelope balance only if goal not yet reached
+      let carryOverAmount = 0;
+      if (isSavingsEnvelope && currentAllocated > 0) {
+        // If no goal set or goal not reached, carry over the full amount
+        if (targetAmount === 0 || currentAllocated < targetAmount) {
+          carryOverAmount = currentAllocated;
+        }
+        // If goal reached, don't carry over (start fresh or user can decide)
+      }
+
+      return {
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
-        envelope_id: envelopeId,
+        envelope_id: envelope.id,
         month_key: nextMonthKey,
-        allocated: 0,
+        allocated: carryOverAmount,
         spent: 0,
-      }))
-    );
+      };
+    });
+
+    await supabase.from('envelope_allocations').insert(allocationsToInsert);
   }
 
   return nextMonthKey;
