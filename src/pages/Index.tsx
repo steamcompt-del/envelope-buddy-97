@@ -155,6 +155,7 @@ export default function Index() {
         onAllocate={() => setAllocateOpen(true)}
         onAddIncome={() => setIncomeOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenIncomeHistory={() => setIncomeListOpen(true)}
       />
       
       <main className="container py-6 pb-24">
