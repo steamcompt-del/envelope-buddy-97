@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext,
@@ -19,18 +19,42 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { useBudget } from '@/contexts/BudgetContext';
+import { useBudget, EnvelopeCategory } from '@/contexts/BudgetContext';
 import { SortableEnvelopeCard } from './SortableEnvelopeCard';
 import { EnvelopeCard } from './EnvelopeCard';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet, Sparkles, Undo2 } from 'lucide-react';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface EnvelopeGridProps {
   onEnvelopeClick: (envelopeId: string) => void;
   onCreateEnvelope: () => void;
 }
+
+const CATEGORY_CONFIG: Record<EnvelopeCategory, { label: string; bg: string; border: string; icon: string }> = {
+  essentiels: {
+    label: 'Essentiels',
+    bg: 'bg-blue-500/5 dark:bg-blue-500/10',
+    border: 'border-blue-500/20',
+    icon: '🏠',
+  },
+  lifestyle: {
+    label: 'Lifestyle',
+    bg: 'bg-purple-500/5 dark:bg-purple-500/10',
+    border: 'border-purple-500/20',
+    icon: '✨',
+  },
+  epargne: {
+    label: 'Épargne',
+    bg: 'bg-emerald-500/5 dark:bg-emerald-500/10',
+    border: 'border-emerald-500/20',
+    icon: '🐷',
+  },
+};
+
+const CATEGORY_ORDER: EnvelopeCategory[] = ['essentiels', 'lifestyle', 'epargne'];
 
 // Haptic feedback helper
 function triggerHaptic(style: 'light' | 'medium' = 'light') {
@@ -40,7 +64,7 @@ function triggerHaptic(style: 'light' | 'medium' = 'light') {
 }
 
 export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGridProps) {
-  const { envelopes, reorderEnvelopes } = useBudget();
+  const { envelopes, reorderEnvelopes, updateEnvelope } = useBudget();
   const { getGoalForEnvelope } = useSavingsGoals();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [previousOrder, setPreviousOrder] = useState<string[] | null>(null);
@@ -63,6 +87,24 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
     })
   );
 
+  // Group envelopes by category
+  const groupedEnvelopes = useMemo(() => {
+    const groups: Record<EnvelopeCategory, typeof envelopes> = {
+      essentiels: [],
+      lifestyle: [],
+      epargne: [],
+    };
+    for (const env of envelopes) {
+      const cat = env.category || 'essentiels';
+      groups[cat].push(env);
+    }
+    return groups;
+  }, [envelopes]);
+
+  // Check if we have multiple categories with envelopes
+  const activeCategories = CATEGORY_ORDER.filter(cat => groupedEnvelopes[cat].length > 0);
+  const showCategories = activeCategories.length > 1 || envelopes.some(e => e.category !== 'essentiels');
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     triggerHaptic('light');
@@ -83,12 +125,19 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
       // Clear any existing undo timer
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       undoTimerRef.current = setTimeout(() => setPreviousOrder(null), 5000);
+
+      // If dragged into a different category section, update the envelope's category
+      const draggedEnvelope = envelopes.find(e => e.id === active.id);
+      const targetEnvelope = envelopes.find(e => e.id === over.id);
+      if (draggedEnvelope && targetEnvelope && draggedEnvelope.category !== targetEnvelope.category) {
+        updateEnvelope(draggedEnvelope.id, { category: targetEnvelope.category } as any);
+      }
       
       const newOrder = arrayMove(envelopes, oldIndex, newIndex);
       reorderEnvelopes(newOrder.map(e => e.id));
       triggerHaptic('medium');
     }
-  }, [envelopes, reorderEnvelopes]);
+  }, [envelopes, reorderEnvelopes, updateEnvelope]);
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
@@ -155,29 +204,81 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGrid
         measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       >
         <SortableContext items={envelopes.map(e => e.id)} strategy={rectSortingStrategy}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {envelopes.map((envelope, index) => (
-              <div 
-                key={envelope.id} 
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
+          {showCategories ? (
+            <div className="space-y-4">
+              {CATEGORY_ORDER.map(category => {
+                const config = CATEGORY_CONFIG[category];
+                const categoryEnvelopes = groupedEnvelopes[category];
+                
+                if (categoryEnvelopes.length === 0 && category !== 'essentiels') return null;
+                
+                return (
+                  <div
+                    key={category}
+                    className={cn(
+                      "rounded-2xl border p-3 transition-colors",
+                      config.bg,
+                      config.border,
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <span className="text-base">{config.icon}</span>
+                      <h3 className="text-sm font-semibold text-foreground">{config.label}</h3>
+                      <span className="text-xs text-muted-foreground">({categoryEnvelopes.length})</span>
+                    </div>
+                    
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {categoryEnvelopes.map((envelope, index) => (
+                        <div 
+                          key={envelope.id} 
+                          className="animate-fade-in"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <SortableEnvelopeCard
+                            envelope={envelope}
+                            onClick={() => onEnvelopeClick(envelope.id)}
+                            savingsGoal={getGoalForEnvelope(envelope.id)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              <button
+                onClick={onCreateEnvelope}
+                className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 min-h-[120px] w-full"
               >
-                <SortableEnvelopeCard
-                  envelope={envelope}
-                  onClick={() => onEnvelopeClick(envelope.id)}
-                  savingsGoal={getGoalForEnvelope(envelope.id)}
-                />
-              </div>
-            ))}
-            
-            <button
-              onClick={onCreateEnvelope}
-              className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 min-h-[120px]"
-            >
-              <Plus className="w-8 h-8 text-muted-foreground mb-2" />
-              <span className="text-sm text-muted-foreground">Nouvelle enveloppe</span>
-            </button>
-          </div>
+                <Plus className="w-8 h-8 text-muted-foreground mb-2" />
+                <span className="text-sm text-muted-foreground">Nouvelle enveloppe</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {envelopes.map((envelope, index) => (
+                <div 
+                  key={envelope.id} 
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <SortableEnvelopeCard
+                    envelope={envelope}
+                    onClick={() => onEnvelopeClick(envelope.id)}
+                    savingsGoal={getGoalForEnvelope(envelope.id)}
+                  />
+                </div>
+              ))}
+              
+              <button
+                onClick={onCreateEnvelope}
+                className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 min-h-[120px]"
+              >
+                <Plus className="w-8 h-8 text-muted-foreground mb-2" />
+                <span className="text-sm text-muted-foreground">Nouvelle enveloppe</span>
+              </button>
+            </div>
+          )}
         </SortableContext>
         
         <DragOverlay dropAnimation={{

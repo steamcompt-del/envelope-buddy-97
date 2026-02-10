@@ -29,6 +29,7 @@ import { logActivity } from '@/lib/activityDb';
 
 // Types
 export type RolloverStrategy = 'full' | 'percentage' | 'capped' | 'none';
+export type EnvelopeCategory = 'essentiels' | 'lifestyle' | 'epargne';
 
 export interface Envelope {
   id: string;
@@ -37,6 +38,7 @@ export interface Envelope {
   spent: number;
   icon: string;
   color: string;
+  category: EnvelopeCategory;
   rollover: boolean;
   rolloverStrategy: RolloverStrategy;
   rolloverPercentage?: number;
@@ -112,7 +114,7 @@ interface BudgetContextType {
   deleteIncome: (id: string) => Promise<void>;
   
   // Envelope actions
-  createEnvelope: (name: string, icon: string, color: string) => Promise<string | undefined>;
+  createEnvelope: (name: string, icon: string, color: string, category?: EnvelopeCategory) => Promise<string | undefined>;
   updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => Promise<void>;
   deleteEnvelope: (id: string) => Promise<void>;
   reorderEnvelopes: (orderedIds: string[]) => Promise<void>;
@@ -388,10 +390,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
   // Envelope actions
-  const createEnvelope = useCallback(async (name: string, icon: string, color: string): Promise<string | undefined> => {
+  const createEnvelope = useCallback(async (name: string, icon: string, color: string, category?: EnvelopeCategory): Promise<string | undefined> => {
     const ctx = getQueryContext();
     if (!ctx) return undefined;
-    const envelopeId = await createEnvelopeDb(ctx, currentMonthKey, name, icon, color);
+    const envelopeId = await createEnvelopeDb(ctx, currentMonthKey, name, icon, color, category);
     await logActivity(ctx, 'envelope_created', 'envelope', envelopeId, { name });
     await loadMonthData();
     return envelopeId;

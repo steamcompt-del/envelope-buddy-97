@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useBudget, defaultEnvelopeTemplates, RolloverStrategy } from '@/contexts/BudgetContext';
+import { useBudget, defaultEnvelopeTemplates, RolloverStrategy, EnvelopeCategory } from '@/contexts/BudgetContext';
 import {
   Dialog,
   DialogContent,
@@ -86,6 +86,7 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Wallet');
   const [selectedColor, setSelectedColor] = useState('blue');
+  const [selectedCategory, setSelectedCategory] = useState<EnvelopeCategory>('essentiels');
   const [showCustom, setShowCustom] = useState(false);
   const [budgetAmount, setBudgetAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,8 +117,9 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
     try {
       const isSavings = selectedIcon === 'PiggyBank';
       const shouldRollover = rolloverEnabled || isSavings;
+      const category = isSavings ? 'epargne' as EnvelopeCategory : selectedCategory;
       
-      const envelopeId = await createEnvelope(name.trim(), selectedIcon, selectedColor);
+      const envelopeId = await createEnvelope(name.trim(), selectedIcon, selectedColor, category);
       
       // Update rollover settings
       if (envelopeId && shouldRollover) {
@@ -146,6 +148,7 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
     setName('');
     setSelectedIcon('Wallet');
     setSelectedColor('blue');
+    setSelectedCategory('essentiels');
     setShowCustom(false);
     setBudgetAmount('');
     setRolloverEnabled(false);
@@ -272,6 +275,32 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
               )}
             </div>
 
+            {/* Category selector */}
+            <div className="space-y-2">
+              <Label>Catégorie</Label>
+              <div className="flex gap-2">
+                {([
+                  { value: 'essentiels' as EnvelopeCategory, label: '🏠 Essentiels', style: 'border-blue-500/30 bg-blue-500/10' },
+                  { value: 'lifestyle' as EnvelopeCategory, label: '✨ Lifestyle', style: 'border-purple-500/30 bg-purple-500/10' },
+                  { value: 'epargne' as EnvelopeCategory, label: '🐷 Épargne', style: 'border-emerald-500/30 bg-emerald-500/10' },
+                ]).map(cat => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.value)}
+                    className={cn(
+                      "flex-1 py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                      selectedCategory === cat.value
+                        ? cn(cat.style, "ring-1 ring-primary")
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Rollover config */}
             <RolloverConfigSection
               enabled={rolloverEnabled}
@@ -395,6 +424,32 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
                   }
                 </p>
               )}
+            </div>
+
+            {/* Category selector */}
+            <div className="space-y-2">
+              <Label>Catégorie</Label>
+              <div className="flex gap-2">
+                {([
+                  { value: 'essentiels' as EnvelopeCategory, label: '🏠 Essentiels', style: 'border-blue-500/30 bg-blue-500/10' },
+                  { value: 'lifestyle' as EnvelopeCategory, label: '✨ Lifestyle', style: 'border-purple-500/30 bg-purple-500/10' },
+                  { value: 'epargne' as EnvelopeCategory, label: '🐷 Épargne', style: 'border-emerald-500/30 bg-emerald-500/10' },
+                ]).map(cat => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.value)}
+                    className={cn(
+                      "flex-1 py-2 px-3 rounded-xl border text-xs font-medium transition-all",
+                      selectedCategory === cat.value
+                        ? cn(cat.style, "ring-1 ring-primary")
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Rollover config */}
