@@ -253,55 +253,37 @@ export function ShoppingListContent() {
       )}
 
 
-
-      {/* AI Suggestions */}
-      {aiSuggestions.length > 0 && (
-        <Collapsible open={itemsListOpen} onOpenChange={setItemsListOpen} className="space-y-2">
+      {/* Receipt-based Suggestions */}
+      {availableSuggestions.length > 0 && (
+        <Collapsible open={suggestionsOpen} onOpenChange={setSuggestionsOpen} className="space-y-2">
           <CollapsibleTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-between rounded-xl"
-            >
+            <Button variant="outline" className="w-full justify-between rounded-xl">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span>Suggestions IA</span>
+                <Wand2 className="w-4 h-4 text-primary" />
+                <span>Suggestions de vos tickets ({availableSuggestions.length})</span>
               </div>
               <ChevronDown className="w-4 h-4" />
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2">
-            {isLoadingAI ? (
-              <div className="flex justify-center py-2">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              </div>
-            ) : (
-              aiSuggestions.map((suggestion, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-primary/20">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{suggestion.name}</p>
-                    <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleAddSuggestion(suggestion.name, 0)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => dismissSuggestion(suggestion.name)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
+          <CollapsibleContent className="space-y-1">
+            <div className="flex flex-wrap gap-2 p-2">
+              {availableSuggestions.slice(0, 10).map((suggestion) => (
+                <button
+                  key={suggestion.name}
+                  type="button"
+                  onClick={() => handleAddSuggestion(suggestion.name, suggestion.avgPrice)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-muted/50 hover:bg-primary/10 hover:border-primary/30 transition-colors text-sm"
+                >
+                  <Plus className="w-3 h-3 text-primary" />
+                  <span>{suggestion.name}</span>
+                  {suggestion.avgPrice > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      ~{suggestion.avgPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </CollapsibleContent>
         </Collapsible>
       )}
