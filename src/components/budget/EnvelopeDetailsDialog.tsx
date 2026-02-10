@@ -42,6 +42,7 @@ import { TransactionNotesField } from './TransactionNotesField';
 import { SavingsGoalDialog } from './SavingsGoalDialog';
 import { SavingsGoalProgress } from './SavingsGoalProgress';
 import { RolloverConfigSection } from './RolloverConfigSection';
+import { SplitBadge } from './SplitBadge';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -691,7 +692,17 @@ export function EnvelopeDetailsDialog({
                               );
                             })()}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium">{t.merchant || t.description}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-medium truncate">{t.merchant || t.description}</p>
+                                {t.isSplit && (
+                                  <SplitBadge
+                                    transactionId={t.id}
+                                    totalAmount={t.amount}
+                                    currentEnvelopeId={envelopeId}
+                                    compact
+                                  />
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(t.date).toLocaleDateString('fr-FR')}
                                 <span className="ml-1 opacity-70">
