@@ -620,6 +620,61 @@ export type Database = {
           },
         ]
       }
+      transaction_splits: {
+        Row: {
+          amount: number
+          created_at: string
+          envelope_id: string
+          household_id: string | null
+          id: string
+          parent_transaction_id: string
+          percentage: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          envelope_id: string
+          household_id?: string | null
+          id?: string
+          parent_transaction_id: string
+          percentage?: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          envelope_id?: string
+          household_id?: string | null
+          id?: string
+          parent_transaction_id?: string
+          percentage?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_splits_envelope_id_fkey"
+            columns: ["envelope_id"]
+            isOneToOne: false
+            referencedRelation: "envelopes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_splits_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_splits_parent_transaction_id_fkey"
+            columns: ["parent_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -629,6 +684,7 @@ export type Database = {
           envelope_id: string
           household_id: string | null
           id: string
+          is_split: boolean
           merchant: string | null
           notes: string | null
           receipt_path: string | null
@@ -643,6 +699,7 @@ export type Database = {
           envelope_id: string
           household_id?: string | null
           id?: string
+          is_split?: boolean
           merchant?: string | null
           notes?: string | null
           receipt_path?: string | null
@@ -657,6 +714,7 @@ export type Database = {
           envelope_id?: string
           household_id?: string | null
           id?: string
+          is_split?: boolean
           merchant?: string | null
           notes?: string | null
           receipt_path?: string | null

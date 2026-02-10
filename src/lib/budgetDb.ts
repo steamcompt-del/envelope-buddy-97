@@ -43,6 +43,7 @@ interface DbTransaction {
   notes: string | null;
   date: string;
   created_at: string;
+  is_split: boolean;
 }
 
 interface DbIncome {
@@ -174,6 +175,7 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
     receiptUrl: t.receipt_url || undefined,
     receiptPath: t.receipt_path || undefined,
     notes: t.notes || undefined,
+    isSplit: t.is_split || false,
   }));
 
   // Build income list

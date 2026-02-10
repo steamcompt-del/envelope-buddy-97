@@ -54,6 +54,7 @@ export interface Transaction {
   receiptUrl?: string;
   receiptPath?: string;
   notes?: string;
+  isSplit?: boolean;
 }
 
 export interface Income {

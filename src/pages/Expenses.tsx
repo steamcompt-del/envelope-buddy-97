@@ -24,6 +24,7 @@ import { ReceiptLightbox, ReceiptImage } from '@/components/budget/ReceiptLightb
 import { HouseholdSwitcher } from '@/components/budget/HouseholdSwitcher';
 import { MonthSelector } from '@/components/budget/MonthSelector';
 import { EditTransactionSheet } from '@/components/budget/EditTransactionSheet';
+import { SplitBadge } from '@/components/budget/SplitBadge';
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
@@ -296,7 +297,14 @@ export default function Expenses() {
                             <p className="font-medium truncate">
                               {t.merchant || t.description}
                             </p>
-                            {isWithdrawal && (
+                            {t.isSplit && (
+                              <SplitBadge
+                                transactionId={t.id}
+                                totalAmount={t.amount}
+                                compact
+                              />
+                            )}
+                            {isWithdrawal && !t.isSplit && (
                               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0">
                                 Retrait
                               </span>
