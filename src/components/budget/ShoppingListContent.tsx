@@ -306,37 +306,35 @@ export function ShoppingListContent() {
                     )}
                   >
                     {editingId === item.id ? (
-                      <div className="space-y-2">
-                        <Input
-                          type="text"
-                          value={item.name}
-                          disabled
-                          className="text-sm rounded"
-                        />
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            value={editQuantity}
-                            onChange={(e) => setEditQuantity(e.target.value)}
-                            placeholder="Quantité"
-                            className="text-sm rounded flex-1"
-                          />
-                          <Input
-                            type="number"
-                            value={editPrice}
-                            onChange={(e) => setEditPrice(e.target.value)}
-                            placeholder="Prix"
-                            className="text-sm rounded flex-1"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleSaveEdit} className="flex-1 gap-1">
-                            <Check className="w-3 h-3" />
-                            Enregistrer
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium">{item.name}</p>
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1 space-y-1">
+                            <label className="text-xs text-muted-foreground">Quantité</label>
+                            <Input
+                              type="number"
+                              value={editQuantity}
+                              onChange={(e) => setEditQuantity(e.target.value)}
+                              min="1"
+                              className="h-9 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <label className="text-xs text-muted-foreground">Prix estimé (€)</label>
+                            <Input
+                              type="number"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              min="0"
+                              step="0.01"
+                              className="h-9 rounded-lg text-sm"
+                            />
+                          </div>
+                          <Button size="icon" onClick={handleSaveEdit} className="h-9 w-9 shrink-0 rounded-lg">
+                            <Check className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="outline" onClick={handleCancelEdit} className="flex-1 gap-1">
-                            <X className="w-3 h-3" />
-                            Annuler
+                          <Button size="icon" variant="outline" onClick={handleCancelEdit} className="h-9 w-9 shrink-0 rounded-lg">
+                            <X className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -346,36 +344,28 @@ export function ShoppingListContent() {
                           checked={item.isChecked}
                           onCheckedChange={() => toggleItem(item.id)}
                         />
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-sm', item.isChecked && 'line-through text-muted-foreground')}>
+                        <div className="flex-1 min-w-0" onClick={() => handleStartEdit(item)}>
+                          <p className={cn('text-sm cursor-pointer', item.isChecked && 'line-through text-muted-foreground')}>
                             {item.name}
                           </p>
-                          {item.quantity > 1 && (
-                            <p className="text-xs text-muted-foreground">
-                              Qty: {item.quantity}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {item.quantity > 1 && (
+                              <span className="text-xs text-muted-foreground">×{item.quantity}</span>
+                            )}
+                            {item.estimatedPrice != null && item.estimatedPrice > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {item.estimatedPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {item.estimatedPrice && (
-                          <span className="text-sm font-medium">
-                            {item.estimatedPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                          </span>
-                        )}
                         <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleStartEdit(item)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
+                          size="icon"
                           variant="ghost"
                           onClick={() => removeItem(item.id)}
-                          className="h-7 w-7 p-0 text-destructive"
+                          className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
                     )}
