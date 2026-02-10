@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from 'react';
-import { useBudget, Envelope, Transaction } from '@/contexts/BudgetContext';
+import { useBudget, Envelope, Transaction, EnvelopeCategory } from '@/contexts/BudgetContext';
 import { useTransactionsReceipts, useReceipts } from '@/hooks/useReceipts';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import {
@@ -441,6 +441,28 @@ export function EnvelopeDetailsDialog({
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Category Selector */}
+          <div className="p-3 bg-muted/50 rounded-xl">
+            <div className="flex items-center justify-between">
+              <Label className="text-muted-foreground text-sm">Catégorie</Label>
+              <Select
+                value={envelope.category || 'essentiels'}
+                onValueChange={(value: EnvelopeCategory) => {
+                  updateEnvelope(envelopeId, { category: value });
+                }}
+              >
+                <SelectTrigger className="w-[160px] h-8 rounded-lg text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="essentiels">🔵 Essentiels</SelectItem>
+                  <SelectItem value="lifestyle">🟣 Lifestyle</SelectItem>
+                  <SelectItem value="epargne">🟢 Épargne</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           {/* Rollover Configuration */}
