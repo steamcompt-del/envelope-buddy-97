@@ -41,6 +41,8 @@ export function SplitBadge({ transactionId, totalAmount, currentEnvelopeId, comp
     }
   };
 
+  // Compute real total from splits data (more reliable than prop)
+  const computedTotal = splits ? splits.reduce((sum, s) => sum + s.amount, 0) : totalAmount;
   // Show partial amount if in envelope context
   const currentSplit = splits?.find(s => s.envelopeId === currentEnvelopeId);
 
@@ -60,7 +62,7 @@ export function SplitBadge({ transactionId, totalAmount, currentEnvelopeId, comp
           {compact ? 'Div.' : 'Divisée'}
           {currentEnvelopeId && currentSplit && (
             <span className="opacity-70">
-              ({fmt(currentSplit.amount)} sur {fmt(totalAmount)})
+              ({fmt(currentSplit.amount)} sur {fmt(computedTotal)})
             </span>
           )}
         </button>
@@ -85,7 +87,7 @@ export function SplitBadge({ transactionId, totalAmount, currentEnvelopeId, comp
             })}
             <div className="flex items-center justify-between text-sm pt-1.5 border-t font-medium">
               <span>Total</span>
-              <span>{fmt(totalAmount)}</span>
+              <span>{fmt(computedTotal)}</span>
             </div>
           </div>
         )}
