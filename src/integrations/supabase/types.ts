@@ -105,6 +105,7 @@ export type Database = {
       }
       envelopes: {
         Row: {
+          category: Database["public"]["Enums"]["envelope_category"]
           color: string
           created_at: string
           household_id: string | null
@@ -119,6 +120,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category?: Database["public"]["Enums"]["envelope_category"]
           color?: string
           created_at?: string
           household_id?: string | null
@@ -133,6 +135,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category?: Database["public"]["Enums"]["envelope_category"]
           color?: string
           created_at?: string
           household_id?: string | null
@@ -767,6 +770,7 @@ export type Database = {
         | "recurring_deleted"
         | "member_joined"
         | "member_left"
+      envelope_category: "essentiels" | "lifestyle" | "epargne"
       recurring_frequency:
         | "weekly"
         | "biweekly"
@@ -919,6 +923,7 @@ export const Constants = {
         "member_joined",
         "member_left",
       ],
+      envelope_category: ["essentiels", "lifestyle", "epargne"],
       recurring_frequency: [
         "weekly",
         "biweekly",

@@ -11,6 +11,7 @@ interface DbEnvelope {
   name: string;
   icon: string;
   color: string;
+  category: string;
   position: number;
   rollover: boolean;
   rollover_strategy: string;
@@ -154,6 +155,7 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
         name: env.name,
         icon: env.icon,
         color: env.color,
+        category: (env.category as Envelope['category']) || 'essentiels',
         allocated: Number(allocation.allocated),
         spent: Number(allocation.spent),
         rollover: env.rollover,
@@ -349,7 +351,7 @@ export async function deleteIncomeDb(ctx: QueryContext, monthKey: string, income
 }
 
 // Envelope operations
-export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name: string, icon: string, color: string): Promise<string> {
+export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name: string, icon: string, color: string, category?: string): Promise<string> {
   // Get max position
   let posQuery = supabase
     .from('envelopes')
@@ -368,6 +370,8 @@ export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name
 
   // Auto-enable rollover for savings envelopes (PiggyBank icon)
   const shouldRollover = icon === 'PiggyBank';
+  // Auto-assign epargne category for PiggyBank
+  const resolvedCategory = category || (icon === 'PiggyBank' ? 'epargne' : 'essentiels');
 
   const { data: envelope, error } = await supabase
     .from('envelopes')
@@ -378,7 +382,8 @@ export async function createEnvelopeDb(ctx: QueryContext, monthKey: string, name
       icon, 
       color, 
       position: newPosition,
-      rollover: shouldRollover
+      rollover: shouldRollover,
+      category: resolvedCategory,
     })
     .select('id')
     .single();
@@ -409,11 +414,12 @@ export async function reorderEnvelopesDb(ctx: QueryContext, orderedIds: string[]
   await Promise.all(updates);
 }
 
-export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string; rollover?: boolean; rolloverStrategy?: string; rolloverPercentage?: number | null; maxRolloverAmount?: number | null }): Promise<void> {
+export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string; category?: string; rollover?: boolean; rolloverStrategy?: string; rolloverPercentage?: number | null; maxRolloverAmount?: number | null }): Promise<void> {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
   if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.rollover !== undefined) dbUpdates.rollover = updates.rollover;
   if (updates.rolloverStrategy !== undefined) dbUpdates.rollover_strategy = updates.rolloverStrategy;
   if (updates.rolloverPercentage !== undefined) dbUpdates.rollover_percentage = updates.rolloverPercentage;
