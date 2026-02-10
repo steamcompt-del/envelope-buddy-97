@@ -254,18 +254,29 @@ export function ShoppingListContent() {
 
 
       {/* Receipt-based Suggestions */}
-      {availableSuggestions.length > 0 && (
-        <Collapsible open={suggestionsOpen} onOpenChange={setSuggestionsOpen} className="space-y-2">
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full justify-between rounded-xl">
-              <div className="flex items-center gap-2">
-                <Wand2 className="w-4 h-4 text-primary" />
-                <span>Suggestions de vos tickets ({availableSuggestions.length})</span>
-              </div>
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1">
+      <Collapsible open={suggestionsOpen} onOpenChange={setSuggestionsOpen} className="space-y-2">
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full justify-between rounded-xl">
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-primary" />
+              <span>Suggestions de vos tickets {availableSuggestions.length > 0 ? `(${availableSuggestions.length})` : ''}</span>
+            </div>
+            <ChevronDown className="w-4 h-4" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1">
+          {availableSuggestions.length === 0 ? (
+            <p className="text-center py-4 text-sm text-muted-foreground">
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Chargement...
+                </span>
+              ) : (
+                'Scannez des tickets de caisse pour obtenir des suggestions.'
+              )}
+            </p>
+          ) : (
             <div className="flex flex-wrap gap-2 p-2">
               {availableSuggestions.slice(0, 10).map((suggestion) => (
                 <button
@@ -284,9 +295,9 @@ export function ShoppingListContent() {
                 </button>
               ))}
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+          )}
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Items List */}
       <Collapsible open={itemsListOpen} onOpenChange={setItemsListOpen} className="space-y-2">
