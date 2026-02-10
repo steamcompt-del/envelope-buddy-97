@@ -53,7 +53,7 @@ export function ShoppingListContent() {
   const [newItemName, setNewItemName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(true);
-  const [aiSuggestionsOpen, setAiSuggestionsOpen] = useState(true);
+  const [itemsListOpen, setItemsListOpen] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState('1');
   const [editPrice, setEditPrice] = useState('0');
@@ -252,9 +252,44 @@ export function ShoppingListContent() {
         </div>
       )}
 
+      {/* Receipt-based Suggestions */}
+      {availableSuggestions.length > 0 && (
+        <Collapsible open={suggestionsOpen} onOpenChange={setSuggestionsOpen} className="space-y-2">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between rounded-xl">
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4 text-primary" />
+                <span>Suggestions de vos tickets ({availableSuggestions.length})</span>
+              </div>
+              <ChevronDown className="w-4 h-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1">
+            <div className="flex flex-wrap gap-2 p-2">
+              {availableSuggestions.slice(0, 10).map((suggestion) => (
+                <button
+                  key={suggestion.name}
+                  type="button"
+                  onClick={() => handleAddSuggestion(suggestion.name, suggestion.avgPrice)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-muted/50 hover:bg-primary/10 hover:border-primary/30 transition-colors text-sm"
+                >
+                  <Plus className="w-3 h-3 text-primary" />
+                  <span>{suggestion.name}</span>
+                  {suggestion.avgPrice > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      ~{suggestion.avgPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {/* AI Suggestions */}
       {aiSuggestions.length > 0 && (
-        <Collapsible open={aiSuggestionsOpen} onOpenChange={setAiSuggestionsOpen} className="space-y-2">
+        <Collapsible open={itemsListOpen} onOpenChange={setItemsListOpen} className="space-y-2">
           <CollapsibleTrigger asChild>
             <Button
               variant="outline"
@@ -305,7 +340,7 @@ export function ShoppingListContent() {
       )}
 
       {/* Items List */}
-      <Collapsible open={suggestionsOpen} onOpenChange={setSuggestionsOpen} className="space-y-2">
+      <Collapsible open={itemsListOpen} onOpenChange={setItemsListOpen} className="space-y-2">
         <CollapsibleTrigger asChild>
           <Button
             variant="outline"
