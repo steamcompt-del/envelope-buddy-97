@@ -1,126 +1,106 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useBudget, Transaction } from '@/contexts/BudgetContext';
 import { useTransactionsReceipts } from '@/hooks/useReceipts';
+import { useExpenseFilters } from '@/hooks/useExpenseFilters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { 
-  ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
-  Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, ArrowLeft, Search, ImageIcon, Filter, Loader2
-} from 'lucide-react';
-import { ComponentType } from 'react';
+import { ArrowLeft, Search, Loader2, Receipt, List, Clock, CheckSquare } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { ReceiptLightbox, ReceiptImage } from '@/components/budget/ReceiptLightbox';
 import { HouseholdSwitcher } from '@/components/budget/HouseholdSwitcher';
 import { MonthSelector } from '@/components/budget/MonthSelector';
 import { EditTransactionSheet } from '@/components/budget/EditTransactionSheet';
-import { SplitBadge } from '@/components/budget/SplitBadge';
-
-const iconMap: Record<string, ComponentType<{ className?: string }>> = {
-  ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
-  Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet,
-};
-
-function DynamicIcon({ name, className }: { name: string; className?: string }) {
-  const Icon = iconMap[name] || Wallet;
-  return <Icon className={className} />;
-}
-
-const colorClasses: Record<string, { bg: string; text: string }> = {
-  blue: { bg: 'bg-envelope-blue/15', text: 'text-envelope-blue' },
-  green: { bg: 'bg-envelope-green/15', text: 'text-envelope-green' },
-  orange: { bg: 'bg-envelope-orange/15', text: 'text-envelope-orange' },
-  pink: { bg: 'bg-envelope-pink/15', text: 'text-envelope-pink' },
-  purple: { bg: 'bg-envelope-purple/15', text: 'text-envelope-purple' },
-  yellow: { bg: 'bg-envelope-yellow/15', text: 'text-envelope-yellow' },
-  red: { bg: 'bg-envelope-red/15', text: 'text-envelope-red' },
-  teal: { bg: 'bg-envelope-teal/15', text: 'text-envelope-teal' },
-};
-
-interface TransactionWithEnvelope extends Transaction {
-  envelope?: {
-    id: string;
-    name: string;
-    icon: string;
-    color: string;
-  };
-  isWithdrawal?: boolean; // True if this is a savings withdrawal
-}
+import { ExpenseFiltersBar } from '@/components/expenses/ExpenseFiltersBar';
+import { BulkActionsBar } from '@/components/expenses/BulkActionsBar';
+import { TransactionRow, TransactionWithEnvelope } from '@/components/expenses/TransactionRow';
 
 export default function Expenses() {
   const { envelopes, transactions, loading } = useBudget();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterEnvelopeId, setFilterEnvelopeId] = useState<string>('all');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
-  
-  // Get all transaction IDs for receipts
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const {
+    filters, debouncedSearch, setSearchQuery,
+    updateFilter, toggleEnvelope, toggleMember, resetFilters, activeFilterCount,
+  } = useExpenseFilters();
+
   const transactionIds = useMemo(() => transactions.map(t => t.id), [transactions]);
   const { getReceiptsForTransaction } = useTransactionsReceipts(transactionIds);
 
-  // Enrich transactions with envelope info
+  // Enrich
   const enrichedTransactions: TransactionWithEnvelope[] = useMemo(() => {
-    const envelopeMap = new Map(envelopes.map(e => [e.id, e]));
+    const map = new Map(envelopes.map(e => [e.id, e]));
     return transactions.map(t => {
-      const envelope = envelopeMap.get(t.envelopeId);
-      return {
-        ...t,
-        envelope,
-        isWithdrawal: envelope?.icon === 'PiggyBank',
-      };
+      const envelope = map.get(t.envelopeId);
+      return { ...t, envelope, isWithdrawal: envelope?.icon === 'PiggyBank' };
     });
   }, [transactions, envelopes]);
 
-  // Filter and sort transactions
+  // Filter
   const filteredTransactions = useMemo(() => {
     let result = [...enrichedTransactions];
-    
-    // Filter by envelope
-    if (filterEnvelopeId && filterEnvelopeId !== 'all') {
-      result = result.filter(t => t.envelopeId === filterEnvelopeId);
+
+    // Envelopes
+    if (filters.envelopeIds.length > 0) {
+      result = result.filter(t => filters.envelopeIds.includes(t.envelopeId));
     }
-    
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(t => 
-        t.description.toLowerCase().includes(query) ||
-        (t.merchant && t.merchant.toLowerCase().includes(query)) ||
-        (t.notes && t.notes.toLowerCase().includes(query))
+
+    // Search (debounced)
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(t =>
+        t.description.toLowerCase().includes(q) ||
+        (t.merchant && t.merchant.toLowerCase().includes(q)) ||
+        (t.notes && t.notes.toLowerCase().includes(q)) ||
+        t.amount.toString().includes(q)
       );
     }
-    
-    // Sort by date descending
-    result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    return result;
-  }, [enrichedTransactions, filterEnvelopeId, searchQuery]);
 
-  // Group transactions by date
+    // Amount range
+    const minAmt = parseFloat(filters.amountMin);
+    const maxAmt = parseFloat(filters.amountMax);
+    if (!isNaN(minAmt)) result = result.filter(t => t.amount >= minAmt);
+    if (!isNaN(maxAmt)) result = result.filter(t => t.amount <= maxAmt);
+
+    // Date range
+    if (filters.dateFrom) {
+      const from = filters.dateFrom.getTime();
+      result = result.filter(t => new Date(t.date).getTime() >= from);
+    }
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter(t => new Date(t.date).getTime() <= to.getTime());
+    }
+
+    // Receipt
+    if (filters.hasReceipt === 'yes') {
+      result = result.filter(t => getReceiptsForTransaction(t.id).length > 0 || !!t.receiptUrl);
+    } else if (filters.hasReceipt === 'no') {
+      result = result.filter(t => getReceiptsForTransaction(t.id).length === 0 && !t.receiptUrl);
+    }
+
+    result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return result;
+  }, [enrichedTransactions, filters.envelopeIds, debouncedSearch, filters.amountMin, filters.amountMax, filters.dateFrom, filters.dateTo, filters.hasReceipt, getReceiptsForTransaction]);
+
+  // Group by date
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, TransactionWithEnvelope[]>();
-    
     for (const t of filteredTransactions) {
-      const dateKey = format(new Date(t.date), 'yyyy-MM-dd');
-      const existing = groups.get(dateKey) || [];
-      existing.push(t);
-      groups.set(dateKey, existing);
+      const key = format(new Date(t.date), 'yyyy-MM-dd');
+      const arr = groups.get(key) || [];
+      arr.push(t);
+      groups.set(key, arr);
     }
-    
     return Array.from(groups.entries()).map(([dateKey, items]) => ({
       dateKey,
       date: new Date(dateKey),
@@ -129,30 +109,30 @@ export default function Expenses() {
     }));
   }, [filteredTransactions]);
 
-  // Calculate total
-  const totalAmount = useMemo(() => {
-    return filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
-  }, [filteredTransactions]);
+  const totalAmount = useMemo(() => filteredTransactions.reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
 
-  const handleOpenLightbox = (transaction: TransactionWithEnvelope) => {
-    const receipts = getReceiptsForTransaction(transaction.id);
-    if (receipts.length === 0 && !transaction.receiptUrl) return;
-    
-    const images: ReceiptImage[] = receipts.length > 0 
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleOpenLightbox = (t: TransactionWithEnvelope) => {
+    const receipts = getReceiptsForTransaction(t.id);
+    const images: ReceiptImage[] = receipts.length > 0
       ? receipts.map(r => ({ id: r.id, url: r.url, fileName: r.fileName }))
-      : transaction.receiptUrl 
-        ? [{ id: 'legacy', url: transaction.receiptUrl }]
-        : [];
-    
+      : t.receiptUrl ? [{ id: 'legacy', url: t.receiptUrl }] : [];
     if (images.length > 0) {
       setLightboxImages(images);
       setLightboxIndex(0);
       setLightboxOpen(true);
     }
   };
-  
-  const handleOpenEditSheet = (transaction: TransactionWithEnvelope) => {
-    setEditingTransaction(transaction);
+
+  const handleOpenEditSheet = (t: TransactionWithEnvelope) => {
+    setEditingTransaction(t);
     setEditSheetOpen(true);
   };
 
@@ -167,30 +147,25 @@ export default function Expenses() {
     );
   }
 
+  const isTimeline = filters.viewMode === 'timeline';
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 glass-card border-b">
         <div className="container py-3 sm:py-4">
-          {/* Top row */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <NavLink to="/">
-                <Button variant="ghost" size="icon" className="rounded-xl h-8 w-8">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </NavLink>
+              <NavLink to="/"><Button variant="ghost" size="icon" className="rounded-xl h-8 w-8"><ArrowLeft className="h-4 w-4" /></Button></NavLink>
               <HouseholdSwitcher />
             </div>
             <MonthSelector />
           </div>
-          
-          {/* Title and total */}
           <div className="flex items-center justify-between gap-2">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold">Dépenses</h1>
               <p className="text-sm text-muted-foreground">
-                {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+                {filteredTransactions.length} dépense{filteredTransactions.length !== 1 ? 's' : ''} trouvée{filteredTransactions.length !== 1 ? 's' : ''}
               </p>
             </div>
             <div className="text-right">
@@ -202,57 +177,84 @@ export default function Expenses() {
           </div>
         </div>
       </header>
-      
-      {/* Filters */}
+
+      {/* Search + controls */}
       <div className="container py-3 space-y-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Rechercher..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 Rechercher par commerçant, montant, note..."
+              value={filters.searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
               className="pl-9 rounded-xl"
             />
           </div>
-          <Select value={filterEnvelopeId} onValueChange={setFilterEnvelopeId}>
-            <SelectTrigger className="w-[180px] rounded-xl">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Enveloppe" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes</SelectItem>
-              {envelopes.map((env) => (
-                <SelectItem key={env.id} value={env.id}>
-                  <div className="flex items-center gap-2">
-                    <DynamicIcon name={env.icon} className="h-4 w-4" />
-                    <span>{env.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
+
+        {/* View toggle + bulk mode */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-muted rounded-xl p-0.5 flex-shrink-0">
+            <button
+              onClick={() => updateFilter('viewMode', 'list')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                !isTimeline ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+              Liste
+            </button>
+            <button
+              onClick={() => updateFilter('viewMode', 'timeline')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                isTimeline ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+          </div>
+
+          <Button
+            variant={bulkMode ? "default" : "outline"}
+            size="sm"
+            className="rounded-xl gap-1.5 text-xs ml-auto"
+            onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); }}
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
+            Actions groupées
+          </Button>
+        </div>
+
+        {/* Collapsible filters */}
+        <ExpenseFiltersBar
+          filters={filters}
+          activeFilterCount={activeFilterCount}
+          onToggleEnvelope={toggleEnvelope}
+          onUpdateFilter={updateFilter}
+          onReset={resetFilters}
+          onToggleMember={toggleMember}
+        />
       </div>
-      
+
       {/* Transaction list */}
-      <main className="container pb-6">
-        {groupedTransactions.length === 0 ? (
+      <main className="container pb-24">
+        {filteredTransactions.length === 0 ? (
           <div className="text-center py-12">
             <Receipt className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground">
-              {searchQuery || filterEnvelopeId !== 'all' 
-                ? 'Aucune dépense trouvée' 
-                : 'Aucune dépense ce mois-ci'}
+              {debouncedSearch || activeFilterCount > 0 ? 'Aucune dépense trouvée' : 'Aucune dépense ce mois-ci'}
             </p>
           </div>
-        ) : (
+        ) : isTimeline ? (
+          /* Timeline view */
           <div className="space-y-4">
-            {groupedTransactions.map((group) => (
-              <div key={group.dateKey}>
-                {/* Date header */}
-                <div className="flex items-center justify-between py-2 sticky top-[120px] bg-background/95 backdrop-blur-sm z-10">
+            {groupedTransactions.map(group => (
+              <div key={group.dateKey} className="animate-fade-in">
+                <div className="flex items-center justify-between py-2 sticky top-[140px] bg-background/95 backdrop-blur-sm z-10">
                   <p className="text-sm font-medium text-muted-foreground">
                     {format(group.date, 'EEEE d MMMM', { locale: fr })}
                   </p>
@@ -260,116 +262,57 @@ export default function Expenses() {
                     -{group.total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                   </p>
                 </div>
-                
-                {/* Transactions for this date */}
                 <div className="space-y-2">
-                  {group.transactions.map((t) => {
-                    const colorStyle = t.envelope 
-                      ? colorClasses[t.envelope.color] || colorClasses.blue 
-                      : colorClasses.blue;
+                  {group.transactions.map(t => {
                     const receipts = getReceiptsForTransaction(t.id);
-                    const hasReceipts = receipts.length > 0 || !!t.receiptUrl;
-                    const isWithdrawal = t.isWithdrawal;
-                    
                     return (
-                      <button 
+                      <TransactionRow
                         key={t.id}
-                        onClick={() => handleOpenEditSheet(t)}
-                        className={cn(
-                          "w-full flex items-center gap-3 p-3 rounded-xl border transition-colors hover:bg-muted/50 text-left",
-                          isWithdrawal ? "bg-primary/5 border-primary/20" : "bg-card"
-                        )}
-                      >
-                        {/* Envelope icon */}
-                        <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                          colorStyle.bg
-                        )}>
-                          <DynamicIcon 
-                            name={t.envelope?.icon || 'Wallet'} 
-                            className={cn("w-5 h-5", colorStyle.text)} 
-                          />
-                        </div>
-                        
-                        {/* Transaction info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">
-                              {t.merchant || t.description}
-                            </p>
-                            {t.isSplit && (
-                              <SplitBadge
-                                transactionId={t.id}
-                                totalAmount={t.amount}
-                                compact
-                              />
-                            )}
-                            {isWithdrawal && !t.isSplit && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0">
-                                Retrait
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{t.envelope?.name || 'Sans catégorie'}</span>
-                            {t.merchant && t.description && t.merchant !== t.description && (
-                              <>
-                                <span>•</span>
-                                <span className="truncate">{t.description}</span>
-                              </>
-                            )}
-                          </div>
-                          {t.notes && (
-                            <p className="text-xs text-muted-foreground/70 truncate mt-0.5">
-                              {t.notes}
-                            </p>
-                          )}
-                        </div>
-                        
-                        {/* Receipt indicator */}
-                        {hasReceipts && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenLightbox(t);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                          >
-                            <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        
-                        {/* Amount */}
-                         <p className={cn(
-                           "font-semibold flex-shrink-0",
-                           isWithdrawal ? "text-destructive" : "text-destructive"
-                         )}>
-                           {isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                        </p>
-                      </button>
+                        transaction={t}
+                        hasReceipts={receipts.length > 0 || !!t.receiptUrl}
+                        bulkMode={bulkMode}
+                        selected={selectedIds.has(t.id)}
+                        onSelect={handleToggleSelect}
+                        onEdit={handleOpenEditSheet}
+                        onOpenReceipt={handleOpenLightbox}
+                      />
                     );
                   })}
                 </div>
               </div>
             ))}
           </div>
+        ) : (
+          /* List view (flat) */
+          <div className="space-y-2">
+            {filteredTransactions.map(t => {
+              const receipts = getReceiptsForTransaction(t.id);
+              return (
+                <TransactionRow
+                  key={t.id}
+                  transaction={t}
+                  hasReceipts={receipts.length > 0 || !!t.receiptUrl}
+                  bulkMode={bulkMode}
+                  selected={selectedIds.has(t.id)}
+                  onSelect={handleToggleSelect}
+                  onEdit={handleOpenEditSheet}
+                  onOpenReceipt={handleOpenLightbox}
+                />
+              );
+            })}
+          </div>
         )}
       </main>
-      
-      {/* Receipt lightbox */}
-      <ReceiptLightbox
-        images={lightboxImages}
-        initialIndex={lightboxIndex}
-        open={lightboxOpen}
-        onOpenChange={setLightboxOpen}
+
+      {/* Bulk actions */}
+      <BulkActionsBar
+        selectedIds={selectedIds}
+        onClear={() => { setSelectedIds(new Set()); setBulkMode(false); }}
+        onDeselectAll={() => setSelectedIds(new Set())}
       />
-      
-      {/* Edit transaction sheet */}
-      <EditTransactionSheet
-        open={editSheetOpen}
-        onOpenChange={setEditSheetOpen}
-        transaction={editingTransaction}
-      />
+
+      <ReceiptLightbox images={lightboxImages} initialIndex={lightboxIndex} open={lightboxOpen} onOpenChange={setLightboxOpen} />
+      <EditTransactionSheet open={editSheetOpen} onOpenChange={setEditSheetOpen} transaction={editingTransaction} />
     </div>
   );
 }
