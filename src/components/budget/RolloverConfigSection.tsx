@@ -71,45 +71,9 @@ export function RolloverConfigSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="full">
-                  <div className="flex items-center gap-2">
-                    <span>Total</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>Reporter 100% du solde restant</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </SelectItem>
-                <SelectItem value="percentage">
-                  <div className="flex items-center gap-2">
-                    <span>Pourcentage</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>Reporter un pourcentage du solde</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </SelectItem>
-                <SelectItem value="capped">
-                  <div className="flex items-center gap-2">
-                    <span>Plafonné</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>Reporter jusqu'à un montant maximum</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </SelectItem>
+                <SelectItem value="full">Total — 100% du solde</SelectItem>
+                <SelectItem value="percentage">Pourcentage — X% du solde</SelectItem>
+                <SelectItem value="capped">Plafonné — jusqu'à X€</SelectItem>
               </SelectContent>
             </Select>
           </div>
