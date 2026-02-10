@@ -120,10 +120,12 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-foreground break-all">{name}</h3>
-              {envelope.rollover && (
+              {envelope.rollover && envelope.rolloverStrategy !== 'none' && (
                 <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0">
-                  <ArrowDownCircle className="w-2.5 h-2.5" />
-                  Report
+                  📅
+                  {envelope.rolloverStrategy === 'percentage' && `${envelope.rolloverPercentage ?? 100}%`}
+                  {envelope.rolloverStrategy === 'capped' && envelope.maxRolloverAmount != null && `max ${envelope.maxRolloverAmount}€`}
+                  {envelope.rolloverStrategy === 'full' && 'Report'}
                 </Badge>
               )}
             </div>
@@ -210,10 +212,12 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-foreground break-all">{name}</h3>
-            {envelope.rollover && (
+            {envelope.rollover && envelope.rolloverStrategy !== 'none' && (
               <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0">
-                <ArrowDownCircle className="w-2.5 h-2.5" />
-                Report
+                📅
+                {envelope.rolloverStrategy === 'percentage' && `${envelope.rolloverPercentage ?? 100}%`}
+                {envelope.rolloverStrategy === 'capped' && envelope.maxRolloverAmount != null && `max ${envelope.maxRolloverAmount}€`}
+                {envelope.rolloverStrategy === 'full' && 'Report'}
               </Badge>
             )}
           </div>

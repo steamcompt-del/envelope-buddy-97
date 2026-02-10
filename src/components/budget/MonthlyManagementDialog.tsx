@@ -100,13 +100,29 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
       const goal = getGoalForEnvelope(envelope.id);
       const targetAmount = goal?.target_amount || null;
       
+      // Apply strategy
+      const strategy = envelope.rolloverStrategy || 'full';
       let carryOverAmount = netBalance;
       let isCapped = false;
       
-      if (targetAmount && netBalance > targetAmount) {
+      switch (strategy) {
+        case 'none': carryOverAmount = 0; break;
+        case 'percentage': carryOverAmount = netBalance * ((envelope.rolloverPercentage ?? 100) / 100); break;
+        case 'capped': 
+          if (envelope.maxRolloverAmount != null) {
+            carryOverAmount = Math.min(netBalance, envelope.maxRolloverAmount);
+            isCapped = carryOverAmount < netBalance;
+          }
+          break;
+        case 'full': default: break;
+      }
+      
+      if (targetAmount && carryOverAmount > targetAmount) {
         carryOverAmount = targetAmount;
         isCapped = true;
       }
+      
+      carryOverAmount = Math.round(carryOverAmount * 100) / 100;
       
       return {
         envelope,
@@ -137,10 +153,11 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      await copyEnvelopesToMonth(targetMonthKey);
+      const result = await copyEnvelopesToMonth(targetMonthKey);
+      const formatCurrencyVal = (amount: number) => amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
       toast.success(`Enveloppes transférées vers ${formatMonthDisplay(targetMonthKey)}`, {
-        description: rolloverPreviews.length > 0 
-          ? `${rolloverPreviews.length} enveloppe(s) avec report de solde`
+        description: result.count > 0 
+          ? `${result.count} enveloppe(s) reportée(s) pour un total de ${formatCurrencyVal(result.total)}`
           : 'Aucun report de solde'
       });
       setCurrentMonth(targetMonthKey);

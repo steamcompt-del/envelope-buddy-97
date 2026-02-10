@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useBudget, defaultEnvelopeTemplates } from '@/contexts/BudgetContext';
+import { useBudget, defaultEnvelopeTemplates, RolloverStrategy } from '@/contexts/BudgetContext';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import {
   Coffee, Wallet, Check, Euro
 } from 'lucide-react';
 import { ComponentType } from 'react';
+import { RolloverConfigSection } from './RolloverConfigSection';
 
 interface CreateEnvelopeDialogProps {
   open: boolean;
@@ -65,13 +66,17 @@ const iconOptions = [
 ];
 
 export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialogProps) {
-  const { createEnvelope, allocateToEnvelope, toBeBudgeted } = useBudget();
+  const { createEnvelope, updateEnvelope, allocateToEnvelope, toBeBudgeted } = useBudget();
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Wallet');
   const [selectedColor, setSelectedColor] = useState('blue');
   const [showCustom, setShowCustom] = useState(false);
   const [budgetAmount, setBudgetAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rolloverEnabled, setRolloverEnabled] = useState(false);
+  const [rolloverStrategy, setRolloverStrategy] = useState<RolloverStrategy>('full');
+  const [rolloverPercentage, setRolloverPercentage] = useState(100);
+  const [rolloverMaxAmount, setRolloverMaxAmount] = useState('');
   
   const parsedBudget = parseFloat(budgetAmount) || 0;
   const exceedsBudget = Math.round(parsedBudget * 100) > Math.round(toBeBudgeted * 100);
@@ -82,7 +87,20 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
     
     setIsSubmitting(true);
     try {
+      const isSavings = selectedIcon === 'PiggyBank';
+      const shouldRollover = rolloverEnabled || isSavings;
+      
       const envelopeId = await createEnvelope(name.trim(), selectedIcon, selectedColor);
+      
+      // Update rollover settings
+      if (envelopeId && shouldRollover) {
+        await updateEnvelope(envelopeId, {
+          rollover: true,
+          rolloverStrategy: rolloverEnabled ? rolloverStrategy : 'full',
+          rolloverPercentage: rolloverStrategy === 'percentage' ? rolloverPercentage : undefined,
+          maxRolloverAmount: rolloverStrategy === 'capped' ? (parseFloat(rolloverMaxAmount) || undefined) : undefined,
+        } as any);
+      }
       
       // Allocate budget if specified and valid
       if (parsedBudget > 0 && !exceedsBudget && envelopeId) {
@@ -95,6 +113,10 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
       setSelectedColor('blue');
       setShowCustom(false);
       setBudgetAmount('');
+      setRolloverEnabled(false);
+      setRolloverStrategy('full');
+      setRolloverPercentage(100);
+      setRolloverMaxAmount('');
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -169,6 +191,18 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
                 </p>
               )}
             </div>
+
+            {/* Rollover config */}
+            <RolloverConfigSection
+              enabled={rolloverEnabled}
+              onEnabledChange={setRolloverEnabled}
+              strategy={rolloverStrategy}
+              onStrategyChange={setRolloverStrategy}
+              percentage={rolloverPercentage}
+              onPercentageChange={setRolloverPercentage}
+              maxAmount={rolloverMaxAmount}
+              onMaxAmountChange={setRolloverMaxAmount}
+            />
             
             <Button
               type="button"
@@ -279,6 +313,18 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
                 </p>
               )}
             </div>
+
+            {/* Rollover config */}
+            <RolloverConfigSection
+              enabled={rolloverEnabled}
+              onEnabledChange={setRolloverEnabled}
+              strategy={rolloverStrategy}
+              onStrategyChange={setRolloverStrategy}
+              percentage={rolloverPercentage}
+              onPercentageChange={setRolloverPercentage}
+              maxAmount={rolloverMaxAmount}
+              onMaxAmountChange={setRolloverMaxAmount}
+            />
             
             <div className="flex gap-2 pt-2">
               <Button
