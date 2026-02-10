@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { toast } from 'sonner';
 import { useBudget, Envelope } from '@/contexts/BudgetContext';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useActivity } from '@/hooks/useActivity';
@@ -121,10 +122,33 @@ export function SavingsDetailsDialog({
     const parsedAmount = parseFloat(allocateAmount.replace(',', '.'));
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
+    // Capture before-allocation percentage for celebration check
+    const beforePercent = targetAmount > 0 ? (envelope.allocated / targetAmount) * 100 : 0;
+    
     if (allocateMode === 'add') {
       // Use cents comparison to avoid floating point precision issues
       if (Math.round(parsedAmount * 100) <= Math.round(toBeBudgeted * 100)) {
         await allocateToEnvelope(envelopeId, parsedAmount);
+        
+        // Check if a celebration threshold was crossed
+        if (savingsGoal && targetAmount > 0) {
+          const afterPercent = ((envelope.allocated + parsedAmount) / targetAmount) * 100;
+          const thresholds = savingsGoal.celebration_threshold || [100];
+          
+          for (const threshold of thresholds.sort((a, b) => a - b)) {
+            if (beforePercent < threshold && afterPercent >= threshold) {
+              const emoji = threshold >= 100 ? '🎉🏆' : threshold >= 75 ? '🎉' : threshold >= 50 ? '🥳' : '💪';
+              const message = threshold >= 100
+                ? `Objectif "${savingsGoal.name || envelope.name}" atteint ! Félicitations !`
+                : `${threshold}% de l'objectif "${savingsGoal.name || envelope.name}" atteint !`;
+              
+              setTimeout(() => {
+                toast.success(`${emoji} ${message}`, { duration: 6000 });
+              }, 500);
+              break; // Show only the highest crossed threshold
+            }
+          }
+        }
       }
     } else {
       await deallocateFromEnvelope(envelopeId, parsedAmount);
