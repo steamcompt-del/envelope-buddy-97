@@ -18,8 +18,10 @@ import { format, parseISO, differenceInDays, differenceInMonths, addMonths } fro
 import { fr } from 'date-fns/locale';
 import { 
   PiggyBank, Target, TrendingUp, Plus, Minus, ArrowRightLeft,
-  Trash2, Settings, History, Flag, Calendar, Sparkles, Star, Pencil
+  Trash2, Settings, History, Flag, Calendar, Sparkles, Star, Pencil, Pause, Play, RefreshCw
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { SavingsPriority } from '@/lib/savingsGoalsDb';
 import { CircularProgress } from './CircularProgress';
 import { SavingsGoalDialog } from './SavingsGoalDialog';
 
@@ -136,15 +138,20 @@ export function SavingsDetailsDialog({
     }
   };
 
-  const handleSaveGoal = async (targetAmount: number, targetDate?: string, name?: string) => {
+  const handleSaveGoal = async (params: import('@/lib/savingsGoalsDb').CreateSavingsGoalParams & { id?: string }) => {
     if (savingsGoal) {
       await updateGoal(savingsGoal.id, {
-        target_amount: targetAmount,
-        target_date: targetDate || null,
-        name: name || null,
+        target_amount: params.targetAmount,
+        target_date: params.targetDate || null,
+        name: params.name || null,
+        priority: params.priority,
+        auto_contribute: params.auto_contribute,
+        monthly_contribution: params.monthly_contribution,
+        contribution_percentage: params.contribution_percentage,
+        celebration_threshold: params.celebration_threshold,
       });
     } else {
-      await createGoal(envelopeId, targetAmount, targetDate, name);
+      await createGoal(params);
     }
   };
 
@@ -430,6 +437,57 @@ export function SavingsDetailsDialog({
             </div>
           )}
           
+          {/* Priority & Status badges */}
+          {savingsGoal && (
+            <div className="flex flex-wrap gap-2 items-center">
+              {savingsGoal.priority && (
+                <Badge variant="outline" className={cn(
+                  "text-xs",
+                  savingsGoal.priority === 'essential' && 'bg-red-500/15 text-red-400 border-red-500/30',
+                  savingsGoal.priority === 'high' && 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+                  savingsGoal.priority === 'medium' && 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+                  savingsGoal.priority === 'low' && 'bg-green-500/15 text-green-400 border-green-500/30',
+                )}>
+                  {savingsGoal.priority === 'essential' && '🔴 Essentiel'}
+                  {savingsGoal.priority === 'high' && '🟠 Haute'}
+                  {savingsGoal.priority === 'medium' && '🟡 Moyenne'}
+                  {savingsGoal.priority === 'low' && '🟢 Basse'}
+                </Badge>
+              )}
+              {savingsGoal.auto_contribute && (
+                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Auto
+                  {savingsGoal.monthly_contribution && ` ${savingsGoal.monthly_contribution}€/mois`}
+                  {savingsGoal.contribution_percentage && ` ${savingsGoal.contribution_percentage}%`}
+                </Badge>
+              )}
+              {savingsGoal.is_paused && (
+                <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-border">
+                  ⏸️ En pause
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Pause toggle */}
+          {savingsGoal && savingsGoal.auto_contribute && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await updateGoal(savingsGoal.id, { is_paused: !savingsGoal.is_paused });
+              }}
+              className="rounded-lg w-full"
+            >
+              {savingsGoal.is_paused ? (
+                <><Play className="w-4 h-4 mr-2 text-primary" /> Reprendre les contributions</>
+              ) : (
+                <><Pause className="w-4 h-4 mr-2" /> Mettre en pause</>
+              )}
+            </Button>
+          )}
+
           {/* Bottom actions */}
           <div className="flex gap-2 pt-4 border-t">
             <Button

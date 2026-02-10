@@ -155,15 +155,20 @@ export function EnvelopeDetailsDialog({
   const colorStyle = colorClasses[envelope.color] || colorClasses.blue;
   const savingsGoal = getGoalForEnvelope(envelopeId);
 
-  const handleSaveGoal = async (targetAmount: number, targetDate?: string, name?: string) => {
+  const handleSaveGoal = async (params: import('@/lib/savingsGoalsDb').CreateSavingsGoalParams & { id?: string }) => {
     if (savingsGoal) {
       await updateGoal(savingsGoal.id, {
-        target_amount: targetAmount,
-        target_date: targetDate || null,
-        name: name || null,
+        target_amount: params.targetAmount,
+        target_date: params.targetDate || null,
+        name: params.name || null,
+        priority: params.priority,
+        auto_contribute: params.auto_contribute,
+        monthly_contribution: params.monthly_contribution,
+        contribution_percentage: params.contribution_percentage,
+        celebration_threshold: params.celebration_threshold,
       });
     } else {
-      await createGoal(envelopeId, targetAmount, targetDate, name);
+      await createGoal(params);
     }
   };
 

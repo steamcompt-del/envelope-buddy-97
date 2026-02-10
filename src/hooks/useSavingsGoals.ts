@@ -3,6 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/hooks/useHousehold';
 import {
   SavingsGoal,
+  SavingsPriority,
+  CreateSavingsGoalParams,
   fetchSavingsGoals,
   fetchSavingsGoalByEnvelope,
   createSavingsGoal,
@@ -50,16 +52,11 @@ export function useSavingsGoals() {
     return goals.find(g => g.envelope_id === envelopeId);
   }, [goals]);
 
-  const createGoal = useCallback(async (
-    envelopeId: string,
-    targetAmount: number,
-    targetDate?: string,
-    name?: string
-  ) => {
+  const createGoal = useCallback(async (params: CreateSavingsGoalParams) => {
     const ctx = getContext();
     if (!ctx) return;
 
-    await createSavingsGoal(ctx, envelopeId, targetAmount, targetDate, name);
+    await createSavingsGoal(ctx, params);
     await loadGoals();
   }, [getContext, loadGoals]);
 
@@ -70,6 +67,12 @@ export function useSavingsGoals() {
       target_date?: string | null;
       current_amount?: number;
       name?: string | null;
+      priority?: SavingsPriority;
+      auto_contribute?: boolean;
+      monthly_contribution?: number | null;
+      contribution_percentage?: number | null;
+      is_paused?: boolean;
+      celebration_threshold?: number[];
     }
   ) => {
     await updateSavingsGoal(goalId, updates);

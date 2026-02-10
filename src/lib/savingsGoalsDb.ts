@@ -2,6 +2,8 @@ import { getBackendClient } from '@/lib/backendClient';
 
 const supabase = getBackendClient();
 
+export type SavingsPriority = 'essential' | 'high' | 'medium' | 'low';
+
 export interface SavingsGoal {
   id: string;
   envelope_id: string;
@@ -9,6 +11,12 @@ export interface SavingsGoal {
   target_date: string | null;
   current_amount: number;
   name: string | null;
+  priority: SavingsPriority;
+  auto_contribute: boolean;
+  monthly_contribution: number | null;
+  contribution_percentage: number | null;
+  is_paused: boolean;
+  celebration_threshold: number[];
 }
 
 interface QueryContext {
@@ -37,6 +45,12 @@ export async function fetchSavingsGoals(ctx: QueryContext): Promise<SavingsGoal[
     target_date: g.target_date,
     current_amount: Number(g.current_amount),
     name: g.name,
+    priority: g.priority || 'medium',
+    auto_contribute: g.auto_contribute || false,
+    monthly_contribution: g.monthly_contribution != null ? Number(g.monthly_contribution) : null,
+    contribution_percentage: g.contribution_percentage,
+    is_paused: g.is_paused || false,
+    celebration_threshold: g.celebration_threshold || [100],
   }));
 }
 
@@ -63,27 +77,47 @@ export async function fetchSavingsGoalByEnvelope(ctx: QueryContext, envelopeId: 
     target_date: data.target_date,
     current_amount: Number(data.current_amount),
     name: data.name,
+    priority: data.priority || 'medium',
+    auto_contribute: data.auto_contribute || false,
+    monthly_contribution: data.monthly_contribution != null ? Number(data.monthly_contribution) : null,
+    contribution_percentage: data.contribution_percentage,
+    is_paused: data.is_paused || false,
+    celebration_threshold: data.celebration_threshold || [100],
   };
+}
+
+export interface CreateSavingsGoalParams {
+  envelopeId: string;
+  targetAmount: number;
+  targetDate?: string;
+  name?: string;
+  priority?: SavingsPriority;
+  auto_contribute?: boolean;
+  monthly_contribution?: number;
+  contribution_percentage?: number;
+  celebration_threshold?: number[];
 }
 
 export async function createSavingsGoal(
   ctx: QueryContext,
-  envelopeId: string,
-  targetAmount: number,
-  targetDate?: string,
-  name?: string
+  params: CreateSavingsGoalParams
 ): Promise<string> {
   const { data, error } = await supabase
     .from('savings_goals')
     .insert({
       user_id: ctx.userId,
       household_id: ctx.householdId || null,
-      envelope_id: envelopeId,
-      target_amount: targetAmount,
-      target_date: targetDate || null,
+      envelope_id: params.envelopeId,
+      target_amount: params.targetAmount,
+      target_date: params.targetDate || null,
       current_amount: 0,
-      name: name || null,
-    })
+      name: params.name || null,
+      priority: params.priority || 'medium',
+      auto_contribute: params.auto_contribute || false,
+      monthly_contribution: params.monthly_contribution || null,
+      contribution_percentage: params.contribution_percentage || null,
+      celebration_threshold: params.celebration_threshold || [100],
+    } as any)
     .select('id')
     .single();
 
@@ -98,6 +132,12 @@ export async function updateSavingsGoal(
     target_date?: string | null;
     current_amount?: number;
     name?: string | null;
+    priority?: SavingsPriority;
+    auto_contribute?: boolean;
+    monthly_contribution?: number | null;
+    contribution_percentage?: number | null;
+    is_paused?: boolean;
+    celebration_threshold?: number[];
   }
 ): Promise<void> {
   const { error } = await supabase

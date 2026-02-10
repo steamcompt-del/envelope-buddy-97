@@ -9,7 +9,7 @@ import {
   Coffee, Wallet
 } from 'lucide-react';
 import { ComponentType } from 'react';
-import { SavingsGoal } from '@/lib/savingsGoalsDb';
+import { SavingsGoal, SavingsPriority } from '@/lib/savingsGoalsDb';
 
 interface EnvelopeCardProps {
   envelope: Envelope;
@@ -70,6 +70,13 @@ function getSavingsProgressColorHsl(percent: number): string {
   return "hsl(25 95% 53%)"; // orange
 }
 
+const PRIORITY_BADGE: Record<SavingsPriority, { emoji: string; label: string; className: string }> = {
+  essential: { emoji: '🔴', label: 'Essentiel', className: 'bg-red-500/15 text-red-400 border-red-500/30' },
+  high: { emoji: '🟠', label: 'Haute', className: 'bg-orange-500/15 text-orange-400 border-orange-500/30' },
+  medium: { emoji: '🟡', label: 'Moyenne', className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
+  low: { emoji: '🟢', label: 'Basse', className: 'bg-green-500/15 text-green-400 border-green-500/30' },
+};
+
 export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
@@ -127,6 +134,17 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
                   {envelope.rolloverStrategy === 'capped' && envelope.maxRolloverAmount != null && `max ${envelope.maxRolloverAmount}€`}
                   {envelope.rolloverStrategy === 'full' && 'Report'}
                 </Badge>
+              )}
+              {savingsGoal && savingsGoal.priority && savingsGoal.priority !== 'medium' && (
+                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border", PRIORITY_BADGE[savingsGoal.priority].className)}>
+                  {PRIORITY_BADGE[savingsGoal.priority].emoji} {PRIORITY_BADGE[savingsGoal.priority].label}
+                </Badge>
+              )}
+              {savingsGoal?.auto_contribute && !savingsGoal?.is_paused && (
+                <span className="text-[10px] text-primary" title="Contribution automatique">🔄</span>
+              )}
+              {savingsGoal?.is_paused && (
+                <span className="text-[10px] text-muted-foreground" title="En pause">⏸️</span>
               )}
             </div>
             {savingsGoal ? (
