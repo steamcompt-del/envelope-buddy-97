@@ -24,13 +24,14 @@ import { SortableEnvelopeCard } from './SortableEnvelopeCard';
 import { EnvelopeCard } from './EnvelopeCard';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet, Sparkles, Undo2 } from 'lucide-react';
-import { useSavingsGoals } from '@/hooks/useSavingsGoals';
+import { SavingsGoal } from '@/lib/savingsGoalsDb';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface EnvelopeGridProps {
   onEnvelopeClick: (envelopeId: string) => void;
   onCreateEnvelope: () => void;
+  getGoalForEnvelope: (envelopeId: string) => SavingsGoal | undefined;
 }
 
 const CATEGORY_CONFIG: Record<EnvelopeCategory, { label: string; bg: string; border: string; icon: string }> = {
@@ -63,9 +64,8 @@ function triggerHaptic(style: 'light' | 'medium' = 'light') {
   }
 }
 
-export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope }: EnvelopeGridProps) {
+export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnvelope }: EnvelopeGridProps) {
   const { envelopes, reorderEnvelopes, updateEnvelope } = useBudget();
-  const { getGoalForEnvelope } = useSavingsGoals();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [previousOrder, setPreviousOrder] = useState<string[] | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

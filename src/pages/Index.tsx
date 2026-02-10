@@ -21,6 +21,7 @@ import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
 import { PullToRefresh } from '@/components/budget/PullToRefresh';
 import { useReceiptScanner } from '@/hooks/useReceiptScanner';
 import { useRecurring } from '@/hooks/useRecurring';
+import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -58,6 +59,7 @@ export default function Index() {
   // File input for FAB scan
   const scanInputRef = useRef<HTMLInputElement>(null);
   const { scanReceipt, isScanning } = useReceiptScanner();
+  const savingsGoals = useSavingsGoals();
   const { dueCount, applyAllDue } = useRecurring();
 
   // Check for due recurring transactions on mount
@@ -162,6 +164,7 @@ export default function Index() {
         <EnvelopeGrid
           onEnvelopeClick={handleEnvelopeClick}
           onCreateEnvelope={() => setCreateEnvelopeOpen(true)}
+          getGoalForEnvelope={savingsGoals.getGoalForEnvelope}
         />
       </main>
     </>
@@ -244,6 +247,7 @@ export default function Index() {
             onOpenChange={setSavingsDetailsOpen}
             envelopeId={selectedEnvelopeId}
             onTransfer={handleTransferFromDetails}
+            savingsGoalsHook={savingsGoals}
           />
         </>
       )}
