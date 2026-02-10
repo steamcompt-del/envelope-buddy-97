@@ -301,7 +301,7 @@ export function ShoppingListContent() {
                   <div
                     key={item.id}
                     className={cn(
-                      'p-3 rounded-lg border transition-colors',
+                      'p-3 rounded-xl border transition-colors',
                       item.isChecked ? 'bg-muted/50' : 'bg-background'
                     )}
                   >
