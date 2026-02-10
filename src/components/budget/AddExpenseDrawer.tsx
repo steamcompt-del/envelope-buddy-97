@@ -7,7 +7,7 @@ import { useReceiptScanner, ScannedReceiptItem } from '@/hooks/useReceiptScanner
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { addReceiptDb } from '@/lib/receiptsDb';
 import { addReceiptItems } from '@/lib/receiptItemsDb';
-import { createTransactionSplits, SplitInput } from '@/lib/transactionSplitsDb';
+import { createTransactionSplits, adjustSpentForSplits, SplitInput } from '@/lib/transactionSplitsDb';
 import {
   Drawer,
   DrawerContent,
@@ -73,7 +73,7 @@ export function AddExpenseDrawer({
   preselectedEnvelopeId,
   scannedData,
 }: AddExpenseDrawerProps) {
-  const { envelopes, addTransaction, refreshData } = useBudget();
+  const { envelopes, addTransaction, refreshData, currentMonthKey } = useBudget();
   const { user } = useAuth();
   const { household } = useHousehold();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
@@ -215,9 +215,17 @@ export function AddExpenseDrawer({
           splits
         );
 
-        // Update spent for secondary envelopes (first one already updated by addTransaction)
-        // We need to adjust: remove full amount from primary, add split amounts
-        // This is handled by refreshing data after split creation
+        // Adjust spent: addTransaction charged full amount to primary envelope,
+        // now redistribute so each envelope only gets its split portion
+        await adjustSpentForSplits(
+          user.id,
+          household?.id || null,
+          currentMonthKey,
+          primaryEnvelopeId,
+          parsedAmount,
+          splits
+        );
+
         await refreshData();
 
         // Upload receipts
