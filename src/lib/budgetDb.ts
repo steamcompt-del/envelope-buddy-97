@@ -13,6 +13,9 @@ interface DbEnvelope {
   color: string;
   position: number;
   rollover: boolean;
+  rollover_strategy: string;
+  rollover_percentage: number | null;
+  max_rollover_amount: number | null;
   created_at: string;
 }
 
@@ -153,6 +156,9 @@ export async function fetchMonthData(ctx: QueryContext, monthKey: string): Promi
         allocated: Number(allocation.allocated),
         spent: Number(allocation.spent),
         rollover: env.rollover,
+        rolloverStrategy: (env.rollover_strategy as Envelope['rolloverStrategy']) || 'full',
+        rolloverPercentage: env.rollover_percentage ?? undefined,
+        maxRolloverAmount: env.max_rollover_amount != null ? Number(env.max_rollover_amount) : undefined,
       };
     });
 
@@ -401,8 +407,16 @@ export async function reorderEnvelopesDb(ctx: QueryContext, orderedIds: string[]
   await Promise.all(updates);
 }
 
-export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string; rollover?: boolean }): Promise<void> {
-  await supabase.from('envelopes').update(updates).eq('id', envelopeId);
+export async function updateEnvelopeDb(envelopeId: string, updates: { name?: string; icon?: string; color?: string; rollover?: boolean; rolloverStrategy?: string; rolloverPercentage?: number | null; maxRolloverAmount?: number | null }): Promise<void> {
+  const dbUpdates: Record<string, unknown> = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.rollover !== undefined) dbUpdates.rollover = updates.rollover;
+  if (updates.rolloverStrategy !== undefined) dbUpdates.rollover_strategy = updates.rolloverStrategy;
+  if (updates.rolloverPercentage !== undefined) dbUpdates.rollover_percentage = updates.rolloverPercentage;
+  if (updates.maxRolloverAmount !== undefined) dbUpdates.max_rollover_amount = updates.maxRolloverAmount;
+  await supabase.from('envelopes').update(dbUpdates).eq('id', envelopeId);
 }
 
 export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, allocated: number): Promise<void> {
@@ -763,10 +777,10 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   // Get envelope IDs from current month allocations
   const currentMonthEnvelopeIds = currentAllocs.map(a => a.envelope_id);
 
-  // 3) Fetch envelope details (rollover flag) only for envelopes that exist in current month
+  // 3) Fetch envelope details only for envelopes that exist in current month
   const { data: envelopes } = await supabase
     .from('envelopes')
-    .select('id, rollover')
+    .select('id, rollover, rollover_strategy, rollover_percentage, max_rollover_amount')
     .in('id', currentMonthEnvelopeIds);
 
   if (!envelopes || envelopes.length === 0) return nextMonthKey;
@@ -825,18 +839,13 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     const allocData = currentAllocMap.get(envelopeId) || { allocated: 0, spent: 0 };
     const targetAmount = goalsMap.get(envelopeId) || 0;
     
-    // Calculate net balance (allocated - spent)
     let carryOverAmount = 0;
     if (hasRollover) {
       const netBalance = Math.max(0, allocData.allocated - allocData.spent);
-      
-      if (targetAmount > 0) {
-        // Cap the rollover at the target amount
-        carryOverAmount = Math.min(netBalance, targetAmount);
-      } else {
-        // No target, carry over the full net balance
-        carryOverAmount = netBalance;
-      }
+      const strategy = (envelope as any)?.rollover_strategy || 'full';
+      const percentage = (envelope as any)?.rollover_percentage;
+      const maxAmount = (envelope as any)?.max_rollover_amount != null ? Number((envelope as any).max_rollover_amount) : undefined;
+      carryOverAmount = applyRolloverStrategy(netBalance, strategy, percentage, maxAmount, targetAmount);
     }
 
     const existingAllocation = existingAllocsMap.get(envelopeId);
@@ -966,10 +975,29 @@ export async function deleteAllUserDataDb(ctx: QueryContext): Promise<void> {
   }
 }
 
+// Helper: apply rollover strategy to compute carry-over amount
+function applyRolloverStrategy(
+  netBalance: number, 
+  strategy: string, 
+  percentage: number | null | undefined, 
+  maxAmount: number | undefined, 
+  targetAmount: number
+): number {
+  if (netBalance <= 0) return 0;
+  let amount = netBalance;
+  switch (strategy) {
+    case 'none': return 0;
+    case 'percentage': amount = netBalance * ((percentage ?? 100) / 100); break;
+    case 'capped': amount = maxAmount != null ? Math.min(netBalance, maxAmount) : netBalance; break;
+    case 'full': default: amount = netBalance; break;
+  }
+  if (targetAmount > 0) amount = Math.min(amount, targetAmount);
+  return Math.round(amount * 100) / 100;
+}
+
 // Copy envelopes to a specific target month
-// ONLY envelopes with rollover=true are copied (per user requirement)
-// The rollover is capped at the savings goal target if one exists
-export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<void> {
+// ONLY envelopes with rollover=true are copied
+export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<{ count: number; total: number }> {
   // 1) Ensure target monthly budget row exists
   let existsQuery = supabase
     .from('monthly_budgets')
@@ -993,10 +1021,10 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     });
   }
 
-  // 2) Fetch ONLY envelopes with rollover enabled (per user requirement)
+  // 2) Fetch ONLY envelopes with rollover enabled
   let envelopesQuery = supabase
     .from('envelopes')
-    .select('id, rollover')
+    .select('id, rollover, rollover_strategy, rollover_percentage, max_rollover_amount')
     .eq('rollover', true);
     
   if (ctx.householdId) {
@@ -1006,7 +1034,7 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   }
 
   const { data: envelopes } = await envelopesQuery;
-  if (!envelopes || envelopes.length === 0) return;
+  if (!envelopes || envelopes.length === 0) return { count: 0, total: 0 };
 
   // 3) Fetch source month allocations (to carry over for rollover envelopes)
   let sourceAllocsQuery = supabase
@@ -1067,23 +1095,29 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   
   const allocationsToUpdate: { envelopeId: string; carryOverAmount: number }[] = [];
 
+  let totalCarryOver = 0;
+  let rolloverCount = 0;
+
   for (const envelope of envelopes) {
     const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
     const targetAmount = goalsMap.get(envelope.id) || 0;
     
-    // Calculate net balance to carry over
+    // Calculate net balance to carry over using strategy
     const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
+    const strategy = (envelope as any).rollover_strategy || 'full';
+    const percentage = (envelope as any).rollover_percentage;
+    const maxAmount = (envelope as any).max_rollover_amount != null ? Number((envelope as any).max_rollover_amount) : undefined;
     
-    let carryOverAmount = netBalance;
-    if (targetAmount > 0) {
-      // Cap the rollover at the target amount
-      carryOverAmount = Math.min(netBalance, targetAmount);
+    const carryOverAmount = applyRolloverStrategy(netBalance, strategy, percentage, maxAmount, targetAmount);
+
+    if (carryOverAmount > 0) {
+      totalCarryOver += carryOverAmount;
+      rolloverCount++;
     }
 
     const existingAllocation = existingAllocsMap.get(envelope.id);
     
     if (existingAllocation === undefined) {
-      // No allocation exists - insert new
       allocationsToInsert.push({
         user_id: ctx.userId,
         household_id: ctx.householdId || null,
@@ -1093,7 +1127,6 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
         spent: 0,
       });
     } else if (carryOverAmount > 0 && existingAllocation === 0) {
-      // Allocation exists but is 0 and we have rollover amount to add
       allocationsToUpdate.push({ envelopeId: envelope.id, carryOverAmount });
     }
   }
@@ -1119,6 +1152,8 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     
     await updateQuery;
   }
+
+  return { count: rolloverCount, total: totalCarryOver };
 }
 
 // Helper

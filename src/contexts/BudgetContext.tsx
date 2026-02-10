@@ -28,6 +28,8 @@ import {
 import { logActivity } from '@/lib/activityDb';
 
 // Types
+export type RolloverStrategy = 'full' | 'percentage' | 'capped' | 'none';
+
 export interface Envelope {
   id: string;
   name: string;
@@ -36,6 +38,9 @@ export interface Envelope {
   icon: string;
   color: string;
   rollover: boolean;
+  rolloverStrategy: RolloverStrategy;
+  rolloverPercentage?: number;
+  maxRolloverAmount?: number;
 }
 
 export interface Transaction {
@@ -97,7 +102,7 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
-  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<void>;
+  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<{ count: number; total: number }>;
   startNewMonth: () => void;
   
   // Income actions
@@ -580,11 +585,12 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [getQueryContext, currentMonthKey]);
 
   // Copy envelopes to any target month
-  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string) => {
+  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string): Promise<{ count: number; total: number }> => {
     const ctx = getQueryContext();
-    if (!ctx) return;
-    await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey);
+    if (!ctx) return { count: 0, total: 0 };
+    const result = await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey);
     await loadMonthData(false);
+    return result;
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 
   // Legacy reset
