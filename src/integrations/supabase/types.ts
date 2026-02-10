@@ -473,36 +473,54 @@ export type Database = {
       }
       savings_goals: {
         Row: {
+          auto_contribute: boolean
+          celebration_threshold: number[] | null
+          contribution_percentage: number | null
           created_at: string
           current_amount: number
           envelope_id: string
           household_id: string | null
           id: string
+          is_paused: boolean
+          monthly_contribution: number | null
           name: string | null
+          priority: Database["public"]["Enums"]["savings_priority"]
           target_amount: number
           target_date: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          auto_contribute?: boolean
+          celebration_threshold?: number[] | null
+          contribution_percentage?: number | null
           created_at?: string
           current_amount?: number
           envelope_id: string
           household_id?: string | null
           id?: string
+          is_paused?: boolean
+          monthly_contribution?: number | null
           name?: string | null
+          priority?: Database["public"]["Enums"]["savings_priority"]
           target_amount?: number
           target_date?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          auto_contribute?: boolean
+          celebration_threshold?: number[] | null
+          contribution_percentage?: number | null
           created_at?: string
           current_amount?: number
           envelope_id?: string
           household_id?: string | null
           id?: string
+          is_paused?: boolean
+          monthly_contribution?: number | null
           name?: string | null
+          priority?: Database["public"]["Enums"]["savings_priority"]
           target_amount?: number
           target_date?: string | null
           updated_at?: string
@@ -778,6 +796,7 @@ export type Database = {
         | "quarterly"
         | "yearly"
       rollover_strategy: "full" | "percentage" | "capped" | "none"
+      savings_priority: "essential" | "high" | "medium" | "low"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -932,6 +951,7 @@ export const Constants = {
         "yearly",
       ],
       rollover_strategy: ["full", "percentage", "capped", "none"],
+      savings_priority: ["essential", "high", "medium", "low"],
     },
   },
 } as const
