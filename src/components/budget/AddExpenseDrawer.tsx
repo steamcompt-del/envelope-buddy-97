@@ -7,7 +7,7 @@ import { useReceiptScanner, ScannedReceiptItem } from '@/hooks/useReceiptScanner
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { addReceiptDb } from '@/lib/receiptsDb';
 import { addReceiptItems } from '@/lib/receiptItemsDb';
-import { createTransactionSplits, adjustSpentForSplits, SplitInput } from '@/lib/transactionSplitsDb';
+import { createTransactionSplits, SplitInput } from '@/lib/transactionSplitsDb';
 import {
   Drawer,
   DrawerContent,
@@ -73,7 +73,7 @@ export function AddExpenseDrawer({
   preselectedEnvelopeId,
   scannedData,
 }: AddExpenseDrawerProps) {
-  const { envelopes, addTransaction, refreshData, currentMonthKey } = useBudget();
+  const { envelopes, addTransaction, refreshData } = useBudget();
   const { user } = useAuth();
   const { household } = useHousehold();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
@@ -188,48 +188,50 @@ export function AddExpenseDrawer({
       const dateString = selectedDate ? selectedDate.toISOString().split('T')[0] : undefined;
       
       if (isSplit) {
-        // For split: create main transaction on the first envelope, then create splits
-        // The main transaction amount is the full amount, allocated to the first split's envelope
-        const primaryEnvelopeId = splitLines[0].envelopeId;
-        const result = await addTransaction(
-          primaryEnvelopeId,
-          parsedAmount,
-          description || 'Dépense',
-          merchant || undefined,
-          undefined,
-          undefined,
-          dateString
-        );
-
-        // Create split records
         const splits: SplitInput[] = splitLines.map(l => ({
           envelopeId: l.envelopeId,
           amount: parseFloat(l.amount.replace(',', '.')) || 0,
         }));
 
-        await createTransactionSplits(
-          user.id,
-          household?.id || null,
-          result.transactionId,
-          parsedAmount,
-          splits
-        );
+        // Create one transaction per envelope with its split amount
+        const transactionIds: string[] = [];
+        for (const split of splits) {
+          const result = await addTransaction(
+            split.envelopeId,
+            split.amount,
+            description || 'Dépense',
+            merchant || undefined,
+            undefined,
+            undefined,
+            dateString
+          );
+          transactionIds.push(result.transactionId);
+        }
 
-        // Adjust spent: addTransaction charged full amount to primary envelope,
-        // now redistribute so each envelope only gets its split portion
-        await adjustSpentForSplits(
-          user.id,
-          household?.id || null,
-          currentMonthKey,
-          primaryEnvelopeId,
-          parsedAmount,
-          splits
-        );
+        // Mark all transactions as split
+        const supabase = (await import('@/lib/backendClient')).getBackendClient();
+        for (const txId of transactionIds) {
+          await supabase
+            .from('transactions')
+            .update({ is_split: true })
+            .eq('id', txId);
+        }
+
+        // Create split records for EACH transaction so the badge works on any of them
+        for (const txId of transactionIds) {
+          await createTransactionSplits(
+            user.id,
+            household?.id || null,
+            txId,
+            parsedAmount,
+            splits
+          );
+        }
 
         await refreshData();
 
-        // Upload receipts
-        await uploadReceiptsForTransaction(result.transactionId);
+        // Upload receipts to first transaction
+        await uploadReceiptsForTransaction(transactionIds[0]);
         
         toast.success('Dépense divisée enregistrée !');
       } else {
