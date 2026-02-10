@@ -412,7 +412,7 @@ export function AddExpenseDrawer({
                 </div>
               </div>
 
-              {/* Split toggle */}
+              {/* Split toggle - divide expense across envelopes */}
               {envelopes.length >= 2 && (
                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                   <Label htmlFor="split-toggle" className="flex items-center gap-2 cursor-pointer text-sm">
