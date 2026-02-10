@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useBudget, defaultEnvelopeTemplates, RolloverStrategy } from '@/contexts/BudgetContext';
 import {
   Dialog,
@@ -10,14 +10,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn, formatCurrency } from '@/lib/utils';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Check, Euro
+  Coffee, Wallet, Check, Euro, AlertTriangle, Ban
 } from 'lucide-react';
 import { ComponentType } from 'react';
 import { RolloverConfigSection } from './RolloverConfigSection';
+
+const MAX_ENVELOPES = 50;
 
 interface CreateEnvelopeDialogProps {
   open: boolean;
@@ -65,8 +68,21 @@ const iconOptions = [
   'Gift', 'Music', 'Wifi', 'Smartphone', 'Coffee'
 ];
 
+function normalize(s: string) {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function isSimilarName(a: string, b: string): boolean {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (na === nb) return true;
+  // Check if one contains the other
+  if (na.length > 2 && nb.length > 2 && (na.includes(nb) || nb.includes(na))) return true;
+  return false;
+}
+
 export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialogProps) {
-  const { createEnvelope, updateEnvelope, allocateToEnvelope, toBeBudgeted } = useBudget();
+  const { createEnvelope, updateEnvelope, allocateToEnvelope, toBeBudgeted, envelopes } = useBudget();
   const [name, setName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Wallet');
   const [selectedColor, setSelectedColor] = useState('blue');
@@ -77,13 +93,24 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
   const [rolloverStrategy, setRolloverStrategy] = useState<RolloverStrategy>('full');
   const [rolloverPercentage, setRolloverPercentage] = useState(100);
   const [rolloverMaxAmount, setRolloverMaxAmount] = useState('');
+  const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
   
   const parsedBudget = parseFloat(budgetAmount) || 0;
   const exceedsBudget = Math.round(parsedBudget * 100) > Math.round(toBeBudgeted * 100);
-  
+  const atLimit = envelopes.length >= MAX_ENVELOPES;
+
+  // Duplicate name detection
+  const similarEnvelope = useMemo(() => {
+    if (!name.trim()) return null;
+    return envelopes.find(e => isSimilarName(e.name, name.trim()));
+  }, [name, envelopes]);
+
+  const hasDuplicateWarning = similarEnvelope && !duplicateAcknowledged;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || isSubmitting) return;
+    if (!name.trim() || isSubmitting || atLimit) return;
+    if (hasDuplicateWarning) return;
     
     setIsSubmitting(true);
     try {
@@ -108,26 +135,75 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
       }
       
       // Reset form
-      setName('');
-      setSelectedIcon('Wallet');
-      setSelectedColor('blue');
-      setShowCustom(false);
-      setBudgetAmount('');
-      setRolloverEnabled(false);
-      setRolloverStrategy('full');
-      setRolloverPercentage(100);
-      setRolloverMaxAmount('');
+      resetForm();
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setName('');
+    setSelectedIcon('Wallet');
+    setSelectedColor('blue');
+    setShowCustom(false);
+    setBudgetAmount('');
+    setRolloverEnabled(false);
+    setRolloverStrategy('full');
+    setRolloverPercentage(100);
+    setRolloverMaxAmount('');
+    setDuplicateAcknowledged(false);
   };
   
   const handleTemplateSelect = (template: typeof defaultEnvelopeTemplates[0]) => {
     setName(template.name);
     setSelectedIcon(template.icon);
     setSelectedColor(template.color);
+    setDuplicateAcknowledged(false);
   };
+
+  // Limit reached view
+  if (atLimit) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Nouvelle enveloppe</DialogTitle>
+          </DialogHeader>
+          <Alert className="rounded-xl border-orange-500/50 text-orange-600 dark:text-orange-400 [&>svg]:text-orange-500">
+            <Ban className="h-4 w-4" />
+            <AlertDescription>
+              Limite atteinte ({envelopes.length}/{MAX_ENVELOPES}). Supprimez des enveloppes pour en créer de nouvelles.
+            </AlertDescription>
+          </Alert>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
+            Fermer
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Duplicate warning component
+  const duplicateWarningEl = similarEnvelope && name.trim() && (
+    <Alert className="rounded-xl border-orange-500/50 text-orange-600 dark:text-orange-400 [&>svg]:text-orange-500">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertDescription className="flex flex-col gap-2">
+        <span>Une enveloppe nommée « {similarEnvelope.name} » existe déjà</span>
+        {!duplicateAcknowledged && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDuplicateAcknowledged(true)}
+            className="self-start rounded-lg text-xs h-7"
+          >
+            Continuer quand même
+          </Button>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,6 +212,7 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
           <DialogTitle>Nouvelle enveloppe</DialogTitle>
           <DialogDescription>
             Choisissez un modèle ou créez une enveloppe personnalisée
+            <span className="ml-1 text-xs">({envelopes.length}/{MAX_ENVELOPES})</span>
           </DialogDescription>
         </DialogHeader>
         
@@ -158,6 +235,9 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
                 </button>
               ))}
             </div>
+
+            {/* Duplicate warning */}
+            {duplicateWarningEl}
             
             {/* Budget allocation field */}
             <div className="space-y-2 pt-2 border-t">
@@ -216,7 +296,7 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
             {name && (
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || exceedsBudget}
+                disabled={isSubmitting || exceedsBudget || hasDuplicateWarning}
                 className="w-full rounded-xl gradient-primary shadow-button"
               >
                 {isSubmitting ? 'Création...' : `Créer "${name}"${parsedBudget > 0 ? ` avec ${formatCurrency(parsedBudget)}` : ''}`}
@@ -232,11 +312,14 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
                 type="text"
                 placeholder="Ex: Vacances"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); setDuplicateAcknowledged(false); }}
                 className="rounded-xl"
                 autoFocus
               />
             </div>
+
+            {/* Duplicate warning */}
+            {duplicateWarningEl}
             
             <div className="space-y-2">
               <Label>Couleur</Label>
@@ -337,7 +420,7 @@ export function CreateEnvelopeDialog({ open, onOpenChange }: CreateEnvelopeDialo
               </Button>
               <Button
                 type="submit"
-                disabled={!name.trim() || isSubmitting || exceedsBudget}
+                disabled={!name.trim() || isSubmitting || exceedsBudget || hasDuplicateWarning}
                 className="flex-1 rounded-xl gradient-primary shadow-button"
               >
                 {isSubmitting ? 'Création...' : 'Créer'}
