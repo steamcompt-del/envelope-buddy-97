@@ -20,6 +20,7 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: Sortabl
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: envelope.id });
 
   const style = {
@@ -33,7 +34,8 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: Sortabl
       style={style}
       className={cn(
         "relative group",
-        isDragging && "opacity-0"
+        isDragging && "opacity-0",
+        isOver && "before:content-[''] before:absolute before:-top-1.5 before:left-2 before:right-2 before:h-[3px] before:rounded-full before:bg-primary before:z-20 before:animate-pulse"
       )}
     >
       {/* Drag handle */}
