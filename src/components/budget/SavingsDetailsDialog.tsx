@@ -30,6 +30,7 @@ interface SavingsDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   envelopeId: string;
   onTransfer: () => void;
+  savingsGoalsHook?: ReturnType<typeof useSavingsGoals>;
 }
 
 // Milestone percentages
@@ -40,9 +41,11 @@ export function SavingsDetailsDialog({
   onOpenChange, 
   envelopeId,
   onTransfer,
+  savingsGoalsHook,
 }: SavingsDetailsDialogProps) {
   const { envelopes, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope } = useBudget();
-  const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = useSavingsGoals();
+  const fallbackGoals = useSavingsGoals();
+  const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = savingsGoalsHook || fallbackGoals;
   const { activities } = useActivity();
   
   const [allocateAmount, setAllocateAmount] = useState('');
