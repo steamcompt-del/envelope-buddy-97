@@ -110,9 +110,12 @@ export type Database = {
           household_id: string | null
           icon: string
           id: string
+          max_rollover_amount: number | null
           name: string
           position: number
           rollover: boolean
+          rollover_percentage: number | null
+          rollover_strategy: Database["public"]["Enums"]["rollover_strategy"]
           user_id: string
         }
         Insert: {
@@ -121,9 +124,12 @@ export type Database = {
           household_id?: string | null
           icon?: string
           id?: string
+          max_rollover_amount?: number | null
           name: string
           position?: number
           rollover?: boolean
+          rollover_percentage?: number | null
+          rollover_strategy?: Database["public"]["Enums"]["rollover_strategy"]
           user_id: string
         }
         Update: {
@@ -132,9 +138,12 @@ export type Database = {
           household_id?: string | null
           icon?: string
           id?: string
+          max_rollover_amount?: number | null
           name?: string
           position?: number
           rollover?: boolean
+          rollover_percentage?: number | null
+          rollover_strategy?: Database["public"]["Enums"]["rollover_strategy"]
           user_id?: string
         }
         Relationships: [
@@ -706,6 +715,7 @@ export type Database = {
         | "monthly"
         | "quarterly"
         | "yearly"
+      rollover_strategy: "full" | "percentage" | "capped" | "none"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -858,6 +868,7 @@ export const Constants = {
         "quarterly",
         "yearly",
       ],
+      rollover_strategy: ["full", "percentage", "capped", "none"],
     },
   },
 } as const
