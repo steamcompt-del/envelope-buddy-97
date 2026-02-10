@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import {
   Dialog,
@@ -17,13 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TrendingUp } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TrendingUp, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AllocateFundsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preselectedEnvelopeId?: string;
 }
+
+const fmt = (v: number) => v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 
 export function AllocateFundsDialog({ 
   open, 
@@ -34,13 +38,19 @@ export function AllocateFundsDialog({
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
   
+  const parsedAmount = useMemo(() => parseFloat(amount.replace(',', '.')) || 0, [amount]);
+  const exceeds = Math.round(parsedAmount * 100) > Math.round(toBeBudgeted * 100);
+  const remaining = toBeBudgeted - parsedAmount;
+  
+  // Total allocated across all envelopes
+  const totalAllocated = useMemo(() => envelopes.reduce((sum, e) => sum + e.allocated, 0), [envelopes]);
+  const totalBudget = totalAllocated + toBeBudgeted;
+  const usageAfter = totalBudget > 0 ? ((totalAllocated + parsedAmount) / totalBudget) * 100 : 0;
+  const highUsage = parsedAmount > 0 && !exceeds && usageAfter >= 80;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const parsedAmount = parseFloat(amount.replace(',', '.'));
-    if (isNaN(parsedAmount) || parsedAmount <= 0 || !selectedEnvelope) return;
-    // Use cents comparison to avoid floating point precision issues
-    if (Math.round(parsedAmount * 100) > Math.round(toBeBudgeted * 100)) return;
+    if (parsedAmount <= 0 || !selectedEnvelope || exceeds) return;
     
     await allocateToEnvelope(selectedEnvelope, parsedAmount);
     setAmount('');
@@ -64,7 +74,7 @@ export function AllocateFundsDialog({
             <div>
               <DialogTitle>Allouer des fonds</DialogTitle>
               <DialogDescription>
-                Disponible : {toBeBudgeted.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                Disponible : {fmt(toBeBudgeted)}
               </DialogDescription>
             </div>
           </div>
@@ -108,18 +118,44 @@ export function AllocateFundsDialog({
                 placeholder="0,00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="text-2xl font-semibold pr-12 rounded-xl"
+                className={cn(
+                  "text-2xl font-semibold pr-12 rounded-xl",
+                  exceeds && "border-destructive focus-visible:ring-destructive"
+                )}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
                 €
               </span>
             </div>
-            {parseFloat(amount.replace(',', '.')) > toBeBudgeted && (
-              <p className="text-xs text-destructive">
-                Montant supérieur au disponible
+
+            {/* Real-time remaining display */}
+            {parsedAmount > 0 && !exceeds && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Info className="w-3 h-3" />
+                Après cette allocation, il vous restera {fmt(Math.max(0, remaining))}
               </p>
             )}
           </div>
+
+          {/* Budget exceeded alert */}
+          {exceeds && (
+            <Alert variant="destructive" className="rounded-xl">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Budget insuffisant : il vous reste {fmt(toBeBudgeted)} disponibles
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* High usage warning */}
+          {highUsage && (
+            <Alert className="rounded-xl border-orange-500/50 text-orange-600 dark:text-orange-400 [&>svg]:text-orange-500">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Attention : vous allouez {Math.round(usageAfter)}% de votre budget
+              </AlertDescription>
+            </Alert>
+          )}
           
           <div className="flex gap-2 pt-2">
             <Button
@@ -132,12 +168,7 @@ export function AllocateFundsDialog({
             </Button>
             <Button
               type="submit"
-              disabled={
-                !selectedEnvelope || 
-                !amount || 
-                parseFloat(amount.replace(',', '.')) <= 0 ||
-                Math.round(parseFloat(amount.replace(',', '.')) * 100) > Math.round(toBeBudgeted * 100)
-              }
+              disabled={!selectedEnvelope || parsedAmount <= 0 || exceeds}
               className="flex-1 rounded-xl gradient-primary shadow-button"
             >
               Allouer
