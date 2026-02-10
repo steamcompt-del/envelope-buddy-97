@@ -31,7 +31,7 @@ import { fr } from 'date-fns/locale';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
-  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target, RefreshCw
+  Coffee, Wallet, Trash2, ArrowRightLeft, Plus, Pencil, Check, X, ImageIcon, Expand, CalendarIcon, Target
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { ComponentType } from 'react';
@@ -41,6 +41,7 @@ import { SwipeableRow } from './SwipeableRow';
 import { TransactionNotesField } from './TransactionNotesField';
 import { SavingsGoalDialog } from './SavingsGoalDialog';
 import { SavingsGoalProgress } from './SavingsGoalProgress';
+import { RolloverConfigSection } from './RolloverConfigSection';
 
 interface EnvelopeDetailsDialogProps {
   open: boolean;
@@ -441,25 +442,32 @@ export function EnvelopeDetailsDialog({
             )}
           </div>
           
-          {/* Rollover Setting */}
+          {/* Rollover Configuration */}
           <div className="p-3 bg-muted/50 rounded-xl">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <RefreshCw className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Report de solde</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    Reporter le solde non dépensé au mois suivant
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={envelope.rollover}
-                onCheckedChange={async (checked) => {
-                  await updateEnvelope(envelopeId, { rollover: checked });
-                }}
-              />
-            </div>
+            <RolloverConfigSection
+              enabled={envelope.rollover}
+              onEnabledChange={async (checked) => {
+                await updateEnvelope(envelopeId, {
+                  rollover: checked,
+                  rolloverStrategy: checked ? (envelope.rolloverStrategy || 'full') : 'none',
+                });
+              }}
+              strategy={envelope.rolloverStrategy || 'full'}
+              onStrategyChange={async (strategy) => {
+                await updateEnvelope(envelopeId, { rolloverStrategy: strategy });
+              }}
+              percentage={envelope.rolloverPercentage ?? 50}
+              onPercentageChange={async (value) => {
+                await updateEnvelope(envelopeId, { rolloverPercentage: value });
+              }}
+              maxAmount={envelope.maxRolloverAmount?.toString() ?? ''}
+              onMaxAmountChange={async (value) => {
+                const parsed = parseFloat(value);
+                await updateEnvelope(envelopeId, {
+                  maxRolloverAmount: isNaN(parsed) ? undefined : parsed,
+                });
+              }}
+            />
           </div>
           
           {/* Quick Actions */}
