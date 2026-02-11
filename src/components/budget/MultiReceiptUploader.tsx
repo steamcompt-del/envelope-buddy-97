@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, Plus, X, Loader2, ImageIcon, Expand } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Camera, Plus, X, Loader2, ImageIcon, Expand, CheckCircle2, AlertCircle, FileSearch, Shrink, Upload, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
+import type { ScanProgress, ScanStep } from '@/hooks/useReceiptScanner';
 
 export interface PendingReceipt {
   id: string;
@@ -10,12 +12,23 @@ export interface PendingReceipt {
   previewUrl: string;
 }
 
+const STEP_LABELS: Record<ScanStep, string> = {
+  idle: "",
+  validating: "Vérification du fichier…",
+  compressing: "Compression de l'image…",
+  uploading: "Envoi au serveur…",
+  analyzing: "Analyse IA en cours…",
+  done: "Analyse terminée ✓",
+  error: "Erreur d'analyse",
+};
+
 interface MultiReceiptUploaderProps {
   pendingReceipts: PendingReceipt[];
   onAddReceipts: (files: File[]) => void;
   onRemoveReceipt: (id: string) => void;
   onScanReceipt?: (file: File) => Promise<void>;
   isScanning?: boolean;
+  scanProgress?: ScanProgress;
   disabled?: boolean;
 }
 
@@ -25,6 +38,7 @@ export function MultiReceiptUploader({
   onRemoveReceipt,
   onScanReceipt,
   isScanning = false,
+  scanProgress,
   disabled = false,
 }: MultiReceiptUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,28 +89,34 @@ export function MultiReceiptUploader({
 
       {/* Upload button when no receipts */}
       {pendingReceipts.length === 0 ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isScanning || disabled}
-          className={cn(
-            "w-full rounded-xl h-14 border-dashed",
-            isScanning && "bg-muted"
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isScanning || disabled}
+            className={cn(
+              "w-full rounded-xl h-14 border-dashed",
+              isScanning && "bg-muted"
+            )}
+          >
+            {isScanning ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Analyse IA en cours...
+              </>
+            ) : (
+              <>
+                <Camera className="w-5 h-5 mr-2" />
+                Scanner un ticket (Image)
+              </>
+            )}
+          </Button>
+          {/* Progress indicator during scan */}
+          {isScanning && scanProgress && scanProgress.step !== "idle" && (
+            <ScanProgressIndicator progress={scanProgress} />
           )}
-        >
-          {isScanning ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Analyse IA en cours...
-            </>
-          ) : (
-            <>
-              <Camera className="w-5 h-5 mr-2" />
-              Scanner un ticket (Image)
-            </>
-          )}
-        </Button>
+        </div>
       ) : (
         <>
           {/* Grid of receipts */}
@@ -169,12 +189,14 @@ export function MultiReceiptUploader({
               <ImageIcon className="w-3 h-3" />
               {pendingReceipts.length} ticket{pendingReceipts.length > 1 ? 's' : ''} sélectionné{pendingReceipts.length > 1 ? 's' : ''}
             </div>
-            {isScanning && (
+            {isScanning && scanProgress && scanProgress.step !== "idle" ? (
+              <ScanProgressIndicator progress={scanProgress} compact />
+            ) : isScanning ? (
               <div className="flex items-center gap-1 text-primary">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Analyse...
               </div>
-            )}
+            ) : null}
           </div>
         </>
       )}
@@ -187,6 +209,62 @@ export function MultiReceiptUploader({
         onOpenChange={setLightboxOpen}
         onDelete={onRemoveReceipt}
         canDelete
+      />
+    </div>
+  );
+}
+
+/* ─── Scan Progress Indicator ─────────────────────────────── */
+
+function ScanProgressIndicator({ progress, compact = false }: { progress: ScanProgress; compact?: boolean }) {
+  const label = STEP_LABELS[progress.step];
+  const isError = progress.step === "error";
+  const isDone = progress.step === "done";
+
+  const stepIcon = () => {
+    if (isDone) return <CheckCircle2 className="w-4 h-4 text-envelope-green" />;
+    if (isError) return <AlertCircle className="w-4 h-4 text-destructive" />;
+    switch (progress.step) {
+      case "validating": return <FileSearch className="w-4 h-4 text-primary animate-pulse" />;
+      case "compressing": return <Shrink className="w-4 h-4 text-primary animate-pulse" />;
+      case "uploading": return <Upload className="w-4 h-4 text-primary animate-pulse" />;
+      case "analyzing": return <Sparkles className="w-4 h-4 text-primary animate-pulse" />;
+      default: return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
+    }
+  };
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs">
+        {stepIcon()}
+        <span className={cn(isError ? "text-destructive" : isDone ? "text-envelope-green" : "text-primary")}>
+          {label}
+          {progress.step === "analyzing" && progress.attempt > 1 && (
+            <span className="ml-1 text-muted-foreground">(tentative {progress.attempt}/{progress.maxAttempts})</span>
+          )}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          {stepIcon()}
+          <span className={cn("font-medium", isError ? "text-destructive" : isDone ? "text-envelope-green" : "text-foreground")}>
+            {label}
+          </span>
+        </div>
+        {progress.step === "analyzing" && progress.attempt > 1 && (
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            Tentative {progress.attempt}/{progress.maxAttempts}
+          </span>
+        )}
+      </div>
+      <Progress
+        value={progress.percent}
+        className="h-2"
       />
     </div>
   );
