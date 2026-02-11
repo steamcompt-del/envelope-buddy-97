@@ -2,7 +2,7 @@ import { Envelope } from '@/contexts/BudgetContext';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ArrowDownCircle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { 
   ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
   Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
@@ -17,33 +17,17 @@ interface EnvelopeCardProps {
   savingsGoal?: SavingsGoal;
 }
 
-// Icon mapping for type safety
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
-  ShoppingCart,
-  Utensils,
-  Car,
-  Gamepad2,
-  Heart,
-  ShoppingBag,
-  Receipt,
-  PiggyBank,
-  Home,
-  Plane,
-  Gift,
-  Music,
-  Wifi,
-  Smartphone,
-  Coffee,
-  Wallet,
+  ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, 
+  Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, 
+  Coffee, Wallet,
 };
 
-// Dynamic icon component
 function DynamicIcon({ name, className }: { name: string; className?: string }) {
   const Icon = iconMap[name] || Wallet;
   return <Icon className={className} />;
 }
 
-// Color mapping for envelope backgrounds
 const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
   blue: { bg: 'bg-envelope-blue/15', text: 'text-envelope-blue', border: 'border-envelope-blue/30' },
   green: { bg: 'bg-envelope-green/15', text: 'text-envelope-green', border: 'border-envelope-green/30' },
@@ -55,19 +39,18 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
   teal: { bg: 'bg-envelope-teal/15', text: 'text-envelope-teal', border: 'border-envelope-teal/30' },
 };
 
-// Get progress bar color based on percentage used (HSL values for semantic colors)
 function getProgressColorHsl(percentUsed: number, isOverspent: boolean): string {
-  if (isOverspent) return "hsl(0 84% 60%)"; // destructive red
-  if (percentUsed >= 80) return "hsl(25 95% 53%)"; // orange
-  if (percentUsed >= 50) return "hsl(45 93% 47%)"; // yellow
-  return "hsl(160 84% 45%)"; // green (success)
+  if (isOverspent) return "hsl(0 84% 60%)";
+  if (percentUsed >= 80) return "hsl(25 95% 53%)";
+  if (percentUsed >= 50) return "hsl(45 93% 47%)";
+  return "hsl(160 84% 45%)";
 }
 
 function getSavingsProgressColorHsl(percent: number): string {
-  if (percent >= 100) return "hsl(160 84% 45%)"; // green (complete)
-  if (percent >= 75) return "hsl(160 84% 45%)"; // green
-  if (percent >= 50) return "hsl(45 93% 47%)"; // yellow
-  return "hsl(25 95% 53%)"; // orange
+  if (percent >= 100) return "hsl(160 84% 45%)";
+  if (percent >= 75) return "hsl(160 84% 45%)";
+  if (percent >= 50) return "hsl(45 93% 47%)";
+  return "hsl(25 95% 53%)";
 }
 
 const PRIORITY_BADGE: Record<SavingsPriority, { emoji: string; label: string; className: string }> = {
@@ -77,41 +60,58 @@ const PRIORITY_BADGE: Record<SavingsPriority, { emoji: string; label: string; cl
   low: { emoji: '🟢', label: 'Basse', className: 'bg-green-500/15 text-green-400 border-green-500/30' },
 };
 
+/* ─── Segmented Progress Bar ─────────────────────────────── */
+function SegmentedProgress({ value, color, className }: { value: number; color: string; className?: string }) {
+  const segments = 20;
+  const filledCount = Math.round((Math.min(value, 100) / 100) * segments);
+
+  return (
+    <div className={cn("flex gap-[3px]", className)}>
+      {Array.from({ length: segments }).map((_, i) => (
+        <div
+          key={i}
+          className="flex-1 h-2 rounded-[2px] transition-colors duration-300"
+          style={{
+            backgroundColor: i < filledCount ? color : 'hsl(var(--muted))',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
-  
+
   const isSavings = icon === 'PiggyBank';
   const colorStyle = colorClasses[color] || colorClasses.blue;
-  
-  // For savings envelopes: allocated is the total saved, spent represents withdrawals
-  // Net savings = what's actually available (allocated - spent)
+
   const netSavings = allocated - spent;
-  
-  // For regular envelopes: standard spent/allocated behavior
   const remaining = allocated - spent;
   const percentUsed = allocated > 0 ? (spent / allocated) * 100 : 0;
-  const isOverspent = spent > allocated;
-  
-  // Savings goal calculations
+  const isOverspent = !isSavings && spent > allocated;
+
   const targetAmount = savingsGoal?.target_amount || 0;
   const savingsPercent = targetAmount > 0
     ? Math.min((netSavings / targetAmount) * 100, 100)
     : 0;
   const isSavingsComplete = targetAmount > 0 && netSavings >= targetAmount;
-  
-  // Progress color logic
+
   const progressColor = isSavings
     ? getSavingsProgressColorHsl(savingsPercent)
     : getProgressColorHsl(percentUsed, isOverspent);
-  
-  // Render savings envelope
+
+  // Detect rollover from previous month (rollover enabled + has allocations)
+  const hasRollover = envelope.rollover && envelope.rolloverStrategy !== 'none';
+
+  /* ─── Savings card ─── */
   if (isSavings) {
     return (
       <button
         onClick={onClick}
         className={cn(
           "w-full p-4 rounded-xl border text-left transition-all duration-200",
-          "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
+          "hover:scale-[1.02] hover:shadow-card active:scale-95",
           "bg-card",
           colorStyle.border
         )}
@@ -123,11 +123,11 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           )}>
             <DynamicIcon name={icon} className={cn("w-5 h-5", colorStyle.text)} />
           </div>
-          
+
           <div className="flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-foreground break-all">{name}</h3>
-              {envelope.rollover && envelope.rolloverStrategy !== 'none' && (
+              {hasRollover && (
                 <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0">
                   📅
                   {envelope.rolloverStrategy === 'percentage' && `${envelope.rolloverPercentage ?? 100}%`}
@@ -157,7 +157,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
               </p>
             )}
           </div>
-          
+
           <div className="text-right shrink-0">
             <p className={cn(
               "font-semibold text-lg",
@@ -168,8 +168,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
             <p className="text-xs text-muted-foreground">épargné</p>
           </div>
         </div>
-        
-        {/* Progress toward goal */}
+
         {savingsGoal && (
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
@@ -183,11 +182,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
                 {Math.round(savingsPercent)}%
               </span>
             </div>
-            <Progress 
-              value={Math.min(savingsPercent, 100)} 
-              className="h-2 [&>div]:transition-colors"
-              style={{ '--progress-color': progressColor } as React.CSSProperties}
-            />
+            <SegmentedProgress value={savingsPercent} color={progressColor} />
             {!isSavingsComplete && targetAmount > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
                 Reste {(targetAmount - netSavings).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} à épargner
@@ -195,8 +190,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
             )}
           </div>
         )}
-        
-        {/* Show withdrawals if any */}
+
         {spent > 0 && (
           <div className="mt-2 pt-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground">
@@ -207,16 +201,18 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
       </button>
     );
   }
-  
-  // Render regular envelope
+
+  /* ─── Regular envelope card ─── */
   return (
     <button
       onClick={onClick}
       className={cn(
         "w-full p-4 rounded-xl border text-left transition-all duration-200",
-        "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
+        "hover:scale-[1.02] hover:shadow-card active:scale-95",
         "bg-card",
-        colorStyle.border
+        isOverspent
+          ? "border-destructive animate-pulse"
+          : colorStyle.border
       )}
     >
       <div className="flex items-start gap-3 overflow-hidden">
@@ -226,13 +222,13 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
         )}>
           <DynamicIcon name={icon} className={cn("w-5 h-5", colorStyle.text)} />
         </div>
-        
+
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-foreground break-all">{name}</h3>
-            {envelope.rollover && envelope.rolloverStrategy !== 'none' && (
+            {hasRollover && (
               <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0">
-                📅
+                <ArrowRight className="w-3 h-3" />
                 {envelope.rolloverStrategy === 'percentage' && `${envelope.rolloverPercentage ?? 100}%`}
                 {envelope.rolloverStrategy === 'capped' && envelope.maxRolloverAmount != null && `max ${envelope.maxRolloverAmount}€`}
                 {envelope.rolloverStrategy === 'full' && 'Report'}
@@ -243,7 +239,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
             {spent.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} / {allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </p>
         </div>
-        
+
         <div className="text-right shrink-0">
           <p className={cn(
             "font-semibold text-lg",
@@ -254,17 +250,13 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           <p className="text-xs text-muted-foreground">restant</p>
         </div>
       </div>
-      
+
       <div className="mt-3">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-muted-foreground">Dépensé</span>
           <span className="text-xs font-semibold text-foreground">{Math.round(percentUsed)}%</span>
         </div>
-        <Progress 
-          value={Math.min(percentUsed, 100)} 
-          className="h-2 [&>div]:transition-colors"
-          style={{ '--progress-color': progressColor } as React.CSSProperties}
-        />
+        <SegmentedProgress value={percentUsed} color={progressColor} />
         {isOverspent && (
           <p className="text-xs text-destructive mt-1 font-medium">
             Dépassement de {Math.abs(remaining).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
