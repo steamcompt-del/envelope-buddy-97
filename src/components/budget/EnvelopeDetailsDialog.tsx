@@ -42,6 +42,7 @@ import { TransactionNotesField } from './TransactionNotesField';
 import { SavingsGoalDialog } from './SavingsGoalDialog';
 import { SavingsGoalProgress } from './SavingsGoalProgress';
 import { RolloverConfigSection } from './RolloverConfigSection';
+import { RolloverHistoryDialog } from './RolloverHistoryDialog';
 import { SplitBadge } from './SplitBadge';
 
 interface EnvelopeDetailsDialogProps {
@@ -99,6 +100,7 @@ export function EnvelopeDetailsDialog({
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const receiptInputRef = useRef<HTMLInputElement>(null);
@@ -496,6 +498,17 @@ export function EnvelopeDetailsDialog({
                 });
               }}
             />
+            {envelope.rollover && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setHistoryOpen(true)}
+                className="mt-2 w-full text-xs gap-1"
+              >
+                <CalendarIcon className="h-3 w-3" />
+                Historique des reports
+              </Button>
+            )}
           </div>
           
           {/* Quick Actions */}
@@ -784,6 +797,12 @@ export function EnvelopeDetailsDialog({
           existingGoal={savingsGoal}
           onSave={handleSaveGoal}
           onDelete={savingsGoal ? handleDeleteGoal : undefined}
+        />
+        
+        <RolloverHistoryDialog
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          envelopeId={envelopeId}
         />
       </DialogContent>
     </Dialog>
