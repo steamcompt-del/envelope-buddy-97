@@ -247,4 +247,16 @@ export async function applyAllDueRecurringTransactions(
   return appliedCount;
 }
 
+// Test manual trigger of the auto-apply edge function
+export async function testAutoApply(): Promise<unknown> {
+  const { data, error } = await supabase.functions.invoke('process-recurring-transactions', {});
+
+  if (error) {
+    console.error('Error testing auto-apply:', error);
+    throw error;
+  }
+
+  return data;
+}
+
 export type { QueryContext };

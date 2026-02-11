@@ -31,7 +31,8 @@ import {
   Play,
   Calendar,
   Pause,
-  PlayCircle
+  PlayCircle,
+  Clock
 } from 'lucide-react';
 import { RecurringFormDialog } from './RecurringFormDialog';
 
@@ -181,6 +182,12 @@ export function RecurringListSheet({ open, onOpenChange }: RecurringListSheetPro
                             {item.isActive && isDue(item.nextDueDate) && (
                               <Badge variant="default" className="text-xs">
                                 À payer
+                              </Badge>
+                            )}
+                            {item.isActive && (
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <Clock className="w-3 h-3" />
+                                Auto
                               </Badge>
                             )}
                           </div>
