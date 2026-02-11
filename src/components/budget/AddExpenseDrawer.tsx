@@ -3,11 +3,12 @@ import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAI } from '@/hooks/useAI';
-import { useReceiptScanner, ScannedReceiptItem } from '@/hooks/useReceiptScanner';
+import { useReceiptScanner, ScannedReceiptItem, type ScanResult } from '@/hooks/useReceiptScanner';
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { addReceiptDb } from '@/lib/receiptsDb';
 import { addReceiptItems } from '@/lib/receiptItemsDb';
 import { createTransactionSplits, adjustSpentForSplits, SplitInput } from '@/lib/transactionSplitsDb';
+import { ReceiptValidationDialog } from './ReceiptValidationDialog';
 import {
   Drawer,
   DrawerContent,
@@ -77,7 +78,8 @@ export function AddExpenseDrawer({
   const { user } = useAuth();
   const { household } = useHousehold();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
-  const { scanReceipt, isScanning } = useReceiptScanner();
+  const envelopeNames = envelopes.map(e => e.name);
+  const { scanReceipt, isScanning } = useReceiptScanner(envelopeNames);
   
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
@@ -88,6 +90,11 @@ export function AddExpenseDrawer({
   const [isUploading, setIsUploading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  
+  // Validation dialog state
+  const [showValidation, setShowValidation] = useState(false);
+  const [pendingScanResult, setPendingScanResult] = useState<ScanResult | null>(null);
+  const [pendingScanFile, setPendingScanFile] = useState<File | null>(null);
   
   // Split state
   const [isSplit, setIsSplit] = useState(false);
@@ -349,40 +356,74 @@ export function AddExpenseDrawer({
   }, []);
 
   const handleScanReceipt = useCallback(async (file: File) => {
-    const scannedData = await scanReceipt(file);
+    const scanResult = await scanReceipt(file);
     
-    if (scannedData) {
-      setAmount(scannedData.amount.toString().replace('.', ','));
-      setDescription(scannedData.description);
-      setMerchant(scannedData.merchant);
-      
-      const matchingEnvelope = envelopes.find(
-        env => env.name.toLowerCase() === scannedData.category.toLowerCase()
-      );
-      if (matchingEnvelope) {
-        setSelectedEnvelope(matchingEnvelope.id);
-      }
-      
-      if (scannedData.items && scannedData.items.length > 0) {
-        setPendingReceipts((prev) => {
-          if (prev.length === 0) return prev;
-          const updated = [...prev];
-          const lastReceipt = updated[updated.length - 1];
-          if (lastReceipt) {
-            lastReceipt.scannedItems = scannedData.items;
-          }
-          return updated;
-        });
-        toast.success(`${scannedData.items.length} article(s) détecté(s) sur le ticket`, { duration: 3000 });
+    if (scanResult) {
+      // If there are warnings, show validation dialog
+      if (scanResult.warnings.length > 0) {
+        setPendingScanResult(scanResult);
+        setPendingScanFile(file);
+        setShowValidation(true);
+      } else {
+        applyScanResult(scanResult, file);
       }
     }
-  }, [scanReceipt, envelopes]);
+  }, [scanReceipt]);
+
+  const applyScanResult = useCallback((scanResult: ScanResult, file?: File | null, correctedItems?: ScannedReceiptItem[]) => {
+    const { data: scannedData } = scanResult;
+    setAmount(scannedData.amount.toString().replace('.', ','));
+    setDescription(scannedData.description);
+    setMerchant(scannedData.merchant);
+
+    // Fuzzy envelope matching
+    const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const catNorm = normalize(scannedData.category);
+    const matchingEnvelope = envelopes.find(env => normalize(env.name) === catNorm)
+      || envelopes.find(env => normalize(env.name).includes(catNorm) || catNorm.includes(normalize(env.name)));
+    if (matchingEnvelope) {
+      setSelectedEnvelope(matchingEnvelope.id);
+      toast.success(`📂 Catégorie détectée : ${matchingEnvelope.name}`, { duration: 2000 });
+    } else if (scannedData.category) {
+      toast.info(`Catégorie "${scannedData.category}" non trouvée. Sélectionnez manuellement.`);
+    }
+
+    const items = correctedItems || scannedData.items;
+    if (items && items.length > 0) {
+      setPendingReceipts((prev) => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev];
+        const lastReceipt = updated[updated.length - 1];
+        if (lastReceipt) {
+          lastReceipt.scannedItems = items;
+        }
+        return updated;
+      });
+      toast.success(`${items.length} article(s) détecté(s) sur le ticket`, { duration: 3000 });
+    }
+  }, [envelopes]);
+
+  const handleValidationAccept = useCallback((correctedItems: ScannedReceiptItem[]) => {
+    if (pendingScanResult) {
+      applyScanResult(pendingScanResult, pendingScanFile, correctedItems);
+    }
+    setShowValidation(false);
+    setPendingScanResult(null);
+    setPendingScanFile(null);
+  }, [pendingScanResult, pendingScanFile, applyScanResult]);
+
+  const handleValidationReject = useCallback(() => {
+    setShowValidation(false);
+    setPendingScanResult(null);
+    setPendingScanFile(null);
+  }, []);
 
   const canSubmit = isSplit
     ? parsedAmount > 0 && splitValid && !isUploading
     : !!selectedEnvelope && parsedAmount > 0 && !isUploading;
   
   return (
+    <>
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh]">
         <div className="mx-auto w-full max-w-md">
@@ -677,5 +718,18 @@ export function AddExpenseDrawer({
         </div>
       </DrawerContent>
     </Drawer>
+
+    {/* Validation dialog for scan results */}
+    {pendingScanResult && (
+      <ReceiptValidationDialog
+        open={showValidation}
+        onOpenChange={setShowValidation}
+        scannedData={pendingScanResult.data}
+        warnings={pendingScanResult.warnings}
+        onAccept={handleValidationAccept}
+        onReject={handleValidationReject}
+      />
+    )}
+    </>
   );
 }
