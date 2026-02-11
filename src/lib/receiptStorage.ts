@@ -4,6 +4,7 @@
  */
 
 import { getBackendClient } from "@/lib/backendClient";
+import { validateReceiptFile } from "@/lib/receiptValidation";
 
 export interface UploadReceiptResult {
   url: string;
@@ -19,18 +20,25 @@ export async function uploadReceipt(
   file: File,
   transactionId: string
 ): Promise<UploadReceiptResult> {
+  // Validate before upload
+  const validation = validateReceiptFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
   const supabase = getBackendClient();
 
-  // Generate unique filename
+  // Generate unique filename with timestamp to avoid collisions
   const fileExt = file.name.split(".").pop() || "jpg";
-  const fileName = `${transactionId}.${fileExt}`;
+  const uniqueSuffix = Date.now().toString(36);
+  const fileName = `${transactionId}_${uniqueSuffix}.${fileExt}`;
   const filePath = `transactions/${fileName}`;
 
   const { data, error } = await supabase.storage
     .from("receipts")
     .upload(filePath, file, {
       cacheControl: "3600",
-      upsert: true,
+      upsert: false, // Never overwrite existing files
     });
 
   if (error) {

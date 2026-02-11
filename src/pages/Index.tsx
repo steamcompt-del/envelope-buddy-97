@@ -19,7 +19,7 @@ import { RecurringListSheet } from '@/components/budget/RecurringListSheet';
 import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
 
 import { PullToRefresh } from '@/components/budget/PullToRefresh';
-import { useReceiptScanner } from '@/hooks/useReceiptScanner';
+import { useReceiptScanner, type ScanResult } from '@/hooks/useReceiptScanner';
 import { useRecurring } from '@/hooks/useRecurring';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useSavingsNotifications } from '@/hooks/useSavingsNotifications';
@@ -97,12 +97,17 @@ export default function Index() {
     if (!file) return;
     
     // Use the real receipt scanner (Gemini AI)
-    const scannedData = await scanReceipt(file);
+    const scanResult = await scanReceipt(file);
     
-    if (scannedData) {
-      // Find matching envelope
+    if (scanResult) {
+      const { data: scannedData } = scanResult;
+      // Find matching envelope with fuzzy matching
+      const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const catNorm = normalize(scannedData.category);
       const matchingEnvelope = envelopes.find(
-        env => env.name.toLowerCase() === scannedData.category.toLowerCase()
+        env => normalize(env.name) === catNorm
+      ) || envelopes.find(
+        env => normalize(env.name).includes(catNorm) || catNorm.includes(normalize(env.name))
       );
       
       // Set the scanned data and open drawer

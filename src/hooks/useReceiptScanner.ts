@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { fileToBase64 } from "@/lib/receiptStorage";
 import { getBackendClient } from "@/lib/backendClient";
+import { validateReceiptFile, compressImageIfNeeded, validateScannedData } from "@/lib/receiptValidation";
+import { useReceiptCache } from "./useReceiptCache";
 
 export interface ScannedReceiptItem {
   name: string;
@@ -18,36 +20,57 @@ export interface ScannedReceiptData {
   items: ScannedReceiptItem[];
 }
 
-export function useReceiptScanner() {
-  const [isScanning, setIsScanning] = useState(false);
+export interface ScanResult {
+  data: ScannedReceiptData;
+  warnings: string[];
+  fromCache: boolean;
+}
 
-  const scanReceipt = async (file: File): Promise<ScannedReceiptData | null> => {
+export function useReceiptScanner(userEnvelopes?: string[]) {
+  const [isScanning, setIsScanning] = useState(false);
+  const { get: getCached, set: setCached } = useReceiptCache();
+
+  const scanReceipt = async (file: File): Promise<ScanResult | null> => {
+    // 1. Validate file
+    const fileValidation = validateReceiptFile(file);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.error);
+      return null;
+    }
+
+    // 2. Check cache
+    const cached = getCached(file);
+    if (cached) {
+      const validation = validateScannedData(cached);
+      toast.success("Ticket déjà analysé (cache)", { duration: 2000 });
+      return { data: cached, warnings: validation.warnings, fromCache: true };
+    }
+
     setIsScanning(true);
 
     try {
+      // 3. Compress if needed
+      const compressedFile = await compressImageIfNeeded(file);
+
       const supabase = getBackendClient();
+      const base64 = await fileToBase64(compressedFile);
 
-      // Convert file to base64
-      const base64 = await fileToBase64(file);
-
-      // Call the edge function
+      // 4. Call edge function
       const { data, error } = await supabase.functions.invoke("scan-receipt", {
         body: {
           imageBase64: base64,
-          mimeType: file.type,
+          mimeType: compressedFile.type,
+          userEnvelopes,
         },
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(data.error, { duration: 6000 });
         return null;
       }
 
-      // Ensure items array exists
       const result: ScannedReceiptData = {
         merchant: data.merchant || "Inconnu",
         amount: data.amount || 0,
@@ -56,8 +79,19 @@ export function useReceiptScanner() {
         items: data.items || [],
       };
 
+      // 5. Validate scanned data
+      const validation = validateScannedData(result);
+
+      if (!validation.valid) {
+        toast.error(`Erreur de scan : ${validation.errors.join(' ')}`, { duration: 8000 });
+        return null;
+      }
+
+      // 6. Cache the result
+      setCached(file, result);
+
       toast.success("Ticket analysé avec succès !");
-      return result;
+      return { data: result, warnings: validation.warnings, fromCache: false };
     } catch (error) {
       console.error("Error scanning receipt:", error);
       toast.error(
