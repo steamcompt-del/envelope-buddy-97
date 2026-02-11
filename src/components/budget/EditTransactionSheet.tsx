@@ -320,11 +320,6 @@ export function EditTransactionSheet({
               <Label>Répartition de la dépense</Label>
               
               {splits.map((split, idx) => {
-                const envelope = envelopes.find(e => e.id === split.envelopeId);
-                const percentage = parsedAmount > 0
-                  ? Math.round((split.amount / parsedAmount) * 100)
-                  : 0;
-                
                 return (
                   <div key={idx} className="flex items-center gap-2">
                     <Select
@@ -346,7 +341,7 @@ export function EditTransactionSheet({
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="relative w-24">
+                    <div className="relative w-28">
                       <Input
                         type="text"
                         inputMode="decimal"
@@ -357,12 +352,12 @@ export function EditTransactionSheet({
                             i === idx ? { ...s, amount: newAmount } : s
                           ));
                         }}
-                        className="w-24 h-9 text-right text-sm rounded-xl"
+                        className="w-28 h-9 text-right text-sm rounded-xl pr-8"
                       />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        €
+                      </span>
                     </div>
-                    <span className="text-sm text-muted-foreground w-12 text-right">
-                      {percentage}%
-                    </span>
                   </div>
                 );
               })}
@@ -374,7 +369,7 @@ export function EditTransactionSheet({
                   <span className={cn(
                     "font-medium",
                     Math.abs(splits.reduce((sum, s) => sum + s.amount, 0) - parsedAmount) < 0.01
-                      ? "text-green-600"
+                      ? "text-primary"
                       : "text-destructive"
                   )}>
                     {splits.reduce((sum, s) => sum + s.amount, 0).toFixed(2)}€
