@@ -471,6 +471,60 @@ export type Database = {
           },
         ]
       }
+      rollover_history: {
+        Row: {
+          amount: number
+          created_at: string | null
+          envelope_id: string
+          envelope_name: string
+          household_id: string | null
+          id: string
+          source_month_key: string
+          strategy: string
+          target_month_key: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          envelope_id: string
+          envelope_name: string
+          household_id?: string | null
+          id?: string
+          source_month_key: string
+          strategy: string
+          target_month_key: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          envelope_id?: string
+          envelope_name?: string
+          household_id?: string | null
+          id?: string
+          source_month_key?: string
+          strategy?: string
+          target_month_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rollover_history_envelope_id_fkey"
+            columns: ["envelope_id"]
+            isOneToOne: false
+            referencedRelation: "envelopes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rollover_history_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       savings_goals: {
         Row: {
           auto_contribute: boolean

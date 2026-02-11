@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHousehold } from '@/hooks/useHousehold';
 import { getBackendClient } from '@/lib/backendClient';
@@ -583,8 +584,24 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const startNewMonth = useCallback(async () => {
     const ctx = getQueryContext();
     if (!ctx) return;
-    const nextMonthKey = await startNewMonthDb(ctx, currentMonthKey);
-    setCurrentMonthKey(nextMonthKey);
+    const result = await startNewMonthDb(ctx, currentMonthKey);
+    
+    // Show overdraft warnings (Amélioration #2)
+    if (result.overdrafts && result.overdrafts.length > 0) {
+      const overdraftList = result.overdrafts
+        .map(o => `${o.envelopeName}: -${o.overdraftAmount.toFixed(2)}€`)
+        .join('\n');
+      
+      toast.warning(
+        `⚠️ ${result.overdrafts.length} découvert(s) détecté(s)`,
+        { 
+          description: overdraftList,
+          duration: 10000,
+        }
+      );
+    }
+    
+    setCurrentMonthKey(result.nextMonthKey);
   }, [getQueryContext, currentMonthKey]);
 
   // Copy envelopes to any target month
