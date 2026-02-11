@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils';
 import { useBudget } from '@/contexts/BudgetContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +12,11 @@ import { ChevronDown, Home, Plus, Check } from 'lucide-react';
 import { useState } from 'react';
 import { HouseholdSetupDialog } from './HouseholdSetupDialog';
 
-export function HouseholdSwitcher() {
+interface HouseholdSwitcherProps {
+  compact?: boolean;
+}
+
+export function HouseholdSwitcher({ compact = false }: HouseholdSwitcherProps) {
   const { household, households, switchHousehold, createHousehold, joinHousehold } = useBudget();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   
@@ -26,11 +31,14 @@ export function HouseholdSwitcher() {
           <Button 
             variant="ghost" 
             size="sm" 
-            className="gap-1.5 h-8 px-2 text-sm font-medium max-w-[180px]"
+            className={cn(
+              "gap-1.5 font-medium",
+              compact ? "h-7 px-1.5 text-xs max-w-[120px]" : "h-8 px-2 text-sm max-w-[180px]"
+            )}
           >
-            <Home className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Home className={cn("shrink-0 text-muted-foreground", compact ? "h-3 w-3" : "h-4 w-4")} />
             <span className="truncate">{household.name}</span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDown className={cn("shrink-0 text-muted-foreground", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">

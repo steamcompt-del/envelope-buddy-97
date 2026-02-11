@@ -33,7 +33,11 @@ function formatShortMonth(monthKey: string): string {
   return `${MONTH_NAMES[month - 1].slice(0, 3)} ${year}`;
 }
 
-export function MonthSelector() {
+interface MonthSelectorProps {
+  compact?: boolean;
+}
+
+export function MonthSelector({ compact = false }: MonthSelectorProps) {
   const { currentMonthKey, setCurrentMonth, getAvailableMonths, months } = useBudget();
   const [open, setOpen] = useState(false);
   
@@ -78,6 +82,59 @@ export function MonthSelector() {
     return monthData.incomes.length > 0 || monthData.transactions.length > 0 || monthData.envelopes.some(e => e.allocated > 0);
   };
   
+  if (compact) {
+    return (
+      <div className="flex items-center gap-0">
+        <Button variant="ghost" size="icon" onClick={goToPreviousMonth} className="h-7 w-7">
+          <ChevronLeft className="h-3 w-3" />
+        </Button>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 text-xs px-1.5 min-w-[70px] font-medium">
+              {formatShortMonth(currentMonthKey)}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-2" align="center">
+            <div className="space-y-2">
+              {!isCurrentMonth() && (
+                <Button variant="outline" size="sm" onClick={goToToday} className="w-full rounded-lg text-sm">
+                  Aller au mois actuel
+                </Button>
+              )}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground px-2 py-1">Historique</p>
+                {availableMonths.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-2 py-2">Aucun mois disponible</p>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {availableMonths.map((mk) => (
+                      <button
+                        key={mk}
+                        onClick={() => handleMonthSelect(mk)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted",
+                          mk === currentMonthKey && "bg-primary/10 text-primary font-medium"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{formatMonthDisplay(mk)}</span>
+                          {monthHasData(mk) && <span className="w-2 h-2 rounded-full bg-primary" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+        <Button variant="ghost" size="icon" onClick={goToNextMonth} className="h-7 w-7">
+          <ChevronRight className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-1">
       <Button
