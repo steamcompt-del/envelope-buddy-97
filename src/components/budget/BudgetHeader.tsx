@@ -48,7 +48,7 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
 
         {/* Radial chart + center label */}
         <div className="flex flex-col items-center -mt-1 mb-1">
-          <div className="relative w-[180px] h-[110px] sm:w-[220px] sm:h-[130px]">
+          <div className="relative w-[160px] h-[95px] sm:w-[220px] sm:h-[130px]">
             <RadialBarChart
               width={220}
               height={130}
@@ -73,22 +73,21 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
 
             {/* Center overlay */}
             <div className="absolute inset-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
-              <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight leading-none', barColor)}>
+              <span className={cn('text-2xl sm:text-4xl font-bold tracking-tight leading-none', barColor)}>
                 {fmt(Math.max(remaining, 0))}
               </span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+              <span className="text-[9px] sm:text-xs text-muted-foreground mt-0.5">
                 reste à dépenser
               </span>
             </div>
           </div>
 
-          {/* Sub-stats row */}
-          <div className="flex items-center justify-center gap-3 sm:gap-6 mt-1 text-[11px] sm:text-sm text-muted-foreground flex-wrap">
+          {/* Sub-stats row — stack on tiny screens */}
+          <div className="flex flex-col xs:flex-row items-center justify-center gap-1 xs:gap-3 sm:gap-6 mt-1 text-[11px] sm:text-sm text-muted-foreground">
             <button onClick={onOpenIncomeHistory} className="hover:text-foreground transition-colors whitespace-nowrap">
               <span className="font-semibold text-foreground">{fmt(totalIncome)}</span>{' '}
               revenus
             </button>
-            <span className="text-border hidden xs:inline">|</span>
             <Link to="/expenses" className="hover:text-foreground transition-colors whitespace-nowrap">
               <span className={cn('font-semibold', barColor)}>{fmt(totalSpent)}</span>{' '}
               dépensé ({spentPercent}%)
