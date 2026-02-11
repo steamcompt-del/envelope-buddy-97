@@ -134,6 +134,25 @@ export default function Index() {
           onEnvelopeClick={handleEnvelopeClick}
           onCreateEnvelope={() => setCreateEnvelopeOpen(true)}
           getGoalForEnvelope={savingsGoals.getGoalForEnvelope}
+          onQuickAddExpense={(id) => {
+            setSelectedEnvelopeId(id);
+            setExpenseOpen(true);
+          }}
+          onQuickAllocate={(id) => {
+            setSelectedEnvelopeId(id);
+            setAllocateOpen(true);
+          }}
+          onQuickTransfer={(id) => {
+            setSelectedEnvelopeId(id);
+            setTransferOpen(true);
+          }}
+          onQuickDelete={(id) => {
+            const env = envelopes.find(e => e.id === id);
+            if (env) {
+              setSelectedEnvelopeId(id);
+              setDetailsOpen(true);
+            }
+          }}
         />
       </main>
     </>

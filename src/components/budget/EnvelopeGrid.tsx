@@ -28,7 +28,9 @@ import { SavingsGoal } from '@/lib/savingsGoalsDb';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-interface EnvelopeGridProps {
+import { EnvelopeQuickActionHandlers } from './EnvelopeQuickActions';
+
+interface EnvelopeGridProps extends EnvelopeQuickActionHandlers {
   onEnvelopeClick: (envelopeId: string) => void;
   onCreateEnvelope: () => void;
   getGoalForEnvelope: (envelopeId: string) => SavingsGoal | undefined;
@@ -64,7 +66,7 @@ function triggerHaptic(style: 'light' | 'medium' = 'light') {
   }
 }
 
-export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnvelope }: EnvelopeGridProps) {
+export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnvelope, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: EnvelopeGridProps) {
   const { envelopes, reorderEnvelopes, updateEnvelope } = useBudget();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [previousOrder, setPreviousOrder] = useState<string[] | null>(null);
@@ -238,6 +240,10 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnve
                             envelope={envelope}
                             onClick={() => onEnvelopeClick(envelope.id)}
                             savingsGoal={getGoalForEnvelope(envelope.id)}
+                            onQuickAddExpense={onQuickAddExpense}
+                            onQuickAllocate={onQuickAllocate}
+                            onQuickTransfer={onQuickTransfer}
+                            onQuickDelete={onQuickDelete}
                           />
                         </div>
                       ))}
@@ -266,6 +272,10 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnve
                     envelope={envelope}
                     onClick={() => onEnvelopeClick(envelope.id)}
                     savingsGoal={getGoalForEnvelope(envelope.id)}
+                    onQuickAddExpense={onQuickAddExpense}
+                    onQuickAllocate={onQuickAllocate}
+                    onQuickTransfer={onQuickTransfer}
+                    onQuickDelete={onQuickDelete}
                   />
                 </div>
               ))}
