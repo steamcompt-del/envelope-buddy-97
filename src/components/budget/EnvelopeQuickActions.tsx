@@ -5,11 +5,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
-  Receipt, Plus, ArrowRightLeft, Trash2, Edit,
-  PiggyBank, Eye,
+  Receipt, Plus, ArrowRightLeft, Trash2,
+  PiggyBank, Eye, TrendingUp, Wallet,
 } from 'lucide-react';
 import { Envelope } from '@/contexts/BudgetContext';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 
 export interface EnvelopeQuickActionHandlers {
   onQuickAddExpense?: (envelopeId: string) => void;
@@ -39,6 +40,7 @@ export function EnvelopeQuickActions({
   const touchMoved = useRef(false);
 
   const isSavings = envelope.icon === 'PiggyBank';
+  const remaining = envelope.allocated - envelope.spent;
 
   const vibrate = useCallback(() => {
     if ('vibrate' in navigator) {
@@ -72,7 +74,6 @@ export function EnvelopeQuickActions({
     clearTimer();
     const elapsed = Date.now() - touchStartTime.current;
 
-    // Short tap → view details (only if menu not open and no drag)
     if (elapsed < 500 && !showMenu && !touchMoved.current) {
       onViewDetails?.(envelope.id);
     }
@@ -84,7 +85,6 @@ export function EnvelopeQuickActions({
     setShowMenu(true);
   }, [vibrate]);
 
-  // Cleanup
   useEffect(() => {
     return () => clearTimer();
   }, [clearTimer]);
@@ -109,73 +109,116 @@ export function EnvelopeQuickActions({
       </PopoverTrigger>
 
       <PopoverContent
-        className="w-52 p-1.5"
+        className="w-56 p-1.5"
         align="center"
         side="top"
         sideOffset={4}
       >
         <div className="flex flex-col gap-0.5">
-          {/* Primary action */}
+          {/* Header with envelope info */}
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <div className={cn(
+              "flex items-center justify-center w-7 h-7 rounded-md",
+              isSavings ? "bg-emerald-500/15" : "bg-primary/10"
+            )}>
+              {isSavings 
+                ? <PiggyBank className="h-3.5 w-3.5 text-emerald-500" />
+                : <Wallet className="h-3.5 w-3.5 text-primary" />
+              }
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{envelope.name}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {isSavings 
+                  ? `${formatCurrency(remaining)} épargné`
+                  : `${formatCurrency(remaining)} restant`
+                }
+              </p>
+            </div>
+          </div>
+
+          <Separator className="my-0.5" />
+
           {isSavings ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="justify-start gap-2 h-9 text-sm font-medium"
-              onClick={() => handleAction(onQuickAllocate)}
-            >
-              <PiggyBank className="h-4 w-4 text-primary" />
-              Épargner
-            </Button>
+            <>
+              {/* Savings-specific actions */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm font-medium"
+                onClick={() => handleAction(onQuickAllocate)}
+              >
+                <PiggyBank className="h-4 w-4 text-emerald-500" />
+                Épargner
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm"
+                onClick={() => handleAction(onQuickTransfer)}
+              >
+                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                Transférer
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm"
+                onClick={() => handleAction(onViewDetails)}
+              >
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                Objectif & détails
+              </Button>
+            </>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="justify-start gap-2 h-9 text-sm font-medium"
-              onClick={() => handleAction(onQuickAddExpense)}
-            >
-              <Receipt className="h-4 w-4 text-primary" />
-              Ajouter dépense
-            </Button>
+            <>
+              {/* Regular envelope actions */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm font-medium"
+                onClick={() => handleAction(onQuickAddExpense)}
+              >
+                <Receipt className="h-4 w-4 text-primary" />
+                Ajouter dépense
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm"
+                onClick={() => handleAction(onQuickAllocate)}
+              >
+                <Plus className="h-4 w-4 text-muted-foreground" />
+                Allouer des fonds
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm"
+                onClick={() => handleAction(onQuickTransfer)}
+              >
+                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                Transférer
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start gap-2 h-9 text-sm"
+                onClick={() => handleAction(onViewDetails)}
+              >
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                Voir détails
+              </Button>
+            </>
           )}
 
-          {/* Allocate (for non-savings) */}
-          {!isSavings && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="justify-start gap-2 h-9 text-sm"
-              onClick={() => handleAction(onQuickAllocate)}
-            >
-              <Plus className="h-4 w-4 text-muted-foreground" />
-              Allouer des fonds
-            </Button>
-          )}
+          <Separator className="my-0.5" />
 
-          {/* Transfer */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="justify-start gap-2 h-9 text-sm"
-            onClick={() => handleAction(onQuickTransfer)}
-          >
-            <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-            Transférer
-          </Button>
-
-          {/* View details */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="justify-start gap-2 h-9 text-sm"
-            onClick={() => handleAction(onViewDetails)}
-          >
-            <Eye className="h-4 w-4 text-muted-foreground" />
-            Voir détails
-          </Button>
-
-          <Separator className="my-1" />
-
-          {/* Delete */}
           <Button
             variant="ghost"
             size="sm"
