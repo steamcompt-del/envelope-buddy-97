@@ -828,7 +828,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrement_spent_atomic: {
+        Args: { p_amount: number; p_envelope_id: string; p_month_key: string }
+        Returns: undefined
+      }
       get_user_household_id: { Args: { _user_id: string }; Returns: string }
+      increment_spent_atomic: {
+        Args: { p_amount: number; p_envelope_id: string; p_month_key: string }
+        Returns: undefined
+      }
       is_household_member: {
         Args: { _household_id: string; _user_id: string }
         Returns: boolean
