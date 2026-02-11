@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useAISuggestions } from '@/hooks/useAISuggestions';
 import { Input } from '@/components/ui/input';
@@ -7,25 +7,27 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { SwipeableRow } from './SwipeableRow';
 import { 
   Plus, 
   Trash2, 
-  Sparkles, 
   ChevronDown, 
   Loader2,
   Package,
-  Edit2,
   Check,
   X,
   Archive,
   History,
   ChevronRight,
-  Wand2,
   ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function ShoppingListContent() {
+interface ShoppingListContentProps {
+  storeMode?: boolean;
+}
+
+export function ShoppingListContent({ storeMode = false }: ShoppingListContentProps) {
   const {
     items,
     archives,
@@ -60,7 +62,6 @@ export function ShoppingListContent() {
   const [showHistory, setShowHistory] = useState(false);
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
 
-  // Fetch AI suggestions on mount
   useEffect(() => {
     if (frequentItems.length > 0) {
       fetchAISuggestions(
@@ -71,10 +72,25 @@ export function ShoppingListContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frequentItems.length]);
 
+  // Sort items: unchecked first, checked at bottom (only in store mode)
+  const sortedItems = useMemo(() => {
+    if (!storeMode) return items;
+    return [...items].sort((a, b) => {
+      if (a.isChecked === b.isChecked) return 0;
+      return a.isChecked ? 1 : -1;
+    });
+  }, [items, storeMode]);
+
+  // Estimated total of unchecked items only
+  const uncheckedTotal = useMemo(() => {
+    return items
+      .filter(i => !i.isChecked)
+      .reduce((sum, i) => sum + (i.estimatedPrice || 0) * (i.quantity || 1), 0);
+  }, [items]);
+
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName.trim()) return;
-
     setIsAdding(true);
     try {
       await addItem({ name: newItemName.trim() });
@@ -97,6 +113,7 @@ export function ShoppingListContent() {
   };
 
   const handleStartEdit = (item: any) => {
+    if (storeMode) return; // Disable inline edit in store mode
     setEditingId(item.id);
     setEditQuantity(item.quantity.toString());
     setEditPrice((item.estimatedPrice || 0).toString());
@@ -104,11 +121,9 @@ export function ShoppingListContent() {
 
   const handleSaveEdit = async () => {
     if (!editingId) return;
-
     try {
       const quantity = Math.max(1, parseFloat(editQuantity) || 1);
       const price = Math.max(0, parseFloat(editPrice) || 0);
-      
       await updateItem(editingId, {
         quantity,
         estimatedPrice: price > 0 ? price : null,
@@ -123,14 +138,12 @@ export function ShoppingListContent() {
     setEditingId(null);
   };
 
-  // Filter out suggestions that are already in the list
   const availableSuggestions = frequentItems.filter(
     suggestion => !items.some(item => 
       item.name.toLowerCase() === suggestion.name.toLowerCase()
     )
   );
 
-  // Filter suggestions based on input for autocomplete
   const autocompleteSuggestions = newItemName.trim().length >= 2
     ? availableSuggestions.filter(suggestion =>
         suggestion.name.toLowerCase().includes(newItemName.toLowerCase())
@@ -164,52 +177,53 @@ export function ShoppingListContent() {
   return (
     <div className="mt-6 space-y-6">
       {/* Add Item Form */}
-      <form onSubmit={handleAddItem} className="space-y-3">
-        <div className="relative">
-          <Input
-            type="text"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            placeholder="Ajouter un article..."
-            disabled={isAdding}
-            className="rounded-xl"
-          />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isAdding || !newItemName.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 gap-1"
-          >
-            {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          </Button>
-        </div>
-
-        {/* Autocomplete suggestions */}
-        {autocompleteSuggestions.length > 0 && (
-          <div className="bg-muted rounded-lg border p-2 space-y-1">
-            {autocompleteSuggestions.map((suggestion) => (
-              <button
-                key={suggestion.name}
-                type="button"
-                onClick={() => handleSelectSuggestion(suggestion)}
-                className="w-full text-left px-3 py-2 rounded hover:bg-background transition-colors text-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <span>{suggestion.name}</span>
-                  {suggestion.avgPrice > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      ~{suggestion.avgPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+      {!storeMode && (
+        <form onSubmit={handleAddItem} className="space-y-3">
+          <div className="relative">
+            <Input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="Ajouter un article..."
+              disabled={isAdding}
+              className="rounded-xl"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isAdding || !newItemName.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 gap-1"
+            >
+              {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            </Button>
           </div>
-        )}
-      </form>
+
+          {autocompleteSuggestions.length > 0 && (
+            <div className="bg-muted rounded-lg border p-2 space-y-1">
+              {autocompleteSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion.name}
+                  type="button"
+                  onClick={() => handleSelectSuggestion(suggestion)}
+                  className="w-full text-left px-3 py-2 rounded hover:bg-background transition-colors text-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{suggestion.name}</span>
+                    {suggestion.avgPrice > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        ~{suggestion.avgPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </form>
+      )}
 
       {/* Stats and Actions */}
-      {items.length > 0 && (
+      {items.length > 0 && !storeMode && (
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 rounded-xl bg-muted">
             <div className="flex items-center gap-2 text-sm">
@@ -223,38 +237,33 @@ export function ShoppingListContent() {
             </span>
           </div>
 
-          {(checkedCount > 0 || items.length > 0) && (
+          {checkedCount > 0 && (
             <div className="flex gap-2">
-              {checkedCount > 0 && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={archiveChecked}
-                    className="flex-1 gap-1 rounded-xl"
-                  >
-                    <Archive className="w-4 h-4" />
-                    Archiver {checkedCount}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearChecked}
-                    className="flex-1 gap-1 rounded-xl"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Supprimer
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={archiveChecked}
+                className="flex-1 gap-1 rounded-xl"
+              >
+                <Archive className="w-4 h-4" />
+                Archiver {checkedCount}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearChecked}
+                className="flex-1 gap-1 rounded-xl"
+              >
+                <Trash2 className="w-4 h-4" />
+                Supprimer
+              </Button>
             </div>
           )}
         </div>
       )}
 
-
       {/* Receipt-based Suggestions */}
-      {availableSuggestions.length > 0 && (
+      {availableSuggestions.length > 0 && !storeMode && (
         <div className="space-y-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Achetés récemment
@@ -281,104 +290,185 @@ export function ShoppingListContent() {
       )}
 
       {/* Items List */}
-      <Collapsible open={itemsListOpen} onOpenChange={setItemsListOpen} className="space-y-2">
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="outline"
-            className="w-full justify-between rounded-xl"
-          >
-            <span>Articles ({items.length})</span>
-            <ChevronDown className="w-4 h-4" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <ScrollArea className="h-[300px] rounded-xl border p-4">
-            <div className="space-y-2">
-              {items.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">Aucun article</p>
-              ) : (
-                items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      'p-3 rounded-xl border transition-colors',
-                      item.isChecked ? 'bg-muted/50' : 'bg-background'
-                    )}
+      {storeMode ? (
+        /* ─── STORE MODE: flat list with swipe gestures ─── */
+        <div className="space-y-2">
+          {sortedItems.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">Aucun article</p>
+          ) : (
+            <>
+              {/* Counter header */}
+              <div className="flex items-center justify-between px-1 mb-3">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {uncheckedCount} restant{uncheckedCount > 1 ? 's' : ''}
+                </span>
+                {checkedCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={archiveChecked}
+                    className="text-xs gap-1 h-7"
                   >
-                    {editingId === item.id ? (
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium">{item.name}</p>
-                        <div className="flex gap-2 items-end">
-                          <div className="flex-1 space-y-1">
-                            <label className="text-xs text-muted-foreground">Quantité</label>
-                            <Input
-                              type="number"
-                              value={editQuantity}
-                              onChange={(e) => setEditQuantity(e.target.value)}
-                              min="1"
-                              className="h-9 rounded-lg text-sm"
-                            />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <label className="text-xs text-muted-foreground">Prix estimé (€)</label>
-                            <Input
-                              type="number"
-                              value={editPrice}
-                              onChange={(e) => setEditPrice(e.target.value)}
-                              min="0"
-                              step="0.01"
-                              className="h-9 rounded-lg text-sm"
-                            />
-                          </div>
-                          <Button size="icon" onClick={handleSaveEdit} className="h-9 w-9 shrink-0 rounded-lg">
-                            <Check className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="outline" onClick={handleCancelEdit} className="h-9 w-9 shrink-0 rounded-lg">
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={item.isChecked}
-                          onCheckedChange={() => toggleItem(item.id)}
-                        />
-                        <div className="flex-1 min-w-0" onClick={() => handleStartEdit(item)}>
-                          <p className={cn('text-sm cursor-pointer', item.isChecked && 'line-through text-muted-foreground')}>
-                            {item.name}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {item.quantity > 1 && (
-                              <span className="text-xs text-muted-foreground">×{item.quantity}</span>
-                            )}
-                            {item.estimatedPrice != null && item.estimatedPrice > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                {item.estimatedPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => removeItem(item.id)}
-                          className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </CollapsibleContent>
-      </Collapsible>
+                    <Archive className="w-3 h-3" />
+                    Archiver ({checkedCount})
+                  </Button>
+                )}
+              </div>
 
-      {/* Archives */}
-      {archives.length > 0 && (
+              {sortedItems.map((item) => (
+                <SwipeableRow
+                  key={item.id}
+                  onEdit={() => toggleItem(item.id)}
+                  onDelete={() => removeItem(item.id)}
+                  editLabel="Fait"
+                  editIcon={<Check className="w-5 h-5" />}
+                  editClassName="bg-envelope-green text-white"
+                >
+                  <div
+                    className={cn(
+                      'flex items-center gap-4 p-4 rounded-xl border transition-all',
+                      item.isChecked
+                        ? 'bg-muted/30 opacity-50 border-border/50'
+                        : 'bg-card border-border'
+                    )}
+                    onClick={() => toggleItem(item.id)}
+                  >
+                    {/* Check indicator */}
+                    <div className={cn(
+                      'h-7 w-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
+                      item.isChecked
+                        ? 'bg-envelope-green border-envelope-green'
+                        : 'border-muted-foreground/30'
+                    )}>
+                      {item.isChecked && <Check className="w-4 h-4 text-white" />}
+                    </div>
+
+                    {/* Item info */}
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        'text-lg font-medium transition-all',
+                        item.isChecked && 'line-through text-muted-foreground'
+                      )}>
+                        {item.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {item.quantity > 1 && (
+                          <span className="text-sm text-muted-foreground">×{item.quantity}</span>
+                        )}
+                        {item.estimatedPrice != null && item.estimatedPrice > 0 && (
+                          <span className="text-sm text-muted-foreground">
+                            {(item.estimatedPrice * (item.quantity || 1)).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </SwipeableRow>
+              ))}
+            </>
+          )}
+        </div>
+      ) : (
+        /* ─── NORMAL MODE: collapsible list ─── */
+        <Collapsible open={itemsListOpen} onOpenChange={setItemsListOpen} className="space-y-2">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-between rounded-xl"
+            >
+              <span>Articles ({items.length})</span>
+              <ChevronDown className="w-4 h-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ScrollArea className="h-[300px] rounded-xl border p-4">
+              <div className="space-y-2">
+                {items.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">Aucun article</p>
+                ) : (
+                  items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        'p-3 rounded-xl border transition-colors',
+                        item.isChecked ? 'bg-muted/50' : 'bg-background'
+                      )}
+                    >
+                      {editingId === item.id ? (
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium">{item.name}</p>
+                          <div className="flex gap-2 items-end">
+                            <div className="flex-1 space-y-1">
+                              <label className="text-xs text-muted-foreground">Quantité</label>
+                              <Input
+                                type="number"
+                                value={editQuantity}
+                                onChange={(e) => setEditQuantity(e.target.value)}
+                                min="1"
+                                className="h-9 rounded-lg text-sm"
+                              />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <label className="text-xs text-muted-foreground">Prix estimé (€)</label>
+                              <Input
+                                type="number"
+                                value={editPrice}
+                                onChange={(e) => setEditPrice(e.target.value)}
+                                min="0"
+                                step="0.01"
+                                className="h-9 rounded-lg text-sm"
+                              />
+                            </div>
+                            <Button size="icon" onClick={handleSaveEdit} className="h-9 w-9 shrink-0 rounded-lg">
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="outline" onClick={handleCancelEdit} className="h-9 w-9 shrink-0 rounded-lg">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={item.isChecked}
+                            onCheckedChange={() => toggleItem(item.id)}
+                          />
+                          <div className="flex-1 min-w-0" onClick={() => handleStartEdit(item)}>
+                            <p className={cn('text-sm cursor-pointer', item.isChecked && 'line-through text-muted-foreground')}>
+                              {item.name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {item.quantity > 1 && (
+                                <span className="text-xs text-muted-foreground">×{item.quantity}</span>
+                              )}
+                              {item.estimatedPrice != null && item.estimatedPrice > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  {item.estimatedPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeItem(item.id)}
+                            className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Archives (hidden in store mode) */}
+      {archives.length > 0 && !storeMode && (
         <Collapsible open={showHistory} onOpenChange={setShowHistory} className="space-y-2">
           <CollapsibleTrigger asChild>
             <Button
@@ -445,6 +535,25 @@ export function ShoppingListContent() {
         <div className="text-center py-12">
           <ShoppingCart className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
           <p className="text-muted-foreground">Pas encore de liste</p>
+        </div>
+      )}
+
+      {/* ─── Floating Total Bar (Store Mode only) ─── */}
+      {storeMode && items.length > 0 && (
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4">
+          <div className="container max-w-lg mx-auto">
+            <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl bg-card border shadow-lg backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium">
+                  {uncheckedCount} article{uncheckedCount > 1 ? 's' : ''} restant{uncheckedCount > 1 ? 's' : ''}
+                </span>
+              </div>
+              <span className="text-xl font-bold text-primary">
+                {uncheckedTotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </div>

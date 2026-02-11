@@ -6,13 +6,16 @@ interface SwipeableRowProps {
   children: ReactNode;
   onEdit?: () => void;
   onDelete?: () => void;
+  editLabel?: string;
+  editIcon?: ReactNode;
+  editClassName?: string;
   className?: string;
 }
 
 const SWIPE_THRESHOLD = 60;
 const ACTION_WIDTH = 70;
 
-export function SwipeableRow({ children, onEdit, onDelete, className }: SwipeableRowProps) {
+export function SwipeableRow({ children, onEdit, onDelete, editLabel, editIcon, editClassName, className }: SwipeableRowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(0);
   const [isOpen, setIsOpen] = useState<'left' | 'right' | null>(null);
@@ -117,8 +120,8 @@ export function SwipeableRow({ children, onEdit, onDelete, className }: Swipeabl
           onClick={() => handleActionClick('edit')}
           className={cn(
             "absolute left-0 top-0 bottom-0 flex items-center justify-center",
-            "bg-primary text-primary-foreground transition-all",
-            "touch-manipulation"
+            "transition-all touch-manipulation",
+            editClassName || "bg-primary text-primary-foreground"
           )}
           style={{ 
             width: ACTION_WIDTH,
@@ -126,8 +129,8 @@ export function SwipeableRow({ children, onEdit, onDelete, className }: Swipeabl
           }}
         >
           <div className="flex flex-col items-center gap-1">
-            <Pencil className="w-5 h-5" />
-            <span className="text-xs font-medium">Modifier</span>
+            {editIcon || <Pencil className="w-5 h-5" />}
+            <span className="text-xs font-medium">{editLabel || 'Modifier'}</span>
           </div>
         </button>
       )}
