@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useBudget, Envelope, Transaction, EnvelopeCategory } from '@/contexts/BudgetContext';
 import { useTransactionsReceipts, useReceipts } from '@/hooks/useReceipts';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
@@ -108,12 +108,28 @@ export function EnvelopeDetailsDialog({
   // ALL HOOKS MUST BE BEFORE EARLY RETURN
   const envelope = envelopes.find(e => e.id === envelopeId);
   
+  // Fetch split transaction IDs that target this envelope
+  const [splitParentIds, setSplitParentIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!envelopeId) { setSplitParentIds(new Set()); return; }
+    const supabase = (async () => {
+      const { getBackendClient } = await import('@/lib/backendClient');
+      const client = getBackendClient();
+      const { data } = await client
+        .from('transaction_splits')
+        .select('parent_transaction_id')
+        .eq('envelope_id', envelopeId);
+      const ids = new Set((data || []).map(r => r.parent_transaction_id));
+      setSplitParentIds(ids);
+    })();
+  }, [envelopeId, transactions]);
+
   const envelopeTransactions = useMemo(() => {
     if (!envelope) return [];
     return transactions
-      .filter(t => t.envelopeId === envelopeId)
+      .filter(t => t.envelopeId === envelopeId || splitParentIds.has(t.id))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, envelopeId, envelope]);
+  }, [transactions, envelopeId, envelope, splitParentIds]);
   
   const transactionIds = useMemo(() => envelopeTransactions.map(t => t.id), [envelopeTransactions]);
   const { getReceiptsForTransaction } = useTransactionsReceipts(transactionIds);
