@@ -191,7 +191,7 @@ export default function Index() {
       <AllocateFundsDialog 
         open={allocateOpen} 
         onOpenChange={setAllocateOpen}
-        preselectedEnvelopeId={envelopes.length === 1 ? envelopes[0].id : undefined}
+        preselectedEnvelopeId={selectedEnvelopeId || (envelopes.length === 1 ? envelopes[0].id : undefined)}
       />
       <TransferFundsDialog 
         open={transferOpen} 
