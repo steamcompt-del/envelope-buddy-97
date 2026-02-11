@@ -5,8 +5,6 @@ import { Plus, Settings, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MonthSelector } from './MonthSelector';
 import { HouseholdSwitcher } from './HouseholdSwitcher';
-import { RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
-import { useMemo } from 'react';
 
 interface BudgetHeaderProps {
   onAllocate: () => void;
@@ -15,105 +13,86 @@ interface BudgetHeaderProps {
   onOpenIncomeHistory: () => void;
 }
 
-const fmt = (v: number) =>
-  v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 });
-
 export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIncomeHistory }: BudgetHeaderProps) {
   const { toBeBudgeted: rawToBeBudgeted, envelopes, incomes } = useBudget();
-
+  
+  // Normalize near-zero values to avoid "-0 €" display due to floating point precision
   const toBeBudgeted = Math.abs(rawToBeBudgeted) < 0.01 ? 0 : rawToBeBudgeted;
+  
+  // Calculate total spent across all envelopes
   const totalSpent = envelopes.reduce((sum, env) => sum + env.spent, 0);
+  // Calculate total income for the month
   const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
-  const totalAllocated = envelopes.reduce((sum, env) => sum + env.allocated, 0);
-  const remaining = totalAllocated - totalSpent;
-  const spentPercent = totalAllocated > 0 ? Math.min(Math.round((totalSpent / totalAllocated) * 100), 100) : 0;
+  // Spending percentage
+  const spentPercent = totalIncome > 0 ? Math.round((totalSpent / totalIncome) * 100) : 0;
+  
   const isPositive = toBeBudgeted > 0;
-
-  const { barColor, barColorHsl } = useMemo(() => {
-    if (spentPercent >= 90) return { barColor: 'text-destructive', barColorHsl: 'hsl(0 84% 60%)' };
-    if (spentPercent >= 75) return { barColor: 'text-warning', barColorHsl: 'hsl(38 92% 50%)' };
-    return { barColor: 'text-success', barColorHsl: 'hsl(160 84% 39%)' };
-  }, [spentPercent]);
-
-  const chartData = [{ value: spentPercent, fill: barColorHsl }];
-
+  const isZero = toBeBudgeted === 0;
+  
   return (
     <header className="sticky top-0 z-40 glass-card border-b">
       <div className="container py-3 sm:py-4">
-        {/* Top row: household + month */}
-        <div className="flex items-center justify-between mb-2">
+        {/* Household switcher + Month selector row */}
+        <div className="flex items-center justify-between mb-3">
           <HouseholdSwitcher />
           <MonthSelector />
         </div>
-
-        {/* Radial chart + center label */}
-        <div className="flex flex-col items-center -mt-1 mb-1">
-          <div className="relative w-[180px] h-[110px] sm:w-[220px] sm:h-[130px]">
-            <RadialBarChart
-              width={220}
-              height={130}
-              cx="50%"
-              cy="100%"
-              innerRadius="70%"
-              outerRadius="100%"
-              startAngle={180}
-              endAngle={0}
-              barSize={14}
-              data={chartData}
-              className="w-full h-full"
-            >
-              <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-              <RadialBar
-                dataKey="value"
-                cornerRadius={10}
-                background={{ fill: 'hsl(var(--muted))' }}
-                angleAxisId={0}
-              />
-            </RadialBarChart>
-
-            {/* Center overlay */}
-            <div className="absolute inset-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
-              <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight leading-none', barColor)}>
-                {fmt(Math.max(remaining, 0))}
+        
+        {/* Budget stats - stack on mobile, row on desktop */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3">
+          {/* À budgétiser - clickable to income history */}
+          <button 
+            onClick={onOpenIncomeHistory}
+            className="bg-muted/30 rounded-xl p-2 sm:p-3 hover:bg-muted/50 transition-colors cursor-pointer text-left"
+          >
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">À budgétiser</p>
+            <div className="flex items-baseline gap-1">
+              <span 
+                className={cn(
+                  "text-lg sm:text-2xl font-bold tracking-tight transition-colors truncate",
+                  isPositive && "text-primary",
+                  isZero && "text-muted-foreground",
+                  toBeBudgeted < 0 && "text-destructive"
+                )}
+              >
+                {toBeBudgeted.toLocaleString('fr-FR', { 
+                  style: 'currency', 
+                  currency: 'EUR',
+                  minimumFractionDigits: 0 
+                })}
               </span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                reste à dépenser
-              </span>
-            </div>
-          </div>
-
-          {/* Sub-stats row */}
-          <div className="flex items-center justify-center gap-4 sm:gap-6 mt-1 text-xs sm:text-sm text-muted-foreground">
-            <button onClick={onOpenIncomeHistory} className="hover:text-foreground transition-colors">
-              <span className="font-semibold text-foreground">{fmt(totalIncome)}</span>{' '}
-              revenus
-            </button>
-            <span className="text-border">|</span>
-            <Link to="/expenses" className="hover:text-foreground transition-colors">
-              <span className={cn('font-semibold', barColor)}>{fmt(totalSpent)}</span>{' '}
-              dépensé ({spentPercent}%)
-            </Link>
-          </div>
-
-          {/* À budgétiser pill */}
-          {toBeBudgeted !== 0 && (
-            <button
-              onClick={onOpenIncomeHistory}
-              className={cn(
-                'mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors',
-                isPositive
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-destructive/10 text-destructive'
-              )}
-            >
               {isPositive && (
-                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse-glow" />
+                <span className="inline-flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
               )}
-              {fmt(toBeBudgeted)} à budgétiser
-            </button>
-          )}
+            </div>
+          </button>
+          
+          {/* Total dépensé / revenus - clickable to expenses page */}
+          <Link to="/expenses" className="bg-muted/30 rounded-xl p-2 sm:p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+            <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">
+              Dépensé {totalIncome > 0 && <span className="opacity-70">({spentPercent}%)</span>}
+            </p>
+            <div className="flex items-baseline gap-1 flex-wrap">
+              <span className="text-lg sm:text-2xl font-bold tracking-tight text-destructive truncate">
+                {totalSpent.toLocaleString('fr-FR', { 
+                  style: 'currency', 
+                  currency: 'EUR',
+                  minimumFractionDigits: 0 
+                })}
+              </span>
+              {totalIncome > 0 && (
+                <span className="text-[10px] sm:text-sm text-muted-foreground whitespace-nowrap">
+                  / {totalIncome.toLocaleString('fr-FR', { 
+                    style: 'currency', 
+                    currency: 'EUR',
+                    minimumFractionDigits: 0 
+                  })}
+                </span>
+              )}
+            </div>
+          </Link>
         </div>
-
+        
         {/* Actions row */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -125,7 +104,7 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
             >
               <Settings className="h-4 w-4" />
             </Button>
-
+            
             <Link to="/planning">
               <Button
                 variant="outline"
@@ -137,7 +116,7 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
               </Button>
             </Link>
           </div>
-
+          
           <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="outline"
@@ -148,7 +127,7 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
               <Plus className="h-4 w-4" />
               <span className="hidden xs:inline">Revenu</span>
             </Button>
-
+            
             {isPositive && (
               <Button
                 onClick={onAllocate}
