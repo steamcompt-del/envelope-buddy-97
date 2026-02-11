@@ -11,7 +11,9 @@ import {
 import { ComponentType } from 'react';
 import { SavingsGoal, SavingsPriority } from '@/lib/savingsGoalsDb';
 
-interface EnvelopeCardProps {
+import { EnvelopeQuickActions, EnvelopeQuickActionHandlers } from './EnvelopeQuickActions';
+
+interface EnvelopeCardProps extends EnvelopeQuickActionHandlers {
   envelope: Envelope;
   onClick: () => void;
   savingsGoal?: SavingsGoal;
@@ -77,7 +79,7 @@ const PRIORITY_BADGE: Record<SavingsPriority, { emoji: string; label: string; cl
   low: { emoji: '🟢', label: 'Basse', className: 'bg-green-500/15 text-green-400 border-green-500/30' },
 };
 
-export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardProps) {
+export function EnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
   const isSavings = icon === 'PiggyBank';
@@ -107,8 +109,15 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
   // Render savings envelope
   if (isSavings) {
     return (
-      <button
-        onClick={onClick}
+      <EnvelopeQuickActions
+        envelope={envelope}
+        onViewDetails={() => onClick()}
+        onQuickAddExpense={onQuickAddExpense}
+        onQuickAllocate={onQuickAllocate}
+        onQuickTransfer={onQuickTransfer}
+        onQuickDelete={onQuickDelete}
+      >
+      <div
         className={cn(
           "w-full p-4 rounded-xl border text-left transition-all duration-200",
           "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
@@ -204,14 +213,22 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
             </p>
           </div>
         )}
-      </button>
+      </div>
+      </EnvelopeQuickActions>
     );
   }
   
   // Render regular envelope
   return (
-    <button
-      onClick={onClick}
+    <EnvelopeQuickActions
+      envelope={envelope}
+      onViewDetails={() => onClick()}
+      onQuickAddExpense={onQuickAddExpense}
+      onQuickAllocate={onQuickAllocate}
+      onQuickTransfer={onQuickTransfer}
+      onQuickDelete={onQuickDelete}
+    >
+    <div
       className={cn(
         "w-full p-4 rounded-xl border text-left transition-all duration-200",
         "hover:scale-[1.02] hover:shadow-card active:scale-[0.98]",
@@ -271,6 +288,7 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal }: EnvelopeCardPro
           </p>
         )}
       </div>
-    </button>
+    </div>
+    </EnvelopeQuickActions>
   );
 }

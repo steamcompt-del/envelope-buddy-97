@@ -2,17 +2,18 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Envelope } from '@/contexts/BudgetContext';
 import { EnvelopeCard } from './EnvelopeCard';
+import { EnvelopeQuickActionHandlers } from './EnvelopeQuickActions';
 import { GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SavingsGoal } from '@/lib/savingsGoalsDb';
 
-interface SortableEnvelopeCardProps {
+interface SortableEnvelopeCardProps extends EnvelopeQuickActionHandlers {
   envelope: Envelope;
   onClick: () => void;
   savingsGoal?: SavingsGoal;
 }
 
-export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: SortableEnvelopeCardProps) {
+export function SortableEnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: SortableEnvelopeCardProps) {
   const {
     attributes,
     listeners,
@@ -58,7 +59,11 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal }: Sortabl
       <EnvelopeCard 
         envelope={envelope} 
         onClick={onClick} 
-        savingsGoal={savingsGoal} 
+        savingsGoal={savingsGoal}
+        onQuickAddExpense={onQuickAddExpense}
+        onQuickAllocate={onQuickAllocate}
+        onQuickTransfer={onQuickTransfer}
+        onQuickDelete={onQuickDelete}
       />
     </div>
   );
