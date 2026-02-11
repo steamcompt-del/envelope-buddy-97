@@ -205,7 +205,7 @@ export function AddExpenseDrawer({
         const primarySplit = splits[0];
         const result = await addTransaction(
           primarySplit.envelopeId,
-          primarySplit.amount,
+          parsedAmount,
           description || 'Dépense',
           merchant || undefined,
           undefined,
@@ -238,7 +238,7 @@ export function AddExpenseDrawer({
           household?.id || null,
           currentMonthKey,
           primarySplit.envelopeId,
-          primarySplit.amount,
+          parsedAmount,
           splits
         );
 
