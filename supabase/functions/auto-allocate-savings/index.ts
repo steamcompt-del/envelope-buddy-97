@@ -110,7 +110,18 @@ Deno.serve(async (req: Request) => {
       for (const goal of userGoals) {
         if (availableBudget <= 0) break;
 
-        const remaining = Number(goal.target_amount) - Number(goal.current_amount);
+        // Calculate current saved amount from envelope allocations (source of truth)
+        const { data: allocs } = await supabase
+          .from("envelope_allocations")
+          .select("allocated, spent")
+          .eq("envelope_id", goal.envelope_id);
+
+        const currentSaved = (allocs || []).reduce(
+          (sum: number, a: any) => sum + (Number(a.allocated) - Number(a.spent)),
+          0
+        );
+
+        const remaining = Number(goal.target_amount) - currentSaved;
         if (remaining <= 0) continue;
 
         let contribution = 0;
@@ -139,13 +150,13 @@ Deno.serve(async (req: Request) => {
           allocQuery = allocQuery.is("household_id", null);
         }
 
-        const { data: allocs } = await allocQuery;
+        const { data: monthAllocs } = await allocQuery;
 
-        if (allocs && allocs.length > 0) {
+        if (monthAllocs && monthAllocs.length > 0) {
           await supabase
             .from("envelope_allocations")
-            .update({ allocated: Number(allocs[0].allocated) + contribution })
-            .eq("id", allocs[0].id);
+            .update({ allocated: Number(monthAllocs[0].allocated) + contribution })
+            .eq("id", monthAllocs[0].id);
         } else {
           await supabase
             .from("envelope_allocations")
@@ -164,12 +175,6 @@ Deno.serve(async (req: Request) => {
           .from("monthly_budgets")
           .update({ to_be_budgeted: availableBudget - contribution })
           .eq("id", budgets[0].id);
-
-        // Update savings goal current_amount
-        await supabase
-          .from("savings_goals")
-          .update({ current_amount: Number(goal.current_amount) + contribution })
-          .eq("id", goal.id);
 
         availableBudget -= contribution;
         totalAllocated += contribution;
