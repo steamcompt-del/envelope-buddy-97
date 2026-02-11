@@ -26,7 +26,6 @@ import { Badge } from '@/components/ui/badge';
 import { SavingsPriority } from '@/lib/savingsGoalsDb';
 import { CircularProgress } from './CircularProgress';
 import { SavingsGoalDialog } from './SavingsGoalDialog';
-import { SavingsHistoryDialog } from './SavingsHistoryDialog';
 
 interface SavingsDetailsDialogProps {
   open: boolean;
@@ -58,7 +57,6 @@ export function SavingsDetailsDialog({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const [isContributing, setIsContributing] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   
   const envelope = envelopes.find(e => e.id === envelopeId);
@@ -557,17 +555,6 @@ export function SavingsDetailsDialog({
             </Button>
           )}
 
-          {/* History button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(true)}
-            className="rounded-lg w-full"
-          >
-            <History className="w-4 h-4 mr-2" />
-            Voir l'historique complet
-          </Button>
-
           {/* Bottom actions */}
           <div className="flex gap-2 pt-4 border-t">
             <Button
@@ -598,13 +585,6 @@ export function SavingsDetailsDialog({
           existingGoal={savingsGoal}
           onSave={handleSaveGoal}
           onDelete={savingsGoal ? handleDeleteGoal : undefined}
-        />
-
-        <SavingsHistoryDialog
-          open={showHistory}
-          onOpenChange={setShowHistory}
-          envelopeId={envelopeId}
-          envelopeName={envelope.name}
         />
       </DialogContent>
     </Dialog>
