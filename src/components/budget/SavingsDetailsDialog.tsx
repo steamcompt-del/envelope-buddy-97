@@ -1,6 +1,7 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useBudget, Envelope } from '@/contexts/BudgetContext';
+import { getBackendClient } from '@/lib/backendClient';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useActivity } from '@/hooks/useActivity';
 import {
@@ -44,7 +45,7 @@ export function SavingsDetailsDialog({
   onTransfer,
   savingsGoalsHook,
 }: SavingsDetailsDialogProps) {
-  const { envelopes, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope } = useBudget();
+  const { envelopes, toBeBudgeted, allocateToEnvelope, deallocateFromEnvelope, deleteEnvelope, updateEnvelope, refreshData } = useBudget();
   const fallbackGoals = useSavingsGoals();
   const { getGoalForEnvelope, createGoal, updateGoal, deleteGoal } = savingsGoalsHook || fallbackGoals;
   const { activities } = useActivity();
@@ -55,6 +56,7 @@ export function SavingsDetailsDialog({
   const [showGoalDialog, setShowGoalDialog] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
+  const [isContributing, setIsContributing] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   
   const envelope = envelopes.find(e => e.id === envelopeId);
@@ -71,6 +73,29 @@ export function SavingsDetailsDialog({
       .slice(0, 10);
   }, [activities, envelopeId, envelope]);
   
+  const handleManualContribution = useCallback(async () => {
+    setIsContributing(true);
+    try {
+      const { data, error } = await getBackendClient().functions.invoke('process-savings-contributions');
+      if (error) throw error;
+      
+      await refreshData();
+      if (savingsGoalsHook?.refresh) await savingsGoalsHook.refresh();
+      
+      const result = data as { success: boolean; message: string; errors: number };
+      if (result.success) {
+        toast.success(`✅ ${result.message}`, { duration: 4000 });
+      } else {
+        toast.error('Erreur lors du traitement');
+      }
+    } catch (error) {
+      console.error('Manual contribution error:', error);
+      toast.error('Erreur lors du déclenchement des auto-contributions');
+    } finally {
+      setIsContributing(false);
+    }
+  }, [refreshData, savingsGoalsHook]);
+
   if (!envelope) return null;
   
   const targetAmount = savingsGoal?.target_amount || 0;
@@ -216,6 +241,7 @@ export function SavingsDetailsDialog({
       cancelEditName();
     }
   };
+
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -512,6 +538,20 @@ export function SavingsDetailsDialog({
               ) : (
                 <><Pause className="w-4 h-4 mr-2" /> Mettre en pause</>
               )}
+            </Button>
+          )}
+
+          {/* Manual auto-contribution trigger */}
+          {savingsGoal && savingsGoal.auto_contribute && !savingsGoal.is_paused && !isComplete && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualContribution}
+              disabled={isContributing || toBeBudgeted <= 0}
+              className="rounded-lg w-full border-primary/30 hover:bg-primary/10"
+            >
+              <RefreshCw className={cn("w-4 h-4 mr-2 text-primary", isContributing && "animate-spin")} />
+              {isContributing ? 'Contribution en cours...' : 'Déclencher auto-contribution maintenant'}
             </Button>
           )}
 
