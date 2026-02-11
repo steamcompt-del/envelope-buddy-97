@@ -4,60 +4,32 @@ const supabase = getBackendClient();
 
 /**
  * Adjust the `spent` column on envelope_allocations for a split transaction.
- * - Subtracts `totalAmount` from the primary envelope (which was fully charged by addTransactionDb)
- * - Adds each split's amount to its respective envelope
+ * Uses atomic functions to prevent race conditions.
+ * - The primary envelope already had its spent incremented by addTransactionDb
+ * - This function: subtracts the full amount from primary, then adds each split amount atomically
  */
 export async function adjustSpentForSplits(
   userId: string,
   householdId: string | null,
   monthKey: string,
   primaryEnvelopeId: string,
-  totalAmount: number,
+  primaryAmount: number,
   splits: SplitInput[]
 ): Promise<void> {
-  // 1. Subtract full amount from primary envelope (it was over-charged)
-  const { data: primaryAlloc } = await supabase
-    .from('envelope_allocations')
-    .select('id, spent')
-    .eq('envelope_id', primaryEnvelopeId)
-    .eq('month_key', monthKey)
-    .single();
+  // Subtract the full primary amount (it was over-charged by addTransactionDb)
+  await supabase.rpc('decrement_spent_atomic', {
+    p_envelope_id: primaryEnvelopeId,
+    p_month_key: monthKey,
+    p_amount: primaryAmount,
+  });
 
-  if (primaryAlloc) {
-    const primarySplitAmount = splits.find(s => s.envelopeId === primaryEnvelopeId)?.amount ?? 0;
-    // Set spent to (current - total + primarySplitAmount) i.e. remove full, add back split portion
-    await supabase
-      .from('envelope_allocations')
-      .update({ spent: Number(primaryAlloc.spent) - totalAmount + primarySplitAmount })
-      .eq('id', primaryAlloc.id);
-  }
-
-  // 2. Add split amounts to secondary envelopes
+  // Add each split amount atomically
   for (const split of splits) {
-    if (split.envelopeId === primaryEnvelopeId) continue; // already handled above
-
-    const { data: alloc } = await supabase
-      .from('envelope_allocations')
-      .select('id, spent')
-      .eq('envelope_id', split.envelopeId)
-      .eq('month_key', monthKey)
-      .single();
-
-    if (alloc) {
-      await supabase
-        .from('envelope_allocations')
-        .update({ spent: Number(alloc.spent) + split.amount })
-        .eq('id', alloc.id);
-    } else {
-      await supabase.from('envelope_allocations').insert({
-        user_id: userId,
-        household_id: householdId,
-        envelope_id: split.envelopeId,
-        month_key: monthKey,
-        allocated: 0,
-        spent: split.amount,
-      });
-    }
+    await supabase.rpc('increment_spent_atomic', {
+      p_envelope_id: split.envelopeId,
+      p_month_key: monthKey,
+      p_amount: split.amount,
+    });
   }
 }
 
@@ -102,6 +74,30 @@ export async function createTransactionSplits(
     .from('transactions')
     .update({ is_split: true })
     .eq('id', parentTransactionId);
+}
+
+export async function updateTransactionSplits(
+  parentTransactionId: string,
+  newTotalAmount: number,
+  newSplits: SplitInput[],
+  userId: string,
+  householdId: string | null
+): Promise<void> {
+  // 1. Delete old splits
+  await deleteSplitsForTransaction(parentTransactionId);
+
+  // 2. Create new ones
+  const rows = newSplits.map(s => ({
+    parent_transaction_id: parentTransactionId,
+    envelope_id: s.envelopeId,
+    amount: s.amount,
+    percentage: Math.round((s.amount / newTotalAmount) * 100),
+    user_id: userId,
+    household_id: householdId,
+  }));
+
+  const { error } = await supabase.from('transaction_splits').insert(rows);
+  if (error) throw error;
 }
 
 export async function fetchSplitsForTransaction(

@@ -7,7 +7,7 @@ import { useReceiptScanner, ScannedReceiptItem } from '@/hooks/useReceiptScanner
 import { uploadReceipt } from '@/lib/receiptStorage';
 import { addReceiptDb } from '@/lib/receiptsDb';
 import { addReceiptItems } from '@/lib/receiptItemsDb';
-import { createTransactionSplits, SplitInput } from '@/lib/transactionSplitsDb';
+import { createTransactionSplits, adjustSpentForSplits, SplitInput } from '@/lib/transactionSplitsDb';
 import {
   Drawer,
   DrawerContent,
@@ -73,7 +73,7 @@ export function AddExpenseDrawer({
   preselectedEnvelopeId,
   scannedData,
 }: AddExpenseDrawerProps) {
-  const { envelopes, addTransaction, refreshData } = useBudget();
+  const { envelopes, addTransaction, refreshData, currentMonthKey } = useBudget();
   const { user } = useAuth();
   const { household } = useHousehold();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
@@ -193,47 +193,58 @@ export function AddExpenseDrawer({
           amount: parseFloat(l.amount.replace(',', '.')) || 0,
         }));
 
-        // Create one transaction per envelope with its split amount
-        const transactionIds: string[] = [];
-        for (const split of splits) {
-          const result = await addTransaction(
-            split.envelopeId,
-            split.amount,
-            description || 'Dépense',
-            merchant || undefined,
-            undefined,
-            undefined,
-            dateString
-          );
-          transactionIds.push(result.transactionId);
+        // Validation : somme des splits = montant total
+        const splitsSum = splits.reduce((sum, s) => sum + s.amount, 0);
+        const diff = Math.abs(splitsSum - parsedAmount);
+        if (diff > 0.01) {
+          toast.error(`Erreur : Répartition (${splitsSum.toFixed(2)}€) ≠ Total (${parsedAmount.toFixed(2)}€)`);
+          return;
         }
 
-        // Mark all transactions as split
+        // Create ONE parent transaction with the first split's envelope
+        const primarySplit = splits[0];
+        const result = await addTransaction(
+          primarySplit.envelopeId,
+          primarySplit.amount,
+          description || 'Dépense',
+          merchant || undefined,
+          undefined,
+          undefined,
+          dateString
+        );
+
+        const parentTxId = result.transactionId;
+
+        // Mark as split
         const supabase = (await import('@/lib/backendClient')).getBackendClient();
-        for (const txId of transactionIds) {
-          await supabase
-            .from('transactions')
-            .update({ is_split: true })
-            .eq('id', txId);
-        }
+        await supabase
+          .from('transactions')
+          .update({ is_split: true })
+          .eq('id', parentTxId);
 
-        // Create split records for EACH transaction so the badge works on any of them
-        for (const txId of transactionIds) {
-          await createTransactionSplits(
-            user.id,
-            household?.id || null,
-            txId,
-            parsedAmount,
-            splits
-          );
-        }
+        // Create split records
+        await createTransactionSplits(
+          user.id,
+          household?.id || null,
+          parentTxId,
+          parsedAmount,
+          splits
+        );
+
+        // Adjust spent: addTransaction added primarySplit.amount to primary envelope
+        // We need to redistribute across all split envelopes
+        await adjustSpentForSplits(
+          user.id,
+          household?.id || null,
+          currentMonthKey,
+          primarySplit.envelopeId,
+          primarySplit.amount,
+          splits
+        );
 
         await refreshData();
-
-        // Upload receipts to first transaction
-        await uploadReceiptsForTransaction(transactionIds[0]);
-        
-        toast.success('Dépense divisée enregistrée !');
+        await uploadReceiptsForTransaction(parentTxId);
+        toast.success('Dépense fractionnée enregistrée !');
       } else {
         const result = await addTransaction(
           selectedEnvelope, 
@@ -594,6 +605,16 @@ export function AddExpenseDrawer({
                   </PopoverContent>
                 </Popover>
               </div>
+
+              {/* Future date warning */}
+              {selectedDate && selectedDate > new Date() && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    ⚠️ La date sélectionnée est dans le futur
+                  </AlertDescription>
+                </Alert>
+              )}
               
               {/* Merchant & Description */}
               <div className="grid grid-cols-2 gap-3">

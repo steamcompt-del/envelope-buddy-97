@@ -578,6 +578,19 @@ export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: st
 }
 
 // Transaction operations
+// Valide qu'une date est cohérente avec le month_key
+function validateTransactionDate(date: string, monthKey: string): boolean {
+  const txDate = new Date(date);
+  if (isNaN(txDate.getTime())) return false;
+  
+  // Vérifier que la date n'est pas dans le futur (tolérance 1 jour)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (txDate > tomorrow) return false;
+  
+  return true;
+}
+
 export async function addTransactionDb(
   ctx: QueryContext,
   monthKey: string,
@@ -589,6 +602,20 @@ export async function addTransactionDb(
   receiptPath?: string,
   date?: string
 ): Promise<string> {
+  // Validation du montant
+  if (amount <= 0) {
+    throw new Error(`Invalid amount: ${amount}. Amount must be positive.`);
+  }
+  if (amount > 1000000) {
+    throw new Error(`Amount too large: ${amount}. Please verify.`);
+  }
+  
+  // Validation de la date
+  const transactionDate = date || new Date().toISOString().split('T')[0];
+  if (!validateTransactionDate(transactionDate, monthKey)) {
+    throw new Error(`Invalid date: ${transactionDate}. Date cannot be in the future.`);
+  }
+
   const { data: transaction, error } = await supabase
     .from('transactions')
     .insert({
@@ -600,36 +627,19 @@ export async function addTransactionDb(
       merchant: merchant || null,
       receipt_url: receiptUrl || null,
       receipt_path: receiptPath || null,
-      date: date || new Date().toISOString().split('T')[0],
+      date: transactionDate,
     })
     .select('id')
     .single();
 
   if (error) throw error;
 
-  // Update spent in allocation
-  const { data: allocation } = await supabase
-    .from('envelope_allocations')
-    .select('id, spent')
-    .eq('envelope_id', envelopeId)
-    .eq('month_key', monthKey)
-    .single();
-
-  if (allocation) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ spent: Number(allocation.spent) + amount })
-      .eq('id', allocation.id);
-  } else {
-    await supabase.from('envelope_allocations').insert({
-      user_id: ctx.userId,
-      household_id: ctx.householdId || null,
-      envelope_id: envelopeId,
-      month_key: monthKey,
-      allocated: 0,
-      spent: amount,
-    });
-  }
+  // Update spent atomically (prevents race conditions)
+  await supabase.rpc('increment_spent_atomic', {
+    p_envelope_id: envelopeId,
+    p_month_key: monthKey,
+    p_amount: amount,
+  });
 
   return transaction.id;
 }
@@ -642,6 +652,15 @@ export async function updateTransactionDb(
   oldAmount: number,
   updates: { amount?: number; description?: string; merchant?: string; envelopeId?: string; receiptUrl?: string; receiptPath?: string; notes?: string; date?: string }
 ): Promise<void> {
+  // Validation du montant
+  if (updates.amount !== undefined) {
+    if (updates.amount <= 0) throw new Error(`Invalid amount: ${updates.amount}`);
+    if (updates.amount > 1000000) throw new Error(`Amount too large: ${updates.amount}`);
+  }
+  if (updates.date && !validateTransactionDate(updates.date, monthKey)) {
+    throw new Error(`Invalid date: ${updates.date}`);
+  }
+
   const newAmount = updates.amount ?? oldAmount;
   const newEnvelopeId = updates.envelopeId ?? oldEnvelopeId;
 
@@ -662,76 +681,109 @@ export async function updateTransactionDb(
   if (oldEnvelopeId === newEnvelopeId) {
     const diff = newAmount - oldAmount;
     if (diff !== 0) {
-      const { data: allocation } = await supabase
-        .from('envelope_allocations')
-        .select('id, spent')
-        .eq('envelope_id', oldEnvelopeId)
-        .eq('month_key', monthKey)
-        .single();
-
-      if (allocation) {
-        await supabase
-          .from('envelope_allocations')
-          .update({ spent: Number(allocation.spent) + diff })
-          .eq('id', allocation.id);
+      if (diff > 0) {
+        await supabase.rpc('increment_spent_atomic', {
+          p_envelope_id: oldEnvelopeId,
+          p_month_key: monthKey,
+          p_amount: diff,
+        });
+      } else {
+        await supabase.rpc('decrement_spent_atomic', {
+          p_envelope_id: oldEnvelopeId,
+          p_month_key: monthKey,
+          p_amount: Math.abs(diff),
+        });
       }
     }
   } else {
-    const { data: oldAlloc } = await supabase
-      .from('envelope_allocations')
-      .select('id, spent')
-      .eq('envelope_id', oldEnvelopeId)
-      .eq('month_key', monthKey)
-      .single();
+    // Decrement old envelope
+    await supabase.rpc('decrement_spent_atomic', {
+      p_envelope_id: oldEnvelopeId,
+      p_month_key: monthKey,
+      p_amount: oldAmount,
+    });
 
-    if (oldAlloc) {
-      await supabase
-        .from('envelope_allocations')
-        .update({ spent: Math.max(0, Number(oldAlloc.spent) - oldAmount) })
-        .eq('id', oldAlloc.id);
-    }
-
-    const { data: newAlloc } = await supabase
-      .from('envelope_allocations')
-      .select('id, spent')
-      .eq('envelope_id', newEnvelopeId)
-      .eq('month_key', monthKey)
-      .single();
-
-    if (newAlloc) {
-      await supabase
-        .from('envelope_allocations')
-        .update({ spent: Number(newAlloc.spent) + newAmount })
-        .eq('id', newAlloc.id);
-    } else {
-      await supabase.from('envelope_allocations').insert({
-        user_id: ctx.userId,
-        household_id: ctx.householdId || null,
-        envelope_id: newEnvelopeId,
-        month_key: monthKey,
-        allocated: 0,
-        spent: newAmount,
-      });
-    }
+    // Increment new envelope
+    await supabase.rpc('increment_spent_atomic', {
+      p_envelope_id: newEnvelopeId,
+      p_month_key: monthKey,
+      p_amount: newAmount,
+    });
   }
 }
 
 export async function deleteTransactionDb(ctx: QueryContext, monthKey: string, transactionId: string, envelopeId: string, amount: number): Promise<void> {
   await supabase.from('transactions').delete().eq('id', transactionId);
 
-  const { data: allocation } = await supabase
-    .from('envelope_allocations')
-    .select('id, spent')
-    .eq('envelope_id', envelopeId)
-    .eq('month_key', monthKey)
+  await supabase.rpc('decrement_spent_atomic', {
+    p_envelope_id: envelopeId,
+    p_month_key: monthKey,
+    p_amount: amount,
+  });
+}
+
+// Supprime une transaction avec nettoyage complet (splits, receipts, storage)
+export async function deleteTransactionCompleteDb(
+  ctx: QueryContext,
+  monthKey: string,
+  transactionId: string
+): Promise<void> {
+  // 1. Récupérer la transaction avec ses splits
+  const { data: transaction } = await supabase
+    .from('transactions')
+    .select('*, transaction_splits(*)')
+    .eq('id', transactionId)
     .single();
 
-  if (allocation) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ spent: Math.max(0, Number(allocation.spent) - amount) })
-      .eq('id', allocation.id);
+  if (!transaction) {
+    throw new Error('Transaction not found');
   }
+
+  // 2. Si transaction splittée, ajuster le spent de TOUS les splits
+  if (transaction.is_split && transaction.transaction_splits?.length > 0) {
+    for (const split of transaction.transaction_splits) {
+      await supabase.rpc('decrement_spent_atomic', {
+        p_envelope_id: split.envelope_id,
+        p_month_key: monthKey,
+        p_amount: split.amount,
+      });
+    }
+
+    // Supprimer les splits
+    await supabase
+      .from('transaction_splits')
+      .delete()
+      .eq('parent_transaction_id', transactionId);
+  } else {
+    // Transaction normale : ajuster le spent de l'enveloppe
+    await supabase.rpc('decrement_spent_atomic', {
+      p_envelope_id: transaction.envelope_id,
+      p_month_key: monthKey,
+      p_amount: transaction.amount,
+    });
+  }
+
+  // 3. Récupérer et supprimer les receipts
+  const { data: receipts } = await supabase
+    .from('receipts')
+    .select('path')
+    .eq('transaction_id', transactionId);
+
+  if (receipts && receipts.length > 0) {
+    const paths = receipts.map(r => r.path).filter(Boolean);
+    if (paths.length > 0) {
+      await supabase.storage.from('receipts').remove(paths);
+    }
+    
+    // receipt_items seront supprimés par CASCADE sur receipt_id
+    await supabase
+      .from('receipts')
+      .delete()
+      .eq('transaction_id', transactionId);
+  }
+
+  // 4. Supprimer la transaction
+  await supabase.from('transactions').delete().eq('id', transactionId);
 }
 
 // Start new month - ensures allocations exist for the new month
