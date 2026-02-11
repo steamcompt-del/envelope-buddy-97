@@ -9,7 +9,6 @@ export interface SavingsGoal {
   envelope_id: string;
   target_amount: number;
   target_date: string | null;
-  current_amount: number;
   name: string | null;
   priority: SavingsPriority;
   auto_contribute: boolean;
@@ -43,7 +42,6 @@ export async function fetchSavingsGoals(ctx: QueryContext): Promise<SavingsGoal[
     envelope_id: g.envelope_id,
     target_amount: Number(g.target_amount),
     target_date: g.target_date,
-    current_amount: Number(g.current_amount),
     name: g.name,
     priority: g.priority || 'medium',
     auto_contribute: g.auto_contribute || false,
@@ -75,7 +73,6 @@ export async function fetchSavingsGoalByEnvelope(ctx: QueryContext, envelopeId: 
     envelope_id: data.envelope_id,
     target_amount: Number(data.target_amount),
     target_date: data.target_date,
-    current_amount: Number(data.current_amount),
     name: data.name,
     priority: data.priority || 'medium',
     auto_contribute: data.auto_contribute || false,
@@ -110,7 +107,6 @@ export async function createSavingsGoal(
       envelope_id: params.envelopeId,
       target_amount: params.targetAmount,
       target_date: params.targetDate || null,
-      current_amount: 0,
       name: params.name || null,
       priority: params.priority || 'medium',
       auto_contribute: params.auto_contribute || false,
@@ -130,7 +126,6 @@ export async function updateSavingsGoal(
   updates: {
     target_amount?: number;
     target_date?: string | null;
-    current_amount?: number;
     name?: string | null;
     priority?: SavingsPriority;
     auto_contribute?: boolean;
@@ -152,23 +147,6 @@ export async function deleteSavingsGoal(goalId: string): Promise<void> {
   const { error } = await supabase
     .from('savings_goals')
     .delete()
-    .eq('id', goalId);
-
-  if (error) throw error;
-}
-
-export async function addToSavingsGoal(goalId: string, amount: number): Promise<void> {
-  const { data: current, error: fetchError } = await supabase
-    .from('savings_goals')
-    .select('current_amount')
-    .eq('id', goalId)
-    .single();
-
-  if (fetchError) throw fetchError;
-
-  const { error } = await supabase
-    .from('savings_goals')
-    .update({ current_amount: Number(current.current_amount) + amount })
     .eq('id', goalId);
 
   if (error) throw error;

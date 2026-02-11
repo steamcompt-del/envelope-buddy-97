@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { format, parseISO, addMonths } from 'date-fns';
+import { format, parseISO, addMonths, differenceInMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { CalendarIcon, Target, Trash2, HelpCircle, RefreshCw } from 'lucide-react';
 import { SavingsGoal, SavingsPriority, CreateSavingsGoalParams } from '@/lib/savingsGoalsDb';
@@ -100,8 +101,8 @@ export function SavingsGoalDialog({
   // Projection calculation
   const projection = useMemo(() => {
     if (!parsedAmount || parsedAmount <= 0 || !autoContribute) return null;
-    const currentSaved = existingGoal?.current_amount || 0;
-    const remaining = parsedAmount - currentSaved;
+    // Use envelope.allocated if available via existingGoal context, otherwise 0
+    const remaining = parsedAmount;
     if (remaining <= 0) return null;
 
     let monthlyAmount = 0;
@@ -114,10 +115,40 @@ export function SavingsGoalDialog({
     const monthsNeeded = Math.ceil(remaining / monthlyAmount);
     const estimatedDate = addMonths(new Date(), monthsNeeded);
     return { monthsNeeded, estimatedDate };
-  }, [parsedAmount, autoContribute, contributionMode, parsedContribution, existingGoal?.current_amount]);
+  }, [parsedAmount, autoContribute, contributionMode, parsedContribution]);
+
+  // Target date validation
+  const dateValidation = useMemo(() => {
+    if (!targetDate) return { valid: true, message: null };
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    if (targetDate < now) {
+      return { valid: false, message: '⚠️ La date cible est dans le passé' };
+    }
+
+    if (autoContribute && contributionMode === 'fixed' && parsedContribution > 0 && parsedAmount > 0) {
+      const monthsAvailable = differenceInMonths(targetDate, now) || 1;
+      const monthsNeeded = Math.ceil(parsedAmount / parsedContribution);
+      
+      if (monthsNeeded > monthsAvailable) {
+        return {
+          valid: false,
+          message: `⚠️ Il faut ${monthsNeeded} mois mais il n'en reste que ${monthsAvailable}. Augmentez la contribution à ${Math.ceil(parsedAmount / monthsAvailable)}€/mois ou repoussez la date.`
+        };
+      }
+    }
+
+    return { valid: true, message: null };
+  }, [targetDate, autoContribute, contributionMode, parsedContribution, parsedAmount]);
 
   const handleSave = async () => {
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+    if (!dateValidation.valid) {
+      toast.error('Corrigez les erreurs avant de sauvegarder');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -251,6 +282,17 @@ export function SavingsGoalDialog({
               </Button>
             )}
           </div>
+
+          {dateValidation.message && (
+            <p className={cn(
+              "text-xs px-3 py-2 rounded-lg",
+              dateValidation.valid 
+                ? "bg-primary/10 text-primary" 
+                : "bg-destructive/10 text-destructive"
+            )}>
+              {dateValidation.message}
+            </p>
+          )}
 
           {/* Priority */}
           <div className="space-y-3">
