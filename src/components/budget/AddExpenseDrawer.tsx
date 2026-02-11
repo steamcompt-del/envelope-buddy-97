@@ -79,7 +79,7 @@ export function AddExpenseDrawer({
   const { household } = useHousehold();
   const { categorizeExpense, isLoading: isCategorizingAI } = useAI();
   const envelopeNames = envelopes.map(e => e.name);
-  const { scanReceipt, isScanning } = useReceiptScanner(envelopeNames);
+  const { scanReceipt, isScanning, progress: scanProgress } = useReceiptScanner(envelopeNames);
   
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
@@ -450,6 +450,7 @@ export function AddExpenseDrawer({
                 onRemoveReceipt={handleRemoveReceipt}
                 onScanReceipt={handleScanReceipt}
                 isScanning={isScanning}
+                scanProgress={scanProgress}
                 disabled={isUploading}
               />
             </div>
