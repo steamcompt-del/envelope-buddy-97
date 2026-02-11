@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BudgetHeader } from '@/components/budget/BudgetHeader';
@@ -14,6 +14,7 @@ import { SettingsSheet } from '@/components/budget/SettingsSheet';
 import { IncomeListDialog } from '@/components/budget/IncomeListDialog';
 import { BudgetSuggestionsDialog } from '@/components/budget/BudgetSuggestionsDialog';
 import { FabButton } from '@/components/budget/FabButton';
+import { ScanDrawer } from '@/components/budget/ScanDrawer';
 import { HouseholdSetupDialog } from '@/components/budget/HouseholdSetupDialog';
 import { RecurringListSheet } from '@/components/budget/RecurringListSheet';
 import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
@@ -52,14 +53,12 @@ export default function Index() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [recurringOpen, setRecurringOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  
+  const [scanDrawerOpen, setScanDrawerOpen] = useState(false);
   
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   const [scannedExpenseData, setScannedExpenseData] = useState<ScannedExpenseData | null>(null);
   
-  // File input for FAB scan
-  const scanInputRef = useRef<HTMLInputElement>(null);
-  const { scanReceipt, isScanning } = useReceiptScanner();
+  const { isScanning } = useReceiptScanner();
   const savingsGoals = useSavingsGoals();
   useSavingsNotifications();
   const { dueCount, applyAllDue } = useRecurring();
@@ -88,43 +87,6 @@ export default function Index() {
     }
   };
   
-  const handleFabScan = () => {
-    scanInputRef.current?.click();
-  };
-  
-  const handleFabScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Use the real receipt scanner (Gemini AI)
-    const scanResult = await scanReceipt(file);
-    
-    if (scanResult) {
-      const { data: scannedData } = scanResult;
-      // Find matching envelope with fuzzy matching
-      const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const catNorm = normalize(scannedData.category);
-      const matchingEnvelope = envelopes.find(
-        env => normalize(env.name) === catNorm
-      ) || envelopes.find(
-        env => normalize(env.name).includes(catNorm) || catNorm.includes(normalize(env.name))
-      );
-      
-      // Set the scanned data and open drawer
-      setScannedExpenseData({
-        amount: scannedData.amount,
-        description: scannedData.description,
-        merchant: scannedData.merchant,
-        envelopeId: matchingEnvelope?.id,
-        receiptFile: file,
-      });
-      setExpenseOpen(true);
-    }
-    
-    if (scanInputRef.current) {
-      scanInputRef.current.value = '';
-    }
-  };
   
   const handleExpenseDrawerClose = (open: boolean) => {
     setExpenseOpen(open);
@@ -187,20 +149,21 @@ export default function Index() {
         mainContent
       )}
       
-      {/* FAB */}
+      {/* FAB Speed Dial */}
       <FabButton
         onAddExpense={() => setExpenseOpen(true)}
-        onScanReceipt={handleFabScan}
+        onScanReceipt={() => setScanDrawerOpen(true)}
+        onAddIncome={() => setIncomeOpen(true)}
       />
       
-      {/* Hidden file input for FAB scan */}
-      <input
-        ref={scanInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFabScanFile}
-        className="hidden"
+      {/* Scan Drawer (direct access from FAB) */}
+      <ScanDrawer
+        open={scanDrawerOpen}
+        onOpenChange={setScanDrawerOpen}
+        onScanComplete={(data) => {
+          setScannedExpenseData(data);
+          setExpenseOpen(true);
+        }}
       />
       
       {/* Dialogs */}
