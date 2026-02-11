@@ -83,13 +83,13 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
           </div>
 
           {/* Sub-stats row */}
-          <div className="flex items-center justify-center gap-4 sm:gap-6 mt-1 text-xs sm:text-sm text-muted-foreground">
-            <button onClick={onOpenIncomeHistory} className="hover:text-foreground transition-colors">
+          <div className="flex items-center justify-center gap-3 sm:gap-6 mt-1 text-[11px] sm:text-sm text-muted-foreground flex-wrap">
+            <button onClick={onOpenIncomeHistory} className="hover:text-foreground transition-colors whitespace-nowrap">
               <span className="font-semibold text-foreground">{fmt(totalIncome)}</span>{' '}
               revenus
             </button>
-            <span className="text-border">|</span>
-            <Link to="/expenses" className="hover:text-foreground transition-colors">
+            <span className="text-border hidden xs:inline">|</span>
+            <Link to="/expenses" className="hover:text-foreground transition-colors whitespace-nowrap">
               <span className={cn('font-semibold', barColor)}>{fmt(totalSpent)}</span>{' '}
               dépensé ({spentPercent}%)
             </Link>
