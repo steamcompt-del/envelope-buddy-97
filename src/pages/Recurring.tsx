@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function RecurringPage() {
-  const { recurring, dueCount, loading, applyNow, remove, applyAllDue } = useRecurring();
+  const { recurring, dueCount, loading, applyNow, remove, applyAllDue, refresh } = useRecurring();
   const { envelopes } = useBudget();
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RecurringTransaction | null>(null);
@@ -270,6 +270,7 @@ export default function RecurringPage() {
         open={formOpen}
         onOpenChange={handleFormClose}
         editingItem={editingItem}
+        onSaved={refresh}
       />
     </div>
   );

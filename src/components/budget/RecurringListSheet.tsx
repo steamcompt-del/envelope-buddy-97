@@ -43,7 +43,7 @@ interface RecurringListSheetProps {
 
 export function RecurringListSheet({ open, onOpenChange }: RecurringListSheetProps) {
   const { envelopes } = useBudget();
-  const { recurring, dueCount, loading, remove, update, applyNow, applyAllDue } = useRecurring();
+  const { recurring, dueCount, loading, remove, update, applyNow, applyAllDue, refresh } = useRecurring();
   
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RecurringTransaction | null>(null);
@@ -273,6 +273,7 @@ export function RecurringListSheet({ open, onOpenChange }: RecurringListSheetPro
         open={formOpen}
         onOpenChange={handleFormClose}
         editingItem={editingItem}
+        onSaved={refresh}
       />
 
       {/* Delete Confirmation */}

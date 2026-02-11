@@ -33,9 +33,10 @@ interface RecurringFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingItem?: RecurringTransaction | null;
+  onSaved?: () => void;
 }
 
-export function RecurringFormDialog({ open, onOpenChange, editingItem }: RecurringFormDialogProps) {
+export function RecurringFormDialog({ open, onOpenChange, editingItem, onSaved }: RecurringFormDialogProps) {
   const { envelopes } = useBudget();
   const { create, update, remove } = useRecurring();
   
@@ -56,6 +57,7 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
     setIsDeleting(true);
     try {
       await remove(editingItem.id);
+      onSaved?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error deleting recurring transaction:', error);
@@ -114,6 +116,7 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
           nextDueDate: nextDueDate.toISOString().split('T')[0],
         });
       }
+      onSaved?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving recurring transaction:', error);
