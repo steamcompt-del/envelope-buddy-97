@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import {
   Dialog,
@@ -38,6 +38,17 @@ export function TransferFundsDialog({
   const [fromId, setFromId] = useState(fromEnvelopeId || '');
   const [toId, setToId] = useState('');
   const [amount, setAmount] = useState('');
+
+  // Sync fromEnvelopeId when dialog opens via quick action
+  useEffect(() => {
+    if (open && fromEnvelopeId) {
+      setFromId(fromEnvelopeId);
+      setToId('');
+    }
+    if (!open) {
+      setAmount('');
+    }
+  }, [open, fromEnvelopeId]);
   
   const fromEnvelope = envelopes.find(e => e.id === fromId);
   const toEnvelope = envelopes.find(e => e.id === toId);
