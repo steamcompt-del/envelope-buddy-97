@@ -131,7 +131,11 @@ export function EnvelopeDetailsDialog({
     if (!envelope) return [];
     return transactions
       .filter(t => t.envelopeId === envelopeId || splitParentIds.has(t.id))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
   }, [transactions, envelopeId, envelope, splitParentIds]);
   
   const transactionIds = useMemo(() => envelopeTransactions.map(t => t.id), [envelopeTransactions]);
