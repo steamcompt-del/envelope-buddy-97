@@ -2,7 +2,7 @@ import { Transaction } from '@/contexts/BudgetContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SplitBadge } from '@/components/budget/SplitBadge';
 import { cn } from '@/lib/utils';
-import { ImageIcon, Wallet, ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, Coffee, Banknote } from 'lucide-react';
+import { ImageIcon, Wallet, ShoppingCart, Utensils, Car, Gamepad2, Heart, ShoppingBag, Receipt, PiggyBank, Home, Plane, Gift, Music, Wifi, Smartphone, Coffee } from 'lucide-react';
 import { ComponentType } from 'react';
 
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
@@ -45,9 +45,8 @@ export function TransactionRow({ transaction: t, hasReceipts, bulkMode, selected
     <button
       onClick={() => bulkMode ? onSelect(t.id) : onEdit(t)}
       className={cn(
-        "w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-muted/50 text-left",
-        "shadow-sm border-transparent",
-        t.isWithdrawal ? "bg-primary/5" : "bg-card",
+        "w-full flex items-center gap-3 p-3 rounded-xl border transition-all hover:bg-muted/50 text-left",
+        t.isWithdrawal ? "bg-primary/5 border-primary/20" : "bg-card",
         selected && "ring-2 ring-primary/50 bg-primary/5"
       )}
     >
@@ -87,14 +86,9 @@ export function TransactionRow({ transaction: t, hasReceipts, bulkMode, selected
         </div>
       )}
 
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {t.isWithdrawal && (
-          <Banknote className="w-4 h-4 text-primary animate-bounce" />
-        )}
-        <p className={cn("font-semibold", t.isWithdrawal ? "text-primary" : "text-destructive")}>
-          {t.isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-        </p>
-      </div>
+      <p className="font-semibold flex-shrink-0 text-destructive">
+        {t.isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+      </p>
     </button>
   );
 }
