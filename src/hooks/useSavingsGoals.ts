@@ -10,7 +10,6 @@ import {
   createSavingsGoal,
   updateSavingsGoal,
   deleteSavingsGoal,
-  addToSavingsGoal,
 } from '@/lib/savingsGoalsDb';
 
 export function useSavingsGoals() {
@@ -65,7 +64,6 @@ export function useSavingsGoals() {
     updates: {
       target_amount?: number;
       target_date?: string | null;
-      current_amount?: number;
       name?: string | null;
       priority?: SavingsPriority;
       auto_contribute?: boolean;
@@ -84,11 +82,6 @@ export function useSavingsGoals() {
     await loadGoals();
   }, [loadGoals]);
 
-  const addAmount = useCallback(async (goalId: string, amount: number) => {
-    await addToSavingsGoal(goalId, amount);
-    await loadGoals();
-  }, [loadGoals]);
-
   return {
     goals,
     loading,
@@ -96,7 +89,6 @@ export function useSavingsGoals() {
     createGoal,
     updateGoal,
     deleteGoal,
-    addAmount,
     refresh: loadGoals,
   };
 }

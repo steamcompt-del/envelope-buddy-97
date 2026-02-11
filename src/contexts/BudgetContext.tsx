@@ -415,9 +415,19 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const ctx = getQueryContext();
     if (!ctx) return;
     const envelope = currentMonth.envelopes.find(e => e.id === id);
-    await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0);
-    await logActivity(ctx, 'envelope_deleted', 'envelope', id, { name: envelope?.name });
-    await loadMonthData();
+    try {
+      await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0);
+      await logActivity(ctx, 'envelope_deleted', 'envelope', id, { name: envelope?.name });
+      await loadMonthData();
+      toast.success('Enveloppe supprimée');
+    } catch (error: any) {
+      console.error('Error deleting envelope:', error);
+      if (error.message && error.message.includes('objectif')) {
+        toast.error(error.message, { duration: 8000 });
+      } else {
+        toast.error('Erreur lors de la suppression');
+      }
+    }
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
   const reorderEnvelopes = useCallback(async (orderedIds: string[]) => {

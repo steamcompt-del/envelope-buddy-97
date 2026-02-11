@@ -428,6 +428,20 @@ export async function updateEnvelopeDb(envelopeId: string, updates: { name?: str
 }
 
 export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, allocated: number): Promise<void> {
+  // Check if there's a savings goal with funds
+  const { data: savingsGoal } = await supabase
+    .from('savings_goals')
+    .select('id, name, target_amount')
+    .eq('envelope_id', envelopeId)
+    .maybeSingle();
+
+  if (savingsGoal && allocated > 0) {
+    const goalName = savingsGoal.name || 'cet objectif';
+    throw new Error(
+      `Impossible de supprimer : l'objectif "${goalName}" contient ${allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} d'épargne. Transférez d'abord les fonds ou supprimez l'objectif.`
+    );
+  }
+
   // Refund allocated amount
   if (allocated > 0) {
     let budgetQuery = supabase

@@ -531,7 +531,6 @@ export type Database = {
           celebration_threshold: number[] | null
           contribution_percentage: number | null
           created_at: string
-          current_amount: number
           envelope_id: string
           household_id: string | null
           id: string
@@ -549,7 +548,6 @@ export type Database = {
           celebration_threshold?: number[] | null
           contribution_percentage?: number | null
           created_at?: string
-          current_amount?: number
           envelope_id: string
           household_id?: string | null
           id?: string
@@ -567,7 +565,6 @@ export type Database = {
           celebration_threshold?: number[] | null
           contribution_percentage?: number | null
           created_at?: string
-          current_amount?: number
           envelope_id?: string
           household_id?: string | null
           id?: string
