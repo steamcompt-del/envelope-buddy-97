@@ -153,32 +153,28 @@ export default function Expenses() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Minimal header */}
       <header className="sticky top-0 z-40 glass-card border-b">
-        <div className="container py-3 sm:py-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <NavLink to="/"><Button variant="ghost" size="icon" className="rounded-xl h-8 w-8"><ArrowLeft className="h-4 w-4" /></Button></NavLink>
-              <HouseholdSwitcher />
-            </div>
-            <MonthSelector />
+        <div className="container py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <NavLink to="/"><Button variant="ghost" size="icon" className="rounded-xl h-8 w-8"><ArrowLeft className="h-4 w-4" /></Button></NavLink>
+            <HouseholdSwitcher />
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold">Dépenses</h1>
-              <p className="text-sm text-muted-foreground">
-                {filteredTransactions.length} dépense{filteredTransactions.length !== 1 ? 's' : ''} trouvée{filteredTransactions.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Total</p>
-              <p className="text-xl sm:text-2xl font-bold text-destructive">
-                -{totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-              </p>
-            </div>
-          </div>
+          <MonthSelector />
         </div>
       </header>
+
+      {/* Summary card */}
+      <div className="container pt-4 pb-2">
+        <div className="rounded-2xl p-5 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/10">
+          <p className="text-xs text-muted-foreground mb-1">
+            {filteredTransactions.length} dépense{filteredTransactions.length !== 1 ? 's' : ''}
+          </p>
+          <p className="text-4xl font-black text-foreground tracking-tight leading-none">
+            -{totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}
+          </p>
+        </div>
+      </div>
 
       {/* Expenses Chart */}
       {filteredTransactions.length > 0 && (
