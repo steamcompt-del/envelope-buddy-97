@@ -27,7 +27,7 @@ import { RecurringTransaction, RecurringFrequency, frequencyLabels } from '@/lib
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Trash2 } from 'lucide-react';
+import { CalendarIcon, Trash2, Clock } from 'lucide-react';
 
 interface RecurringFormDialogProps {
   open: boolean;
@@ -240,6 +240,17 @@ export function RecurringFormDialog({ open, onOpenChange, editingItem }: Recurri
                 />
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Auto-apply info */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border">
+            <Clock className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Application automatique</p>
+              <p className="text-xs text-muted-foreground">
+                La dépense sera ajoutée automatiquement à la date prévue, chaque jour à minuit.
+              </p>
+            </div>
           </div>
 
           {/* Actions */}

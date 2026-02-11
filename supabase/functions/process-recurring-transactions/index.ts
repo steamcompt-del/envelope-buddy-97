@@ -91,6 +91,7 @@ Deno.serve(async (req: Request) => {
             description: recurring.description,
             merchant: recurring.merchant,
             date: today,
+            recurring_transaction_id: recurring.id,
           })
           .select("id")
           .single();

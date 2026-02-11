@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Repeat, Plus, Calendar, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Repeat, Plus, Calendar, AlertCircle, CheckCircle2, Loader2, Clock } from 'lucide-react';
 import { useRecurring } from '@/hooks/useRecurring';
 import { useBudget } from '@/contexts/BudgetContext';
 import { formatCurrency } from '@/lib/utils';
@@ -88,7 +88,7 @@ export default function RecurringPage() {
               Dépenses récurrentes
             </h1>
             <p className="text-sm text-muted-foreground">
-              ~{formatCurrency(monthlyTotal)}/mois
+              ~{formatCurrency(monthlyTotal)}/mois · <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />Auto</span>
             </p>
           </div>
           <Button onClick={() => setFormOpen(true)} size="sm" className="rounded-xl gap-1">
@@ -198,7 +198,8 @@ export default function RecurringPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold">{formatCurrency(item.amount)}</span>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Clock className="w-3 h-3" />
                         {item.frequency === 'weekly' && 'Hebdo'}
                         {item.frequency === 'biweekly' && 'Bi-hebdo'}
                         {item.frequency === 'monthly' && 'Mensuel'}
