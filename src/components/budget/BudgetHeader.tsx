@@ -5,7 +5,7 @@ import { Plus, Settings, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MonthSelector } from './MonthSelector';
 import { HouseholdSwitcher } from './HouseholdSwitcher';
-import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+import { RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { useMemo } from 'react';
 
 interface BudgetHeaderProps {
@@ -48,46 +48,48 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
 
         {/* Radial chart + center label */}
         <div className="flex flex-col items-center -mt-1 mb-1">
-          <div className="relative w-full max-w-[200px] sm:max-w-[240px] aspect-[2/1]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                cx="50%"
-                cy="100%"
-                innerRadius="65%"
-                outerRadius="100%"
-                startAngle={180}
-                endAngle={0}
-                barSize={12}
-                data={chartData}
-              >
-                <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                <RadialBar
-                  dataKey="value"
-                  cornerRadius={10}
-                  background={{ fill: 'hsl(var(--muted))' }}
-                  angleAxisId={0}
-                />
-              </RadialBarChart>
-            </ResponsiveContainer>
+          <div className="relative w-[180px] h-[110px] sm:w-[220px] sm:h-[130px]">
+            <RadialBarChart
+              width={220}
+              height={130}
+              cx="50%"
+              cy="100%"
+              innerRadius="70%"
+              outerRadius="100%"
+              startAngle={180}
+              endAngle={0}
+              barSize={14}
+              data={chartData}
+              className="w-full h-full"
+            >
+              <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+              <RadialBar
+                dataKey="value"
+                cornerRadius={10}
+                background={{ fill: 'hsl(var(--muted))' }}
+                angleAxisId={0}
+              />
+            </RadialBarChart>
 
             {/* Center overlay */}
-            <div className="absolute inset-0 flex flex-col items-center justify-end pb-0.5 pointer-events-none">
-              <span className={cn('text-xl sm:text-3xl font-bold tracking-tight leading-none', barColor)}>
+            <div className="absolute inset-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
+              <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight leading-none', barColor)}>
                 {fmt(Math.max(remaining, 0))}
               </span>
-              <span className="text-[9px] sm:text-xs text-muted-foreground mt-0.5">
+              <span className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
                 reste à dépenser
               </span>
             </div>
           </div>
 
           {/* Sub-stats row */}
-          <div className="flex flex-col xs:flex-row items-center justify-center gap-0.5 xs:gap-3 sm:gap-6 mt-2 text-[11px] sm:text-sm text-muted-foreground">
-            <button onClick={onOpenIncomeHistory} className="hover:text-foreground transition-colors whitespace-nowrap">
+          <div className="flex items-center justify-center gap-4 sm:gap-6 mt-1 text-xs sm:text-sm text-muted-foreground">
+            <button onClick={onOpenIncomeHistory} className="hover:text-foreground transition-colors">
               <span className="font-semibold text-foreground">{fmt(totalIncome)}</span>{' '}
               revenus
             </button>
-            <Link to="/expenses" className="hover:text-foreground transition-colors whitespace-nowrap">
+            <span className="text-border">|</span>
+            <Link to="/expenses" className="hover:text-foreground transition-colors">
               <span className={cn('font-semibold', barColor)}>{fmt(totalSpent)}</span>{' '}
               dépensé ({spentPercent}%)
             </Link>
