@@ -112,6 +112,13 @@ export function AddExpenseDrawer({
   const splitRemaining = parsedAmount - splitTotal;
   const splitValid = Math.abs(Math.round(splitRemaining * 100)) === 0 && splitLines.every(l => l.envelopeId && (parseFloat(l.amount.replace(',', '.')) || 0) > 0);
   
+  // Sync preselectedEnvelopeId when drawer opens with a new envelope
+  useEffect(() => {
+    if (open && preselectedEnvelopeId) {
+      setSelectedEnvelope(preselectedEnvelopeId);
+    }
+  }, [open, preselectedEnvelopeId]);
+
   // Pre-fill form with scanned data when provided
   useEffect(() => {
     if (scannedData && open) {

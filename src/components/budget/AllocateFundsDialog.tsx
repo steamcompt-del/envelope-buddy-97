@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBudget } from '@/contexts/BudgetContext';
 import {
   Dialog,
@@ -37,6 +37,16 @@ export function AllocateFundsDialog({
   const { toBeBudgeted, envelopes, allocateToEnvelope } = useBudget();
   const [selectedEnvelope, setSelectedEnvelope] = useState(preselectedEnvelopeId || '');
   const [amount, setAmount] = useState('');
+
+  // Sync preselectedEnvelopeId when dialog opens with a new envelope
+  useEffect(() => {
+    if (open && preselectedEnvelopeId) {
+      setSelectedEnvelope(preselectedEnvelopeId);
+    }
+    if (!open) {
+      setAmount('');
+    }
+  }, [open, preselectedEnvelopeId]);
   
   const parsedAmount = useMemo(() => parseFloat(amount.replace(',', '.')) || 0, [amount]);
   const exceeds = Math.round(parsedAmount * 100) > Math.round(toBeBudgeted * 100);
