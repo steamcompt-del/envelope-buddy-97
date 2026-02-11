@@ -106,7 +106,7 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
-  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<{ count: number; total: number }>;
+  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> }>;
   startNewMonth: () => void;
   
   // Income actions
@@ -605,7 +605,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, [getQueryContext, currentMonthKey]);
 
   // Copy envelopes to any target month
-  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string): Promise<{ count: number; total: number }> => {
+  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> }> => {
     const ctx = getQueryContext();
     if (!ctx) return { count: 0, total: 0 };
     const result = await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey);

@@ -1076,7 +1076,7 @@ function applyRolloverStrategy(
 
 // Copy envelopes to a specific target month
 // ONLY envelopes with rollover=true are copied
-export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<{ count: number; total: number }> {
+export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> }> {
   // 1) Ensure target monthly budget row exists
   let existsQuery = supabase
     .from('monthly_budgets')
@@ -1176,13 +1176,25 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
 
   let totalCarryOver = 0;
   let rolloverCount = 0;
+  const overdrafts: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> = [];
 
   for (const envelope of envelopes) {
     const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
     const targetAmount = goalsMap.get(envelope.id) || 0;
     
     // Calculate net balance to carry over using strategy
-    const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
+    const rawBalance = sourceData.allocated - sourceData.spent;
+    
+    // Track overdrafts
+    if (rawBalance < 0) {
+      overdrafts.push({
+        envelopeId: envelope.id,
+        envelopeName: envelope.name || 'Inconnu',
+        overdraftAmount: Math.abs(rawBalance),
+      });
+    }
+    
+    const netBalance = Math.max(0, rawBalance);
     const strategy = (envelope as any).rollover_strategy || 'full';
     const percentage = (envelope as any).rollover_percentage;
     const maxAmount = (envelope as any).max_rollover_amount != null ? Number((envelope as any).max_rollover_amount) : undefined;
@@ -1281,7 +1293,7 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     await supabase.from('rollover_history').insert(rolloverHistoryEntries);
   }
 
-  return { count: rolloverCount, total: totalCarryOver };
+  return { count: rolloverCount, total: totalCarryOver, overdrafts: overdrafts.length > 0 ? overdrafts : undefined };
 }
 
 // Helper

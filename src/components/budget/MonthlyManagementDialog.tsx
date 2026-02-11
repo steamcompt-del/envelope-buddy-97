@@ -160,6 +160,18 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
           ? `${result.count} enveloppe(s) reportée(s) pour un total de ${formatCurrencyVal(result.total)}`
           : 'Aucun report de solde'
       });
+      
+      // Show overdraft warnings
+      if (result.overdrafts && result.overdrafts.length > 0) {
+        const overdraftList = result.overdrafts
+          .map(o => `${o.envelopeName}: -${o.overdraftAmount.toFixed(2)}€`)
+          .join('\n');
+        toast.warning(
+          `⚠️ ${result.overdrafts.length} découvert(s) détecté(s)`,
+          { description: overdraftList, duration: 10000 }
+        );
+      }
+      
       setCurrentMonth(targetMonthKey);
       onOpenChange(false);
     } catch (error) {
