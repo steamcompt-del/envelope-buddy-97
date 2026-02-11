@@ -20,6 +20,7 @@ import {
   addTransactionDb,
   updateTransactionDb,
   deleteTransactionDb,
+  deleteTransactionCompleteDb,
   startNewMonthDb,
   copyEnvelopesToMonthDb,
   deleteMonthDataDb,
@@ -572,7 +573,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     if (!ctx) return;
     const transaction = currentMonth.transactions.find(t => t.id === id);
     if (!transaction) return;
-    await deleteTransactionDb(ctx, currentMonthKey, id, transaction.envelopeId, transaction.amount);
+    
+    // Use complete deletion (handles splits, receipts, storage cleanup)
+    await deleteTransactionCompleteDb(ctx, currentMonthKey, id);
+    
     await logActivity(ctx, 'expense_deleted', 'transaction', id, { 
       amount: transaction.amount, 
       description: transaction.description 
