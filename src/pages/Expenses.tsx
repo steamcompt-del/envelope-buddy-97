@@ -4,10 +4,11 @@ import { useTransactionsReceipts } from '@/hooks/useReceipts';
 import { useExpenseFilters } from '@/hooks/useExpenseFilters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ArrowLeft, Search, Loader2, Receipt, List, Clock, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Search, Loader2, Receipt, List, Clock, CheckSquare, PieChart as PieChartIcon, ChevronDown } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { ReceiptLightbox, ReceiptImage } from '@/components/budget/ReceiptLightbox';
 import { HouseholdSwitcher } from '@/components/budget/HouseholdSwitcher';
@@ -16,6 +17,7 @@ import { EditTransactionSheet } from '@/components/budget/EditTransactionSheet';
 import { ExpenseFiltersBar } from '@/components/expenses/ExpenseFiltersBar';
 import { BulkActionsBar } from '@/components/expenses/BulkActionsBar';
 import { TransactionRow, TransactionWithEnvelope } from '@/components/expenses/TransactionRow';
+import { ExpensesChart } from '@/components/expenses/ExpensesChart';
 
 export default function Expenses() {
   const { envelopes, transactions, loading } = useBudget();
@@ -177,6 +179,28 @@ export default function Expenses() {
           </div>
         </div>
       </header>
+
+      {/* Expenses Chart */}
+      {filteredTransactions.length > 0 && (
+        <div className="container pt-3">
+          <Collapsible defaultOpen className="space-y-2">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full justify-between rounded-xl">
+                <div className="flex items-center gap-2">
+                  <PieChartIcon className="h-4 w-4 text-primary" />
+                  <span>Répartition par enveloppe</span>
+                </div>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="rounded-xl border bg-card p-4">
+                <ExpensesChart filteredTransactions={filteredTransactions} envelopes={envelopes} />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      )}
 
       {/* Search + controls */}
       <div className="container py-3 space-y-3">
