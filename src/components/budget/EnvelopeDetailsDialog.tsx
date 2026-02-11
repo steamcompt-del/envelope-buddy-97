@@ -108,19 +108,22 @@ export function EnvelopeDetailsDialog({
   // ALL HOOKS MUST BE BEFORE EARLY RETURN
   const envelope = envelopes.find(e => e.id === envelopeId);
   
-  // Fetch split transaction IDs that target this envelope
+  // Fetch split transaction IDs and their amounts for this envelope
   const [splitParentIds, setSplitParentIds] = useState<Set<string>>(new Set());
+  const [splitAmounts, setSplitAmounts] = useState<Map<string, number>>(new Map());
   useEffect(() => {
-    if (!envelopeId) { setSplitParentIds(new Set()); return; }
-    const supabase = (async () => {
+    if (!envelopeId) { setSplitParentIds(new Set()); setSplitAmounts(new Map()); return; }
+    (async () => {
       const { getBackendClient } = await import('@/lib/backendClient');
       const client = getBackendClient();
       const { data } = await client
         .from('transaction_splits')
-        .select('parent_transaction_id')
+        .select('parent_transaction_id, amount')
         .eq('envelope_id', envelopeId);
       const ids = new Set((data || []).map(r => r.parent_transaction_id));
+      const amounts = new Map((data || []).map(r => [r.parent_transaction_id, r.amount]));
       setSplitParentIds(ids);
+      setSplitAmounts(amounts);
     })();
   }, [envelopeId, transactions]);
 
@@ -769,7 +772,7 @@ export function EnvelopeDetailsDialog({
                             </div>
                           </div>
                           <span className="font-medium text-destructive">
-                            -{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                            -{(splitAmounts.get(t.id) ?? t.amount).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                           </span>
                         </div>
                       </SwipeableRow>
