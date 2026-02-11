@@ -77,11 +77,32 @@ export function EditTransactionSheet({
   } = useReceipts(transaction?.id);
   
   const parsedAmount = useMemo(() => parseFloat(editAmount.replace(',', '.')) || 0, [editAmount]);
+  const previousAmountRef = useRef<number>(0);
   
+  // Auto-adjust splits proportionally when total amount changes
+  useEffect(() => {
+    const prevAmount = previousAmountRef.current;
+    if (
+      transaction?.isSplit &&
+      splits.length > 0 &&
+      parsedAmount > 0 &&
+      prevAmount > 0 &&
+      Math.abs(parsedAmount - prevAmount) > 0.001
+    ) {
+      const ratio = parsedAmount / prevAmount;
+      setSplits(prev => prev.map(s => ({
+        ...s,
+        amount: Math.round(s.amount * ratio * 100) / 100,
+      })));
+    }
+    previousAmountRef.current = parsedAmount;
+  }, [parsedAmount]);
+
   // Initialize form when transaction changes
   useEffect(() => {
     if (transaction && open) {
       setEditAmount(transaction.amount.toString().replace('.', ','));
+      previousAmountRef.current = transaction.amount;
       setEditMerchant(transaction.merchant || '');
       setEditDescription(transaction.description);
       setEditNotes(transaction.notes || '');
