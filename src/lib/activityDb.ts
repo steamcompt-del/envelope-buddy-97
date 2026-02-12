@@ -20,6 +20,8 @@ export type ActivityAction =
   | 'member_joined'
   | 'member_left';
 
+export type ActivityCategory = 'income' | 'expense' | 'envelope' | 'allocation' | 'recurring' | 'member';
+
 export interface ActivityLogEntry {
   id: string;
   userId: string;
@@ -28,7 +30,6 @@ export interface ActivityLogEntry {
   entityId?: string;
   details?: Record<string, unknown>;
   createdAt: string;
-  // Joined data
   userDisplayName?: string;
 }
 
@@ -88,13 +89,52 @@ export const actionIcons: Record<ActivityAction, string> = {
   member_left: 'UserMinus',
 };
 
-// Fetch activity log for household
+// Map action to category for filtering
+export const actionCategory: Record<ActivityAction, ActivityCategory> = {
+  income_added: 'income',
+  income_updated: 'income',
+  income_deleted: 'income',
+  expense_added: 'expense',
+  expense_updated: 'expense',
+  expense_deleted: 'expense',
+  envelope_created: 'envelope',
+  envelope_updated: 'envelope',
+  envelope_deleted: 'envelope',
+  allocation_made: 'allocation',
+  transfer_made: 'allocation',
+  recurring_created: 'recurring',
+  recurring_updated: 'recurring',
+  recurring_deleted: 'recurring',
+  member_joined: 'member',
+  member_left: 'member',
+};
+
+// Category labels
+export const categoryLabels: Record<ActivityCategory, string> = {
+  income: 'Revenus',
+  expense: 'Dépenses',
+  envelope: 'Enveloppes',
+  allocation: 'Allocations',
+  recurring: 'Récurrents',
+  member: 'Membres',
+};
+
+// Category colors
+export const categoryColors: Record<ActivityCategory, string> = {
+  income: 'text-emerald-500 bg-emerald-500/10',
+  expense: 'text-red-500 bg-red-500/10',
+  envelope: 'text-blue-500 bg-blue-500/10',
+  allocation: 'text-amber-500 bg-amber-500/10',
+  recurring: 'text-violet-500 bg-violet-500/10',
+  member: 'text-cyan-500 bg-cyan-500/10',
+};
+
+// Fetch activity log for household with display names
 export async function fetchActivityLog(
   ctx: QueryContext,
   limit: number = 50
 ): Promise<ActivityLogEntry[]> {
   if (!ctx.householdId) {
-    // Activity log only works for households
     return [];
   }
 
@@ -110,7 +150,20 @@ export async function fetchActivityLog(
     return [];
   }
 
-  return (data || []).map((entry: DbActivityLog) => ({
+  if (!data || data.length === 0) return [];
+
+  // Fetch display names for all unique user IDs
+  const userIds = [...new Set(data.map((e: DbActivityLog) => e.user_id))];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('user_id, display_name')
+    .in('user_id', userIds);
+
+  const profileMap = new Map(
+    (profiles || []).map((p: { user_id: string; display_name: string | null }) => [p.user_id, p.display_name])
+  );
+
+  return data.map((entry: DbActivityLog) => ({
     id: entry.id,
     userId: entry.user_id,
     action: entry.action,
@@ -118,7 +171,7 @@ export async function fetchActivityLog(
     entityId: entry.entity_id || undefined,
     details: entry.details || undefined,
     createdAt: entry.created_at,
-    userDisplayName: undefined, // Will be loaded separately if needed
+    userDisplayName: profileMap.get(entry.user_id) || undefined,
   }));
 }
 
@@ -130,7 +183,6 @@ export async function logActivity(
   entityId?: string,
   details?: Record<string, unknown>
 ): Promise<void> {
-  // Only log for households
   if (!ctx.householdId) return;
 
   try {
@@ -143,7 +195,6 @@ export async function logActivity(
       details: details || null,
     });
   } catch (error) {
-    // Don't throw on activity log errors - it's non-critical
     console.error('Failed to log activity:', error);
   }
 }
