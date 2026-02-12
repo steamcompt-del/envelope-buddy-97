@@ -150,7 +150,15 @@ interface BudgetContextType {
   resetMonth: () => void;
 }
 
-const BudgetContext = createContext<BudgetContextType | null>(null);
+// Use a module-level variable to survive HMR context identity changes
+let _budgetContext: React.Context<BudgetContextType | null> | null = null;
+function getBudgetContext() {
+  if (!_budgetContext) {
+    _budgetContext = createContext<BudgetContextType | null>(null);
+  }
+  return _budgetContext;
+}
+const BudgetContext = getBudgetContext();
 
 function getCurrentMonthKey(): string {
   const now = new Date();
