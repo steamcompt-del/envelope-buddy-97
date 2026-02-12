@@ -80,8 +80,8 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnve
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 5,
+        delay: 250,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {

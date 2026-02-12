@@ -39,17 +39,21 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal, onQuickAd
         isOver && "before:content-[''] before:absolute before:-top-1.5 before:left-2 before:right-2 before:h-[3px] before:rounded-full before:bg-primary before:z-20 before:animate-pulse"
       )}
     >
-      {/* Drag handle */}
+      {/* Drag handle – always visible on mobile, hover on desktop */}
       <button
         {...attributes}
         {...listeners}
         className={cn(
-          "absolute -left-2 top-1/2 -translate-y-1/2 z-10",
-          "w-8 h-10 flex items-center justify-center",
-          "text-muted-foreground/50 hover:text-muted-foreground",
+          "absolute top-1/2 -translate-y-1/2 z-10",
+          "flex items-center justify-center",
+          "text-muted-foreground/60 hover:text-muted-foreground active:text-foreground",
           "cursor-grab active:cursor-grabbing",
-          "opacity-0 group-hover:opacity-100 transition-opacity",
-          "touch-none"
+          "transition-all touch-none",
+          // Mobile: wider hit area, always visible, left-aligned inside card
+          "left-0 w-10 h-14 rounded-r-xl",
+          "opacity-100",
+          // Desktop: smaller, hidden until hover
+          "sm:w-8 sm:h-10 sm:-left-2 sm:opacity-0 sm:group-hover:opacity-100"
         )}
         aria-label="Réorganiser"
       >
