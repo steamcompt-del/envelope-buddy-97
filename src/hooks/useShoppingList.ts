@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBudget } from '@/contexts/BudgetContext';
 import { toast } from 'sonner';
+import { getBackendClient } from '@/lib/backendClient';
 import {
   ShoppingItem,
   ShoppingListArchive,
@@ -51,6 +52,67 @@ export function useShoppingList() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Realtime subscription for collaborative updates
+  useEffect(() => {
+    if (!householdId) return;
+
+    const supabase = getBackendClient();
+    const channel = supabase
+      .channel(`shopping-list-${householdId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shopping_list',
+          filter: `household_id=eq.${householdId}`,
+        },
+        (payload) => {
+          const { eventType, new: newRow, old: oldRow } = payload;
+
+          if (eventType === 'INSERT') {
+            const mapped: ShoppingItem = {
+              id: newRow.id,
+              userId: newRow.user_id,
+              householdId: newRow.household_id,
+              name: newRow.name,
+              quantity: newRow.quantity,
+              estimatedPrice: newRow.estimated_price,
+              envelopeId: newRow.envelope_id,
+              isChecked: newRow.is_checked,
+              suggestedFromHistory: newRow.suggested_from_history,
+              createdAt: newRow.created_at,
+              updatedAt: newRow.updated_at,
+            };
+            setItems(prev => {
+              if (prev.some(i => i.id === mapped.id)) return prev;
+              return [mapped, ...prev];
+            });
+          } else if (eventType === 'UPDATE') {
+            setItems(prev => prev.map(i =>
+              i.id === newRow.id
+                ? {
+                    ...i,
+                    name: newRow.name,
+                    quantity: newRow.quantity,
+                    estimatedPrice: newRow.estimated_price,
+                    isChecked: newRow.is_checked,
+                    updatedAt: newRow.updated_at,
+                  }
+                : i
+            ));
+          } else if (eventType === 'DELETE') {
+            setItems(prev => prev.filter(i => i.id !== oldRow.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId]);
 
   const addItem = useCallback(async (input: CreateShoppingItemInput) => {
     if (!user) return;
