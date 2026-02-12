@@ -733,7 +733,12 @@ export async function deleteTransactionCompleteDb(
   if (receipts && receipts.length > 0) {
     const paths = receipts.map(r => r.path).filter(Boolean);
     if (paths.length > 0) {
-      await supabase.storage.from('receipts').remove(paths);
+      // Scénario 6: Cascade resilience - storage delete failure should not block transaction deletion
+      try {
+        await supabase.storage.from('receipts').remove(paths);
+      } catch (storageErr) {
+        console.warn('Failed to delete receipt files from storage (orphaned files may remain):', storageErr);
+      }
     }
     
     // receipt_items seront supprimés par CASCADE sur receipt_id

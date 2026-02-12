@@ -88,6 +88,8 @@ export function AddExpenseDrawer({
   const [isCategorizing, setIsCategorizing] = useState(false);
   const [pendingReceipts, setPendingReceipts] = useState<PendingReceiptWithItems[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   
@@ -192,14 +194,46 @@ export function AddExpenseDrawer({
     if (!user) return;
     if (parsedAmount <= 0) return;
     
+    // Scénario 1: Protection double-clic avec verrou
+    if (submitLockRef.current || isSubmitting) return;
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    
     if (isSplit) {
-      if (!splitValid) return;
+      if (!splitValid) { submitLockRef.current = false; setIsSubmitting(false); return; }
     } else {
-      if (!selectedEnvelope) return;
+      if (!selectedEnvelope) { submitLockRef.current = false; setIsSubmitting(false); return; }
     }
     
     try {
       const dateString = selectedDate ? selectedDate.toISOString().split('T')[0] : undefined;
+      
+      // Scénario 2: Détection de doublon (même montant + enveloppe + date dans les 5 dernières minutes)
+      const targetEnvelopeId = isSplit ? splitLines[0]?.envelopeId : selectedEnvelope;
+      if (targetEnvelopeId && dateString) {
+        const { getBackendClient } = await import('@/lib/backendClient');
+        const sb = getBackendClient();
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: dupes } = await sb
+          .from('transactions')
+          .select('id')
+          .eq('envelope_id', targetEnvelopeId)
+          .eq('amount', parsedAmount)
+          .eq('date', dateString)
+          .gte('created_at', fiveMinAgo)
+          .limit(1);
+        
+        if (dupes && dupes.length > 0) {
+          const confirmed = confirm(
+            `⚠️ Une dépense similaire (${parsedAmount.toFixed(2)}€) a été enregistrée il y a moins de 5 minutes. Continuer ?`
+          );
+          if (!confirmed) {
+            submitLockRef.current = false;
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
       
       if (isSplit) {
         const splits: SplitInput[] = splitLines.map(l => ({
@@ -286,6 +320,9 @@ export function AddExpenseDrawer({
     } catch (error) {
       console.error('Failed to add expense:', error);
       toast.error('Erreur lors de l\'ajout de la dépense');
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -426,8 +463,8 @@ export function AddExpenseDrawer({
   }, []);
 
   const canSubmit = isSplit
-    ? parsedAmount > 0 && splitValid && !isUploading
-    : !!selectedEnvelope && parsedAmount > 0 && !isUploading;
+    ? parsedAmount > 0 && splitValid && !isUploading && !isSubmitting
+    : !!selectedEnvelope && parsedAmount > 0 && !isUploading && !isSubmitting;
   
   return (
     <>
@@ -706,7 +743,12 @@ export function AddExpenseDrawer({
                   disabled={!canSubmit}
                   className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90"
                 >
-                  {isUploading ? (
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : isUploading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Upload...

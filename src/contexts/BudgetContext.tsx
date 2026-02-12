@@ -432,8 +432,13 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       toast.success('Enveloppe supprimée');
     } catch (error: any) {
       console.error('Error deleting envelope:', error);
-      if (error.message && (error.message.includes('objectif') || error.message.includes('Impossible'))) {
-        toast.error(error.message, { duration: 8000 });
+      const msg = error?.message || '';
+      if (msg.includes('objectif') || msg.includes('Impossible') || msg.includes('Cannot delete envelope')) {
+        // Scénario 10: Erreur depuis le trigger DB si transactions existent
+        const friendlyMsg = msg.includes('Cannot delete envelope')
+          ? `Impossible de supprimer : cette enveloppe contient des dépenses. Supprimez-les ou transférez-les d'abord.`
+          : msg;
+        toast.error(friendlyMsg, { duration: 8000 });
       } else {
         toast.error('Erreur lors de la suppression');
       }
