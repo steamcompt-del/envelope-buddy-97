@@ -1,7 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -38,6 +35,7 @@ export function EnvelopeQuickActions({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartTime = useRef(0);
   const touchMoved = useRef(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const isSavings = envelope.icon === 'PiggyBank';
   const remaining = envelope.allocated - envelope.spent;
@@ -85,151 +83,178 @@ export function EnvelopeQuickActions({
     setShowMenu(true);
   }, [vibrate]);
 
+  // Desktop: simple click opens details (touch is handled via handleTouchEnd)
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!showMenu) {
+      onViewDetails?.(envelope.id);
+    }
+  }, [showMenu, onViewDetails, envelope.id]);
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    // Use a small delay so the current click doesn't immediately close
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 10);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu]);
+
   useEffect(() => {
     return () => clearTimer();
   }, [clearTimer]);
 
   const handleAction = useCallback((action: ((id: string) => void) | undefined) => {
+    const id = envelope.id;
     setShowMenu(false);
-    action?.(envelope.id);
+    // No delay needed since we're not using Radix Popover portals anymore
+    action?.(id);
   }, [envelope.id]);
 
   return (
-    <Popover open={showMenu} onOpenChange={setShowMenu}>
-      <PopoverTrigger asChild>
-        <div
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onContextMenu={handleContextMenu}
-          className="relative select-none"
-        >
-          {children}
-        </div>
-      </PopoverTrigger>
-
-      <PopoverContent
-        className="w-56 p-1.5"
-        align="center"
-        side="top"
-        sideOffset={4}
+    <div className="relative select-none">
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onContextMenu={handleContextMenu}
+        onClick={handleClick}
       >
-        <div className="flex flex-col gap-0.5">
-          {/* Header with envelope info */}
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <div className={cn(
-              "flex items-center justify-center w-7 h-7 rounded-md",
-              isSavings ? "bg-emerald-500/15" : "bg-primary/10"
-            )}>
-              {isSavings 
-                ? <PiggyBank className="h-3.5 w-3.5 text-emerald-500" />
-                : <Wallet className="h-3.5 w-3.5 text-primary" />
-              }
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{envelope.name}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {isSavings 
-                  ? `${formatCurrency(remaining)} épargné`
-                  : `${formatCurrency(remaining)} restant`
-                }
-              </p>
-            </div>
-          </div>
+        {children}
+      </div>
 
-          <Separator className="my-0.5" />
-
-          {isSavings ? (
-            <>
-              {/* Savings-specific actions */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm font-medium"
-                onClick={() => handleAction(onQuickAllocate)}
-              >
-                <PiggyBank className="h-4 w-4 text-emerald-500" />
-                Épargner
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm"
-                onClick={() => handleAction(onQuickTransfer)}
-              >
-                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                Transférer
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm"
-                onClick={() => handleAction(onViewDetails)}
-              >
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                Objectif & détails
-              </Button>
-            </>
-          ) : (
-            <>
-              {/* Regular envelope actions */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm font-medium"
-                onClick={() => handleAction(onQuickAddExpense)}
-              >
-                <Receipt className="h-4 w-4 text-primary" />
-                Ajouter dépense
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm"
-                onClick={() => handleAction(onQuickAllocate)}
-              >
-                <Plus className="h-4 w-4 text-muted-foreground" />
-                Allouer des fonds
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm"
-                onClick={() => handleAction(onQuickTransfer)}
-              >
-                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                Transférer
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="justify-start gap-2 h-9 text-sm"
-                onClick={() => handleAction(onViewDetails)}
-              >
-                <Eye className="h-4 w-4 text-muted-foreground" />
-                Voir détails
-              </Button>
-            </>
+      {showMenu && (
+        <div
+          ref={menuRef}
+          className={cn(
+            "absolute z-50 w-56 p-1.5 rounded-xl border bg-popover text-popover-foreground shadow-md",
+            "left-1/2 -translate-x-1/2 bottom-full mb-1",
+            "animate-in fade-in-0 zoom-in-95"
           )}
+        >
+          <div className="flex flex-col gap-0.5">
+            {/* Header with envelope info */}
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <div className={cn(
+                "flex items-center justify-center w-7 h-7 rounded-md",
+                isSavings ? "bg-emerald-500/15" : "bg-primary/10"
+              )}>
+                {isSavings
+                  ? <PiggyBank className="h-3.5 w-3.5 text-emerald-500" />
+                  : <Wallet className="h-3.5 w-3.5 text-primary" />
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{envelope.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {isSavings
+                    ? `${formatCurrency(remaining)} épargné`
+                    : `${formatCurrency(remaining)} restant`
+                  }
+                </p>
+              </div>
+            </div>
 
-          <Separator className="my-0.5" />
+            <Separator className="my-0.5" />
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="justify-start gap-2 h-9 text-sm text-destructive hover:text-destructive"
-            onClick={() => handleAction(onQuickDelete)}
-          >
-            <Trash2 className="h-4 w-4" />
-            Supprimer
-          </Button>
+            {isSavings ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm font-medium"
+                  onClick={() => handleAction(onQuickAllocate)}
+                >
+                  <PiggyBank className="h-4 w-4 text-emerald-500" />
+                  Épargner
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm"
+                  onClick={() => handleAction(onQuickTransfer)}
+                >
+                  <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                  Transférer
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm"
+                  onClick={() => handleAction(onViewDetails)}
+                >
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  Objectif & détails
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm font-medium"
+                  onClick={() => handleAction(onQuickAddExpense)}
+                >
+                  <Receipt className="h-4 w-4 text-primary" />
+                  Ajouter dépense
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm"
+                  onClick={() => handleAction(onQuickAllocate)}
+                >
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                  Allouer des fonds
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm"
+                  onClick={() => handleAction(onQuickTransfer)}
+                >
+                  <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                  Transférer
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start gap-2 h-9 text-sm"
+                  onClick={() => handleAction(onViewDetails)}
+                >
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  Voir détails
+                </Button>
+              </>
+            )}
+
+            <Separator className="my-0.5" />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start gap-2 h-9 text-sm text-destructive hover:text-destructive"
+              onClick={() => handleAction(onQuickDelete)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Supprimer
+            </Button>
+          </div>
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 }
