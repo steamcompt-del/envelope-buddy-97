@@ -1,5 +1,6 @@
 import { getBackendClient } from '@/lib/backendClient';
 import { Envelope, Transaction, Income, MonthlyBudget } from '@/contexts/BudgetContext';
+import { checkCelebrationThreshold } from '@/lib/savingsGoalsDb';
 
 const supabase = getBackendClient();
 
@@ -850,9 +851,16 @@ export async function deleteTransactionCompleteDb(
 // Only envelopes that have allocations in the CURRENT month are duplicated to the new month
 // Envelopes with rollover=true carry over their net balance (allocated - spent)
 // The rollover is capped at the savings goal target if one exists
+export interface RolloverCelebration {
+  envelopeName: string;
+  goalName: string | null;
+  threshold: number;
+}
+
 export interface StartNewMonthResult {
   nextMonthKey: string;
   overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>;
+  celebrations?: RolloverCelebration[];
 }
 
 export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<StartNewMonthResult> {
@@ -917,10 +925,10 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     spent: Number(a.spent) 
   }]));
 
-  // 4) Fetch savings goals to check target amounts
+  // 4) Fetch savings goals to check target amounts and celebrations
   let goalsQuery = supabase
     .from('savings_goals')
-    .select('envelope_id, target_amount');
+    .select('envelope_id, target_amount, name, celebration_threshold');
 
   if (ctx.householdId) {
     goalsQuery = goalsQuery.eq('household_id', ctx.householdId);
@@ -929,7 +937,11 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
   }
 
   const { data: savingsGoals } = await goalsQuery;
-  const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, Number(g.target_amount)]));
+  const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, {
+    target_amount: Number(g.target_amount),
+    name: g.name,
+    celebration_threshold: g.celebration_threshold || [100],
+  }]));
 
   // 5) Check existing allocations for next month
   let existingAllocsQuery = supabase
@@ -973,7 +985,8 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
 
     const hasRollover = envelope.rollover === true;
     const allocData = currentAllocMap.get(envelopeId) || { allocated: 0, spent: 0 };
-    const targetAmount = goalsMap.get(envelopeId) || 0;
+    const goalData = goalsMap.get(envelopeId);
+    const targetAmount = goalData?.target_amount || 0;
     
     // Track overdrafts (Bug #2)
     const rawBalance = allocData.allocated - allocData.spent;
@@ -1076,9 +1089,46 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     );
   }
 
+  // Check for savings goal celebrations triggered by rollover
+  const celebrations: RolloverCelebration[] = [];
+  for (const envelopeId of currentMonthEnvelopeIds) {
+    const envelope = envelopeMap.get(envelopeId);
+    if (!envelope) continue;
+    const goalData = goalsMap.get(envelopeId);
+    if (!goalData || goalData.target_amount <= 0) continue;
+    
+    const allocData = currentAllocMap.get(envelopeId) || { allocated: 0, spent: 0 };
+    const previousAmount = Math.max(0, allocData.allocated - allocData.spent);
+    
+    // Find carry over amount for this envelope
+    const inserted = allocationsToInsert.find(a => a.envelope_id === envelopeId);
+    const updated = allocationsToUpdate.find(a => a.envelopeId === envelopeId);
+    const carryOver = inserted?.allocated || updated?.carryOverAmount || 0;
+    if (carryOver <= 0) continue;
+    
+    // In the new month, the new amount IS the carryOver (fresh month)
+    const newAmount = carryOver;
+    
+    const celebration = checkCelebrationThreshold(
+      previousAmount,
+      previousAmount + carryOver, // total after rollover
+      goalData.target_amount,
+      goalData.celebration_threshold
+    );
+    
+    if (celebration) {
+      celebrations.push({
+        envelopeName: envelope.name || 'Inconnu',
+        goalName: goalData.name,
+        threshold: celebration.threshold,
+      });
+    }
+  }
+
   return { 
     nextMonthKey, 
     overdrafts: overdrafts.length > 0 ? overdrafts : undefined,
+    celebrations: celebrations.length > 0 ? celebrations : undefined,
   };
 }
 
@@ -1188,7 +1238,7 @@ function applyRolloverStrategy(
 
 // Copy envelopes to a specific target month
 // ONLY envelopes with rollover=true are copied
-export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> }> {
+export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: RolloverCelebration[] }> {
   // 1) Ensure target monthly budget row exists
   let existsQuery = supabase
     .from('monthly_budgets')
@@ -1246,18 +1296,22 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
   }]));
 
   // 4) Fetch savings goals
-  let goalsQuery = supabase
+  let goalsQuery2 = supabase
     .from('savings_goals')
-    .select('envelope_id, target_amount');
+    .select('envelope_id, target_amount, name, celebration_threshold');
 
   if (ctx.householdId) {
-    goalsQuery = goalsQuery.eq('household_id', ctx.householdId);
+    goalsQuery2 = goalsQuery2.eq('household_id', ctx.householdId);
   } else {
-    goalsQuery = goalsQuery.eq('user_id', ctx.userId).is('household_id', null);
+    goalsQuery2 = goalsQuery2.eq('user_id', ctx.userId).is('household_id', null);
   }
 
-  const { data: savingsGoals } = await goalsQuery;
-  const goalsMap = new Map((savingsGoals || []).map(g => [g.envelope_id, Number(g.target_amount)]));
+  const { data: savingsGoals2 } = await goalsQuery2;
+  const goalsMap2 = new Map((savingsGoals2 || []).map(g => [g.envelope_id, {
+    target_amount: Number(g.target_amount),
+    name: g.name,
+    celebration_threshold: g.celebration_threshold || [100],
+  }]));
 
   // 5) Check existing allocations for target month
   let existingAllocsQuery = supabase
@@ -1292,7 +1346,8 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
 
   for (const envelope of envelopes) {
     const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
-    const targetAmount = goalsMap.get(envelope.id) || 0;
+    const goalData2 = goalsMap2.get(envelope.id);
+    const targetAmount = goalData2?.target_amount || 0;
     
     // Calculate net balance to carry over using strategy
     const rawBalance = sourceData.allocated - sourceData.spent;
@@ -1382,7 +1437,7 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     })
     .map(env => {
       const sourceData = sourceAllocMap.get(env.id) || { allocated: 0, spent: 0 };
-      const targetAmount = goalsMap.get(env.id) || 0;
+      const targetAmount = goalsMap2.get(env.id)?.target_amount || 0;
       const netBalance = Math.max(0, sourceData.allocated - sourceData.spent);
       const strategy = (env as any).rollover_strategy || 'full';
       const percentage = (env as any).rollover_percentage;
@@ -1405,7 +1460,37 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     await supabase.from('rollover_history').insert(rolloverHistoryEntries);
   }
 
-  return { count: rolloverCount, total: totalCarryOver, overdrafts: overdrafts.length > 0 ? overdrafts : undefined };
+  // Check for savings goal celebrations triggered by rollover
+  const celebrations2: RolloverCelebration[] = [];
+  for (const envelope of envelopes) {
+    const goalData2 = goalsMap2.get(envelope.id);
+    if (!goalData2 || goalData2.target_amount <= 0) continue;
+    
+    const sourceData = sourceAllocMap.get(envelope.id) || { allocated: 0, spent: 0 };
+    const previousAmount = Math.max(0, sourceData.allocated - sourceData.spent);
+    
+    const inserted = allocationsToInsert.find(a => a.envelope_id === envelope.id);
+    const updated = allocationsToUpdate.find(a => a.envelopeId === envelope.id);
+    const carryOver = inserted?.allocated || updated?.carryOverAmount || 0;
+    if (carryOver <= 0) continue;
+    
+    const celebration = checkCelebrationThreshold(
+      previousAmount,
+      previousAmount + carryOver,
+      goalData2.target_amount,
+      goalData2.celebration_threshold
+    );
+    
+    if (celebration) {
+      celebrations2.push({
+        envelopeName: envelope.name || 'Inconnu',
+        goalName: goalData2.name,
+        threshold: celebration.threshold,
+      });
+    }
+  }
+
+  return { count: rolloverCount, total: totalCarryOver, overdrafts: overdrafts.length > 0 ? overdrafts : undefined, celebrations: celebrations2.length > 0 ? celebrations2 : undefined };
 }
 
 // Helper

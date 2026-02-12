@@ -112,7 +112,7 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
-  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> }>;
+  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: Array<{ envelopeName: string; goalName: string | null; threshold: number }> }>;
   startNewMonth: () => void;
   
   // Income actions
@@ -661,11 +661,21 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       );
     }
     
+    // Show savings goal celebrations triggered by rollover
+    if (result.celebrations && result.celebrations.length > 0) {
+      for (const c of result.celebrations) {
+        toast.success(
+          `🎉 ${c.goalName || c.envelopeName} atteint ${c.threshold}% grâce au report !`,
+          { duration: 5000 }
+        );
+      }
+    }
+    
     setCurrentMonthKey(result.nextMonthKey);
   }, [getQueryContext, currentMonthKey]);
 
   // Copy envelopes to any target month
-  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }> }> => {
+  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: Array<{ envelopeName: string; goalName: string | null; threshold: number }> }> => {
     const ctx = getQueryContext();
     if (!ctx) return { count: 0, total: 0 };
     const result = await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey);
