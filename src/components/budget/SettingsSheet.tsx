@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ActivityLogSheet } from '@/components/budget/ActivityLogSheet';
 import { AutoAllocationHistoryDialog } from '@/components/budget/AutoAllocationHistoryDialog';
 import { Link } from 'react-router-dom';
 import { useTheme } from 'next-themes';
@@ -78,6 +79,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingMonth, setIsDeletingMonth] = useState(false);
   const [showAutoAllocHistory, setShowAutoAllocHistory] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
   const isDarkMode = theme === 'dark';
   
   // Calculate totals
@@ -202,10 +204,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
                 </Button>
                 
                 <Button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setTimeout(() => onOpenActivity?.(), 100);
-                  }}
+                  onClick={() => setShowActivityLog(true)}
                   variant="outline"
                   className="w-full rounded-xl gap-2"
                 >
@@ -433,6 +432,12 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
       <AutoAllocationHistoryDialog
         open={showAutoAllocHistory}
         onOpenChange={setShowAutoAllocHistory}
+      />
+      
+      {/* Activity Log Sheet */}
+      <ActivityLogSheet
+        open={showActivityLog}
+        onOpenChange={setShowActivityLog}
       />
     </Sheet>
   );
