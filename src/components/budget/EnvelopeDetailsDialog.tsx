@@ -390,7 +390,7 @@ export function EnvelopeDetailsDialog({
           </div>
           
           {/* Savings Goal Section - Only for savings envelopes */}
-          {envelope.icon === 'PiggyBank' && (
+          {envelope.category === 'epargne' && (
             savingsGoal ? (
               <SavingsGoalProgress
                 goal={savingsGoal}
@@ -477,7 +477,7 @@ export function EnvelopeDetailsDialog({
           <div className="p-3 bg-muted/50 rounded-xl">
             <div className="flex items-center justify-between">
               <Label className="text-muted-foreground text-sm">Catégorie</Label>
-              {envelope.icon === 'PiggyBank' && savingsGoal ? (
+              {envelope.category === 'epargne' && savingsGoal ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">🟢 Épargne</span>
                   <span className="text-[10px] text-muted-foreground">(objectif actif)</span>

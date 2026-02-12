@@ -40,7 +40,7 @@ export default function Expenses() {
     const map = new Map(envelopes.map(e => [e.id, e]));
     return transactions.map(t => {
       const envelope = map.get(t.envelopeId);
-      return { ...t, envelope, isWithdrawal: envelope?.icon === 'PiggyBank' };
+      return { ...t, envelope, isWithdrawal: envelope?.category === 'epargne' };
     });
   }, [transactions, envelopes]);
 

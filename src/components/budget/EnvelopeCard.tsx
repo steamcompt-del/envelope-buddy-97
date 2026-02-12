@@ -83,7 +83,7 @@ const PRIORITY_BADGE: Record<SavingsPriority, { emoji: string; label: string; cl
 export const EnvelopeCard = memo(function EnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
-  const isSavings = icon === 'PiggyBank';
+  const isSavings = envelope.category === 'epargne';
   const colorStyle = colorClasses[color] || colorClasses.blue;
   
   // For savings envelopes: allocated is the total saved, spent represents withdrawals
