@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useBudget, Envelope, Transaction, EnvelopeCategory } from '@/contexts/BudgetContext';
 import { useTransactionsReceipts, useReceipts } from '@/hooks/useReceipts';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
+import { DeleteEnvelopeDialog } from '@/components/budget/DeleteEnvelopeDialog';
 import {
   Dialog,
   DialogContent,
@@ -100,6 +101,7 @@ export function EnvelopeDetailsDialog({
   const [lightboxImages, setLightboxImages] = useState<ReceiptImage[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
@@ -239,11 +241,9 @@ export function EnvelopeDetailsDialog({
   const maxAllocation = envelope.allocated + toBeBudgeted;
   const minAllocation = envelope.spent;
   
-  const handleDelete = async () => {
-    if (confirm(`Supprimer l'enveloppe "${envelope.name}" ?`)) {
-      await deleteEnvelope(envelopeId);
-      onOpenChange(false);
-    }
+  const handleConfirmDelete = async (refundToBudget: boolean) => {
+    await deleteEnvelope(envelopeId, refundToBudget);
+    onOpenChange(false);
   };
 
   const startEditName = () => {
@@ -798,7 +798,7 @@ export function EnvelopeDetailsDialog({
             <Button
               variant="destructive"
               size="icon"
-              onClick={handleDelete}
+              onClick={() => setShowDeleteDialog(true)}
               className="rounded-xl"
             >
               <Trash2 className="w-4 h-4" />
@@ -833,6 +833,14 @@ export function EnvelopeDetailsDialog({
           open={historyOpen}
           onOpenChange={setHistoryOpen}
           envelopeId={envelopeId}
+        />
+        
+        <DeleteEnvelopeDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          envelopeName={envelope.name}
+          allocatedAmount={envelope.allocated}
+          onConfirm={handleConfirmDelete}
         />
       </DialogContent>
     </Dialog>

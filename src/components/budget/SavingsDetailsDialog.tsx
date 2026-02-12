@@ -4,6 +4,7 @@ import { useBudget, Envelope } from '@/contexts/BudgetContext';
 import { getBackendClient } from '@/lib/backendClient';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
 import { useActivity } from '@/hooks/useActivity';
+import { DeleteEnvelopeDialog } from '@/components/budget/DeleteEnvelopeDialog';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ export function SavingsDetailsDialog({
   const [showAllocate, setShowAllocate] = useState(false);
   const [allocateMode, setAllocateMode] = useState<'add' | 'remove'>('add');
   const [showGoalDialog, setShowGoalDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
   const [isContributing, setIsContributing] = useState(false);
@@ -184,11 +186,9 @@ export function SavingsDetailsDialog({
     setShowAllocate(false);
   };
   
-  const handleDelete = async () => {
-    if (confirm(`Supprimer l'enveloppe "${envelope.name}" ?`)) {
-      await deleteEnvelope(envelopeId);
-      onOpenChange(false);
-    }
+  const handleConfirmDelete = async (refundToBudget: boolean) => {
+    await deleteEnvelope(envelopeId, refundToBudget);
+    onOpenChange(false);
   };
 
   const handleSaveGoal = async (params: import('@/lib/savingsGoalsDb').CreateSavingsGoalParams & { id?: string }) => {
@@ -570,7 +570,7 @@ export function SavingsDetailsDialog({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleDelete}
+              onClick={() => setShowDeleteDialog(true)}
               className="rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="w-4 h-4" />
@@ -586,6 +586,14 @@ export function SavingsDetailsDialog({
           existingGoal={savingsGoal}
           onSave={handleSaveGoal}
           onDelete={savingsGoal ? handleDeleteGoal : undefined}
+        />
+        
+        <DeleteEnvelopeDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          envelopeName={envelope.name}
+          allocatedAmount={envelope.allocated}
+          onConfirm={handleConfirmDelete}
         />
       </DialogContent>
     </Dialog>
