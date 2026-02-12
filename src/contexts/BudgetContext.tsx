@@ -386,7 +386,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const ctx = getQueryContext();
     if (!ctx) return;
     const incomeId = await addIncomeDb(ctx, currentMonthKey, amount, description, date);
-    await logActivity(ctx, 'income_added', 'income', incomeId, { amount, description, undo_data: { amount } });
+    await logActivity(ctx, 'income_added', 'income', incomeId, { amount, description });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 
@@ -396,7 +396,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const income = currentMonth.incomes.find(i => i.id === id);
     if (!income) return;
     await updateIncomeDb(ctx, currentMonthKey, id, newAmount, newDescription, income.amount, newDate);
-    await logActivity(ctx, 'income_updated', 'income', id, { amount: newAmount, description: newDescription, undo_data: { old_amount: income.amount, old_description: income.description, old_date: income.date } });
+    await logActivity(ctx, 'income_updated', 'income', id, { amount: newAmount, description: newDescription });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
@@ -406,7 +406,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const income = currentMonth.incomes.find(i => i.id === id);
     if (!income) return;
     await deleteIncomeDb(ctx, currentMonthKey, id, income.amount);
-    await logActivity(ctx, 'income_deleted', 'income', id, { amount: income.amount, description: income.description, undo_data: { amount: income.amount, description: income.description, date: income.date } });
+    await logActivity(ctx, 'income_deleted', 'income', id, { amount: income.amount, description: income.description });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.incomes, loadMonthData]);
 
@@ -415,7 +415,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const ctx = getQueryContext();
     if (!ctx) return undefined;
     const envelopeId = await createEnvelopeDb(ctx, currentMonthKey, name, icon, color, category);
-    await logActivity(ctx, 'envelope_created', 'envelope', envelopeId, { name, undo_data: { allocated: 0 } });
+    await logActivity(ctx, 'envelope_created', 'envelope', envelopeId, { name });
     await loadMonthData();
     return envelopeId;
   }, [getQueryContext, currentMonthKey, loadMonthData]);
@@ -436,7 +436,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const envelope = currentMonth.envelopes.find(e => e.id === id);
     try {
       await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0, refundToBudget);
-      await logActivity(ctx, 'envelope_deleted', 'envelope', id, { name: envelope?.name, undo_data: { name: envelope?.name, icon: envelope?.icon, color: envelope?.color, category: envelope?.category, allocated: envelope?.allocated || 0, refunded: refundToBudget } });
+      await logActivity(ctx, 'envelope_deleted', 'envelope', id, { name: envelope?.name });
       await loadMonthData();
       toast.success('Enveloppe supprimée');
     } catch (error: any) {
@@ -485,7 +485,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     if (!ctx || Math.round(amount * 100) > Math.round(currentMonth.toBeBudgeted * 100)) return;
     const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     await allocateToEnvelopeDb(ctx, currentMonthKey, envelopeId, amount);
-    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name, undo_data: { amount } });
+    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.toBeBudgeted, currentMonth.envelopes, loadMonthData]);
 
@@ -494,7 +494,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     if (!ctx || amount <= 0) return;
     const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
     await allocateInitialBalanceDb(ctx, currentMonthKey, envelopeId, amount);
-    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name, kind: 'initial_balance', undo_data: { amount, kind: 'initial_balance' } });
+    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name, kind: 'initial_balance' });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
 
@@ -515,7 +515,6 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       amount: -actualAmount,
       envelope_name: envelope.name,
       kind: 'withdrawal',
-      undo_data: { amount: -actualAmount, kind: 'withdrawal' },
     });
 
     await loadMonthData();
@@ -571,8 +570,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     await logActivity(ctx, 'transfer_made', 'envelope', undefined, { 
       amount, 
       from_envelope: fromEnvelope.name, 
-      to_envelope: toEnvelope?.name,
-      undo_data: { amount, from_envelope_id: fromId, to_envelope_id: toId },
+      to_envelope: toEnvelope?.name 
     });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
@@ -622,8 +620,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     await logActivity(ctx, 'expense_added', 'transaction', transactionId, { 
       amount, 
       description, 
-      envelope_name: envelope?.name,
-      undo_data: { amount, envelope_id: envelopeId },
+      envelope_name: envelope?.name 
     });
     await loadMonthData();
     return { transactionId, alert: alertInfo };
@@ -663,8 +660,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     
     await logActivity(ctx, 'expense_deleted', 'transaction', id, { 
       amount: transaction.amount, 
-      description: transaction.description,
-      undo_data: { amount: transaction.amount, description: transaction.description, envelope_id: transaction.envelopeId, merchant: transaction.merchant, date: transaction.date },
+      description: transaction.description 
     });
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.transactions, loadMonthData]);
