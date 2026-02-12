@@ -6,7 +6,6 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { CheckSquare, Trash2, FolderInput, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface Props {
   selectedIds: Set<string>;

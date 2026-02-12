@@ -87,7 +87,7 @@ export function TransactionRow({ transaction: t, hasReceipts, bulkMode, selected
       )}
 
       <p className="font-semibold flex-shrink-0 text-destructive">
-        {t.isWithdrawal ? '' : '-'}{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+        +{t.amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
       </p>
     </button>
   );
