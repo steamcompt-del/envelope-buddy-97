@@ -477,21 +477,28 @@ export function EnvelopeDetailsDialog({
           <div className="p-3 bg-muted/50 rounded-xl">
             <div className="flex items-center justify-between">
               <Label className="text-muted-foreground text-sm">Catégorie</Label>
-              <Select
-                value={envelope.category || 'essentiels'}
-                onValueChange={(value: EnvelopeCategory) => {
-                  updateEnvelope(envelopeId, { category: value });
-                }}
-              >
-                <SelectTrigger className="w-[160px] h-8 rounded-lg text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="essentiels">🔵 Essentiels</SelectItem>
-                  <SelectItem value="lifestyle">🟣 Lifestyle</SelectItem>
-                  <SelectItem value="epargne">🟢 Épargne</SelectItem>
-                </SelectContent>
-              </Select>
+              {envelope.icon === 'PiggyBank' && savingsGoal ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">🟢 Épargne</span>
+                  <span className="text-[10px] text-muted-foreground">(objectif actif)</span>
+                </div>
+              ) : (
+                <Select
+                  value={envelope.category || 'essentiels'}
+                  onValueChange={(value: EnvelopeCategory) => {
+                    updateEnvelope(envelopeId, { category: value });
+                  }}
+                >
+                  <SelectTrigger className="w-[160px] h-8 rounded-lg text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="essentiels">🔵 Essentiels</SelectItem>
+                    <SelectItem value="lifestyle">🟣 Lifestyle</SelectItem>
+                    <SelectItem value="epargne">🟢 Épargne</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
           

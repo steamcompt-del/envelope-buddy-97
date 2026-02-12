@@ -172,6 +172,16 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
         );
       }
       
+      // Show savings goal celebrations triggered by rollover
+      if (result.celebrations && result.celebrations.length > 0) {
+        for (const c of result.celebrations) {
+          toast.success(
+            `🎉 ${c.goalName || c.envelopeName} atteint ${c.threshold}% grâce au report !`,
+            { duration: 5000 }
+          );
+        }
+      }
+      
       setCurrentMonth(targetMonthKey);
       onOpenChange(false);
     } catch (error) {
