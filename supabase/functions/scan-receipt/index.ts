@@ -99,33 +99,46 @@ serve(async (req) => {
               content: [
                 {
                   type: "text",
-                  text: `Tu es un assistant spécialisé dans l'extraction de données de tickets de caisse.
+                  text: `Tu es un assistant expert en extraction de données de tickets de caisse français.
 
 Analyse cette image de ticket de caisse et extrais les informations suivantes au format JSON:
 {
   "merchant": "nom du magasin/commerce",
-  "amount": nombre (montant total en euros, sans symbole €),
+  "amount": nombre (montant total TTC en euros, sans symbole €),
   "category": "${categoryInstruction}",
-  "description": "description courte de l'achat",
+  "description": "description courte de l'achat (ex: Courses alimentaires, Repas restaurant)",
   "items": [
     {
-      "name": "nom de l'article",
+      "name": "nom de l'article (tel qu'affiché sur le ticket)",
       "quantity": nombre (quantité, 1 par défaut),
-      "unit_price": nombre ou null (prix unitaire si indiqué),
-      "total_price": nombre (prix total pour cet article)
+      "unit_price": nombre ou null (prix unitaire HT ou TTC si indiqué),
+      "total_price": nombre (prix total pour cet article, APRÈS remise si applicable)
     }
   ]
 }
 
-IMPORTANT: 
-- Réponds UNIQUEMENT avec le JSON, sans texte avant ou après
-- Le montant doit être un nombre décimal (ex: 45.50)
-- Extrais TOUS les articles visibles sur le ticket avec leurs prix
+RÈGLES CRITIQUES :
+1. Réponds UNIQUEMENT avec le JSON, sans texte avant ou après, sans markdown
+2. Le montant "amount" = le TOTAL TTC final payé (après remises, promotions, bons de réduction)
+3. Si le ticket affiche un "TOTAL À PAYER", "NET À PAYER" ou "MONTANT DÛ", utilise CE montant
+4. Extrais TOUS les articles visibles avec leurs prix
+
+GESTION DES REMISES ET PROMOTIONS :
+- Si un article a une remise (ex: "-1,50€", "REMISE", "PROMO", "2+1 GRATUIT"), applique la remise dans le total_price de l'article
+- Les lignes de remise globale (ex: "BON DE RÉDUCTION -5,00€") doivent être incluses comme article avec un total_price négatif
+- Les cartes de fidélité et remises différées ne doivent PAS être déduites du montant total
+
+GESTION DES QUANTITÉS :
+- Format "3 x 1,50" → quantity: 3, unit_price: 1.50, total_price: 4.50
+- Format "ARTICLE   2" suivi du prix → quantity: 2
 - Si la quantité n'est pas spécifiée, mets 1
 - Si le prix unitaire n'est pas visible, mets null
-- Le total_price est obligatoire pour chaque article
-- Si tu ne peux pas lire le montant total, calcule-le à partir des articles
-- NE RETOURNE JAMAIS un amount de 0 si des articles sont visibles`,
+
+CALCUL DU TOTAL :
+- Utilise le total imprimé sur le ticket en priorité
+- Si le total n'est pas lisible, calcule-le à partir des articles
+- NE RETOURNE JAMAIS un amount de 0 si des articles sont visibles
+- Vérifie que la somme des articles est cohérente avec le total (tolérance 5%)`,
                 },
                 {
                   type: "image_url",
