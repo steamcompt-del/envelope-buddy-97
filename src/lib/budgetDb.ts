@@ -345,7 +345,7 @@ export async function deleteIncomeDb(ctx: QueryContext, monthKey: string, income
   if (current) {
     await supabase
       .from('monthly_budgets')
-      .update({ to_be_budgeted: Math.max(0, (Number(current.to_be_budgeted) || 0) - amount) })
+      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) - amount })
       .eq('id', current.id);
   }
 }
