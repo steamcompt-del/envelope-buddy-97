@@ -553,9 +553,6 @@ export function ShoppingListContent({ storeMode = false }: ShoppingListContentPr
         </Collapsible>
       )}
 
-      {items.length === 0 && archives.length === 0 && !storeMode && (
-        <EmptyState />
-      )}
 
       {/* Floating Total Bar (Store Mode only) */}
       {storeMode && items.length > 0 && (
