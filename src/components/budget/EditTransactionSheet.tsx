@@ -62,6 +62,7 @@ export function EditTransactionSheet({
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const saveLockRef = useRef(false);
   
   // Split state
   const [splits, setSplits] = useState<SplitInput[]>([]);
@@ -133,9 +134,14 @@ export function EditTransactionSheet({
   const handleSave = async () => {
     if (!transaction || !user) return;
     
+    // Scénario 1: Protection double-clic
+    if (saveLockRef.current || isSaving) return;
+    saveLockRef.current = true;
+    
     const amount = parseFloat(editAmount.replace(',', '.'));
     if (isNaN(amount) || amount <= 0) {
       toast.error('Montant invalide');
+      saveLockRef.current = false;
       return;
     }
     
@@ -218,6 +224,7 @@ export function EditTransactionSheet({
       toast.error('Erreur lors de la modification');
     } finally {
       setIsSaving(false);
+      saveLockRef.current = false;
     }
   };
   
