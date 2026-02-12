@@ -65,8 +65,19 @@ export function DeleteIncomeConfirmDialog({
     try {
       // If auto-deallocation is enabled and balance would be negative
       if (willBeNegative && autoDealloc && deallocationPlan.length > 0) {
+        let deallocatedCount = 0;
         for (const plan of deallocationPlan) {
-          await deallocateFromEnvelope(plan.envelope.id, plan.amount);
+          try {
+            await deallocateFromEnvelope(plan.envelope.id, plan.amount);
+            deallocatedCount++;
+          } catch (deallocError) {
+            console.error('Deallocation failed for envelope:', plan.envelope.name, deallocError);
+            toast.error(
+              `Désallocation échouée pour "${plan.envelope.name}". ${deallocatedCount} enveloppe(s) traitée(s) sur ${deallocationPlan.length}. Suppression annulée.`
+            );
+            setDeleting(false);
+            return; // Stop: don't delete income if deallocation is incomplete
+          }
         }
         toast.success(
           `${fmt(totalDealloc)} désalloués de ${deallocationPlan.length} enveloppe(s)`
@@ -78,7 +89,7 @@ export function DeleteIncomeConfirmDialog({
       onOpenChange(false);
     } catch (error) {
       console.error('Error deleting income:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error('Erreur lors de la suppression du revenu');
     } finally {
       setDeleting(false);
     }
