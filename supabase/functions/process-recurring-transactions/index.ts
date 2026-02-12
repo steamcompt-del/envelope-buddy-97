@@ -73,12 +73,83 @@ Deno.serve(async (req: Request) => {
     console.log(`Found ${dueRecurring?.length || 0} due recurring transactions`);
 
     let processedCount = 0;
+    let skippedCount = 0;
     let errorCount = 0;
     const results: any[] = [];
 
     for (const recurring of (dueRecurring || []) as RecurringTransaction[]) {
       try {
         console.log(`Processing: ${recurring.description} (${recurring.amount}€)`);
+
+        // === IDEMPOTENCY CHECK ===
+        // Check if a transaction was already created for this recurring + date
+        const { data: existing, error: checkError } = await supabase
+          .from("transactions")
+          .select("id")
+          .eq("recurring_transaction_id", recurring.id)
+          .eq("date", today)
+          .limit(1);
+
+        if (checkError) {
+          console.error(`Error checking existing transactions for ${recurring.id}:`, checkError);
+          throw checkError;
+        }
+
+        if (existing && existing.length > 0) {
+          console.log(`⏭️ Skipping ${recurring.description}: already processed today (tx: ${existing[0].id})`);
+          skippedCount++;
+          
+          // Still advance next_due_date to prevent being stuck
+          const currentDue = new Date(recurring.next_due_date);
+          const nextDue = calculateNextDueDate(currentDue, recurring.frequency);
+          const nextDueStr = nextDue.toISOString().split("T")[0];
+          
+          await supabase
+            .from("recurring_transactions")
+            .update({ next_due_date: nextDueStr, updated_at: new Date().toISOString() })
+            .eq("id", recurring.id);
+
+          results.push({
+            recurring_id: recurring.id,
+            description: recurring.description,
+            status: "skipped",
+            reason: "already_processed_today",
+            existing_transaction_id: existing[0].id,
+          });
+          continue;
+        }
+
+        // === ENVELOPE EXISTENCE CHECK ===
+        const { data: envelope, error: envError } = await supabase
+          .from("envelopes")
+          .select("id, name")
+          .eq("id", recurring.envelope_id)
+          .maybeSingle();
+
+        if (envError) throw envError;
+
+        if (!envelope) {
+          console.warn(`⚠️ Envelope ${recurring.envelope_id} not found for recurring ${recurring.id}. Deactivating.`);
+          
+          // Deactivate the recurring transaction to prevent infinite retries
+          const { error: deactivateError } = await supabase
+            .from("recurring_transactions")
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq("id", recurring.id);
+
+          if (deactivateError) {
+            console.error(`Error deactivating recurring ${recurring.id}:`, deactivateError);
+          }
+
+          errorCount++;
+          results.push({
+            recurring_id: recurring.id,
+            description: recurring.description,
+            status: "error",
+            error: `Envelope deleted. Recurring deactivated.`,
+          });
+          continue;
+        }
 
         // 1. Create the transaction
         const { data: transaction, error: txError } = await supabase
@@ -99,29 +170,17 @@ Deno.serve(async (req: Request) => {
         if (txError) throw txError;
         console.log(`✅ Transaction created: ${transaction.id}`);
 
-        // 2. Update envelope_allocations spent
-        const { data: allocation } = await supabase
-          .from("envelope_allocations")
-          .select("id, spent")
-          .eq("envelope_id", recurring.envelope_id)
-          .eq("month_key", currentMonthKey)
-          .maybeSingle();
+        // 2. Update envelope spent atomically via RPC
+        const { error: spentError } = await supabase.rpc("increment_spent_atomic", {
+          p_envelope_id: recurring.envelope_id,
+          p_month_key: currentMonthKey,
+          p_amount: recurring.amount,
+        });
 
-        if (allocation) {
-          await supabase
-            .from("envelope_allocations")
-            .update({ spent: Number(allocation.spent) + recurring.amount })
-            .eq("id", allocation.id);
-        } else {
-          // Create allocation if it doesn't exist
-          await supabase.from("envelope_allocations").insert({
-            user_id: recurring.user_id,
-            household_id: recurring.household_id,
-            envelope_id: recurring.envelope_id,
-            month_key: currentMonthKey,
-            allocated: 0,
-            spent: recurring.amount,
-          });
+        if (spentError) {
+          console.error(`Error updating spent for envelope ${recurring.envelope_id}:`, spentError);
+          // Transaction was created but spent wasn't updated - log but continue
+          // The integrity check can fix this later
         }
 
         // 3. Calculate and update next due date
@@ -129,7 +188,7 @@ Deno.serve(async (req: Request) => {
         const nextDue = calculateNextDueDate(currentDue, recurring.frequency);
         const nextDueStr = nextDue.toISOString().split("T")[0];
 
-        await supabase
+        const { error: updateError } = await supabase
           .from("recurring_transactions")
           .update({
             next_due_date: nextDueStr,
@@ -137,9 +196,13 @@ Deno.serve(async (req: Request) => {
           })
           .eq("id", recurring.id);
 
+        if (updateError) {
+          console.error(`Error updating next_due_date for ${recurring.id}:`, updateError);
+        }
+
         console.log(`✅ Next due date updated to: ${nextDueStr}`);
 
-        // 4. Log activity (only if household_id exists, since activity_log requires it)
+        // 4. Log activity (only if household_id exists)
         if (recurring.household_id) {
           await supabase.from("activity_log").insert({
             household_id: recurring.household_id,
@@ -181,6 +244,7 @@ Deno.serve(async (req: Request) => {
       date: today,
       total_due: dueRecurring?.length || 0,
       processed: processedCount,
+      skipped: skippedCount,
       errors: errorCount,
       results,
     };
