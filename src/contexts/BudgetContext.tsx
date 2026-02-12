@@ -123,7 +123,7 @@ interface BudgetContextType {
   // Envelope actions
   createEnvelope: (name: string, icon: string, color: string, category?: EnvelopeCategory) => Promise<string | undefined>;
   updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => Promise<void>;
-  deleteEnvelope: (id: string) => Promise<void>;
+  deleteEnvelope: (id: string, refundToBudget?: boolean) => Promise<void>;
   reorderEnvelopes: (orderedIds: string[]) => Promise<void>;
    allocateToEnvelope: (envelopeId: string, amount: number) => Promise<void>;
    allocateInitialBalance: (envelopeId: string, amount: number) => Promise<void>;
@@ -430,12 +430,12 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     await loadMonthData();
   }, [getQueryContext, currentMonth.envelopes, loadMonthData]);
 
-  const deleteEnvelope = useCallback(async (id: string) => {
+  const deleteEnvelope = useCallback(async (id: string, refundToBudget: boolean = true) => {
     const ctx = getQueryContext();
     if (!ctx) return;
     const envelope = currentMonth.envelopes.find(e => e.id === id);
     try {
-      await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0);
+      await deleteEnvelopeDb(ctx, currentMonthKey, id, envelope?.allocated || 0, refundToBudget);
       await logActivity(ctx, 'envelope_deleted', 'envelope', id, { name: envelope?.name });
       await loadMonthData();
       toast.success('Enveloppe supprimée');

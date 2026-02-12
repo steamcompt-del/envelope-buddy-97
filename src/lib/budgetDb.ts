@@ -391,7 +391,7 @@ export async function updateEnvelopeDb(envelopeId: string, updates: { name?: str
   await supabase.from('envelopes').update(dbUpdates).eq('id', envelopeId);
 }
 
-export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, allocated: number): Promise<void> {
+export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, allocated: number, refundToBudget: boolean = true): Promise<void> {
   // Check if there are active recurring transactions
   const { data: activeRecurring } = await supabase
     .from('recurring_transactions')
@@ -420,8 +420,8 @@ export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, enve
     );
   }
 
-  // Refund allocated amount atomically
-  if (allocated > 0) {
+  // Refund allocated amount atomically (only if requested)
+  if (refundToBudget && allocated > 0) {
     await supabase.rpc('adjust_to_be_budgeted', {
       p_month_key: monthKey,
       p_household_id: ctx.householdId || null,
