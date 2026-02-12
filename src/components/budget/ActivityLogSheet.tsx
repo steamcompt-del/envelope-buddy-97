@@ -143,10 +143,7 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
         activity,
         currentMonthKey,
       );
-      // Wait a moment for database to be updated before refreshing
-      await new Promise(resolve => setTimeout(resolve, 300));
-      await refreshActivities();
-      await refreshData();
+      await Promise.all([refreshActivities(), refreshData()]);
       toast.success('Action annulée ✓');
     } catch (error: any) {
       console.error('Undo error:', error);

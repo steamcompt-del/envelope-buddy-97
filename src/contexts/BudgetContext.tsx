@@ -623,7 +623,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       amount, 
       description, 
       envelope_name: envelope?.name,
-      undo_data: { amount, envelope_id: envelopeId },
+      undo_data: { amount, envelope_id: envelopeId, description, merchant, date },
     });
     await loadMonthData();
     return { transactionId, alert: alertInfo };
