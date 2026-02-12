@@ -150,13 +150,14 @@ interface BudgetContextType {
   resetMonth: () => void;
 }
 
-// Use a module-level variable to survive HMR context identity changes
-let _budgetContext: React.Context<BudgetContextType | null> | null = null;
-function getBudgetContext() {
-  if (!_budgetContext) {
-    _budgetContext = createContext<BudgetContextType | null>(null);
+// Use globalThis to survive HMR context identity changes
+const BUDGET_CTX_KEY = '__lovable_budget_ctx__' as const;
+function getBudgetContext(): React.Context<BudgetContextType | null> {
+  const g = globalThis as unknown as Record<string, React.Context<BudgetContextType | null>>;
+  if (!g[BUDGET_CTX_KEY]) {
+    g[BUDGET_CTX_KEY] = createContext<BudgetContextType | null>(null);
   }
-  return _budgetContext;
+  return g[BUDGET_CTX_KEY];
 }
 const BudgetContext = getBudgetContext();
 
