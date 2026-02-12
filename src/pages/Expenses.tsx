@@ -254,7 +254,7 @@ export default function Expenses() {
           <div className="space-y-4">
             {groupedTransactions.map(group => (
               <div key={group.dateKey} className="animate-fade-in">
-                <div className="flex items-center justify-between py-2 sticky top-[140px] bg-background/95 backdrop-blur-sm z-10">
+                <div className="flex items-center justify-between py-2 sticky top-[120px] bg-background/95 backdrop-blur-sm z-10">
                   <p className="text-sm font-medium text-muted-foreground">
                     {format(group.date, 'EEEE d MMMM', { locale: fr })}
                   </p>
