@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AutoAllocationHistoryDialog } from '@/components/budget/AutoAllocationHistoryDialog';
 import { Link } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { useBudget } from '@/contexts/BudgetContext';
@@ -38,6 +39,7 @@ import {
   Moon,
   Sun,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HouseholdSettingsDialog } from '@/components/budget/HouseholdSettingsDialog';
@@ -75,7 +77,7 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
   const [showMonthlyManagement, setShowMonthlyManagement] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingMonth, setIsDeletingMonth] = useState(false);
-  
+  const [showAutoAllocHistory, setShowAutoAllocHistory] = useState(false);
   const isDarkMode = theme === 'dark';
   
   // Calculate totals
@@ -327,6 +329,15 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
             </Button>
             
             <Button
+              onClick={() => setShowAutoAllocHistory(true)}
+              variant="outline"
+              className="w-full rounded-xl gap-2 text-sm"
+            >
+              <Zap className="w-4 h-4" />
+              Historique auto-allocations
+            </Button>
+            
+            <Button
               onClick={() => setShowDeleteMonthDialog(true)}
               variant="outline"
               className="w-full rounded-xl gap-2 text-sm text-destructive hover:text-destructive"
@@ -416,6 +427,12 @@ export function SettingsSheet({ open, onOpenChange, onOpenIncomeList, onOpenActi
         onRegenerateCode={regenerateInviteCode}
         onLeaveHousehold={leaveHousehold}
         onDeleteHousehold={deleteHousehold}
+      />
+      
+      {/* Auto Allocation History Dialog */}
+      <AutoAllocationHistoryDialog
+        open={showAutoAllocHistory}
+        onOpenChange={setShowAutoAllocHistory}
       />
     </Sheet>
   );

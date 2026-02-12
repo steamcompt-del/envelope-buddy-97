@@ -110,6 +110,11 @@ Deno.serve(async (req: Request) => {
           priority: "error",
           error: `Impossible de récupérer le budget : ${budgetError.message}`,
         });
+        await supabase.from("auto_allocation_history").insert({
+          user_id: userId, household_id: hId, month_key: monthKey!,
+          goal_name: "—", envelope_id: null, amount: 0, priority: "error",
+          status: "error", error_message: budgetError.message,
+        });
         continue;
       }
       if (!budgets || budgets.length === 0) {
@@ -268,10 +273,19 @@ Deno.serve(async (req: Request) => {
         availableBudget -= contribution;
         totalAllocated += contribution;
 
-        results.push({
-          goalName: goal.name || (goal.envelopes as any)?.name || "Objectif",
+        const goalName = goal.name || (goal.envelopes as any)?.name || "Objectif";
+        results.push({ goalName, amount: contribution, priority: goal.priority });
+
+        // Log to history table
+        await supabase.from("auto_allocation_history").insert({
+          user_id: userId,
+          household_id: hId,
+          month_key: monthKey,
+          goal_name: goalName,
+          envelope_id: goal.envelope_id,
           amount: contribution,
           priority: goal.priority,
+          status: "success",
         });
       }
     }
