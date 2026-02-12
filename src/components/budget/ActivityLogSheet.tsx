@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useBudget } from '@/contexts/BudgetContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Sheet,
   SheetContent,
@@ -11,6 +13,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import { useActivity } from '@/hooks/useActivity';
 import {
   actionLabels,
@@ -36,7 +47,9 @@ import {
   X,
   Filter,
   Loader2,
+  Undo2,
 } from 'lucide-react';
+import { isUndoable, undoActivity } from '@/lib/undoActivity';
 import { cn } from '@/lib/utils';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -56,10 +69,13 @@ interface ActivityLogSheetProps {
 }
 
 export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) {
-  const { household } = useBudget();
-  const { activities, loading } = useActivity(200);
+  const { household, currentMonthKey, refreshData } = useBudget();
+  const { user } = useAuth();
+  const { activities, loading, refresh: refreshActivities } = useActivity(200);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<ActivityCategory | null>(null);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const [confirmUndo, setConfirmUndo] = useState<typeof activities[0] | null>(null);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -118,7 +134,27 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
     return <IconComponent className="w-4 h-4" />;
   };
 
-  // Filter & search
+  const handleUndo = useCallback(async (activity: typeof activities[0]) => {
+    if (!user || undoingId) return;
+    setUndoingId(activity.id);
+    try {
+      await undoActivity(
+        { userId: user.id, householdId: household?.id },
+        activity,
+        currentMonthKey,
+      );
+      toast.success('Action annulée ✓');
+      await refreshActivities();
+      await refreshData();
+    } catch (error: any) {
+      console.error('Undo error:', error);
+      toast.error(error?.message || 'Impossible d\'annuler cette action');
+    } finally {
+      setUndoingId(null);
+      setConfirmUndo(null);
+    }
+  }, [user, household?.id, currentMonthKey, undoingId, refreshActivities, refreshData]);
+
   const filteredActivities = useMemo(() => {
     let result = activities;
 
@@ -166,6 +202,7 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
   const allCategories: ActivityCategory[] = ['income', 'expense', 'envelope', 'allocation', 'recurring', 'member'];
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
         <div className="p-6 pb-0 space-y-4">
@@ -292,30 +329,33 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
                         const details = getActivityDetails(activity);
                         const isDelete = activity.action.endsWith('_deleted');
                         const isAdd = activity.action.endsWith('_added') || activity.action.endsWith('_created') || activity.action === 'member_joined';
+                        const canUndo = isUndoable(activity);
+                        const isUndone = !!(activity.details as any)?.undone;
+                        const isThisUndoing = undoingId === activity.id;
 
                         return (
                           <motion.div
                             key={activity.id}
                             initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
+                            animate={{ opacity: isUndone ? 0.5 : 1, x: 0 }}
                             transition={{ delay: idx * 0.02 }}
                             className={cn(
                               'flex items-start gap-3 p-3 rounded-xl border transition-colors',
-                              'bg-card hover:bg-muted/30'
+                              isUndone ? 'bg-muted/30 border-dashed' : 'bg-card hover:bg-muted/30'
                             )}
                           >
                             {/* Icon */}
                             <div className={cn(
                               'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
-                              colorClass
+                              isUndone ? 'bg-muted text-muted-foreground' : colorClass
                             )}>
-                              {renderIcon(activity.action)}
+                              {isUndone ? <Undo2 className="w-4 h-4" /> : renderIcon(activity.action)}
                             </div>
 
                             {/* Content */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm leading-snug">
+                                <p className={cn("text-sm leading-snug", isUndone && "line-through")}>
                                   <span className="font-semibold">
                                     {activity.userDisplayName || 'Utilisateur'}
                                   </span>{' '}
@@ -323,6 +363,28 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
                                     {actionLabels[activity.action]}
                                   </span>
                                 </p>
+                                {/* Undo button */}
+                                {canUndo && !isUndone && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setConfirmUndo(activity)}
+                                    disabled={!!undoingId}
+                                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary rounded-lg"
+                                    title="Annuler cette action"
+                                  >
+                                    {isThisUndoing ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Undo2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                                {isUndone && (
+                                  <Badge variant="outline" className="text-[10px] shrink-0 border-muted-foreground/30">
+                                    Annulée
+                                  </Badge>
+                                )}
                               </div>
 
                               {/* Details */}
@@ -333,7 +395,7 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
                               )}
 
                               {/* Amount badge */}
-                              {activity.details?.amount !== undefined && (
+                              {activity.details?.amount !== undefined && !isUndone && (
                                 <Badge
                                   variant="outline"
                                   className={cn(
@@ -365,5 +427,52 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
         </ScrollArea>
       </SheetContent>
     </Sheet>
+
+    {/* Undo confirmation dialog */}
+    <AlertDialog open={!!confirmUndo} onOpenChange={(o) => !o && setConfirmUndo(null)}>
+      <AlertDialogContent className="sm:max-w-md rounded-2xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Undo2 className="w-4 h-4 text-primary" />
+            </div>
+            Annuler cette action ?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirmUndo && (
+              <span>
+                <span className="font-medium text-foreground">
+                  {confirmUndo.userDisplayName || 'Utilisateur'}
+                </span>{' '}
+                {actionLabels[confirmUndo.action]}
+                {confirmUndo.details?.description && (
+                  <span> — « {confirmUndo.details.description as string} »</span>
+                )}
+                {confirmUndo.details?.name && (
+                  <span> — « {confirmUndo.details.name as string} »</span>
+                )}
+                {confirmUndo.details?.amount !== undefined && (
+                  <span> ({formatAmount(confirmUndo.details.amount as number)})</span>
+                )}
+              </span>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2 sm:gap-0">
+          <AlertDialogCancel className="rounded-xl" disabled={!!undoingId}>
+            Non, garder
+          </AlertDialogCancel>
+          <Button
+            onClick={() => confirmUndo && handleUndo(confirmUndo)}
+            disabled={!!undoingId}
+            className="rounded-xl"
+          >
+            {undoingId ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Undo2 className="w-4 h-4 mr-2" />}
+            Oui, annuler
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
