@@ -1370,5 +1370,134 @@ function getNextMonthKey(monthKey: string): string {
   return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 }
 
+/**
+ * Budget Integrity Check
+ * Verifies and corrects inconsistencies between:
+ * - Total incomes for the month
+ * - Total allocations for the month
+ * - Stored "to_be_budgeted" value
+ */
+export interface IntegrityCheckResult {
+  isValid: boolean;
+  totalIncomes: number;
+  totalAllocations: number;
+  storedToBeBudgeted: number;
+  calculatedToBeBudgeted: number;
+  discrepancy: number;
+  message: string;
+}
+
+export async function checkBudgetIntegrity(
+  ctx: QueryContext,
+  monthKey: string
+): Promise<IntegrityCheckResult> {
+  // Fetch total incomes
+  let incomeQuery = supabase
+    .from('incomes')
+    .select('amount')
+    .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    incomeQuery = incomeQuery.eq('household_id', ctx.householdId);
+  } else {
+    incomeQuery = incomeQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: incomes, error: incomeError } = await incomeQuery;
+  if (incomeError) throw incomeError;
+
+  const totalIncomes = (incomes || []).reduce((sum, inc) => sum + Number(inc.amount), 0);
+
+  // Fetch total allocations
+  let allocQuery = supabase
+    .from('envelope_allocations')
+    .select('allocated')
+    .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    allocQuery = allocQuery.eq('household_id', ctx.householdId);
+  } else {
+    allocQuery = allocQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: allocations, error: allocError } = await allocQuery;
+  if (allocError) throw allocError;
+
+  const totalAllocations = (allocations || []).reduce((sum, alloc) => sum + Number(alloc.allocated), 0);
+
+  // Fetch current to_be_budgeted
+  let budgetQuery = supabase
+    .from('monthly_budgets')
+    .select('to_be_budgeted')
+    .eq('month_key', monthKey);
+
+  if (ctx.householdId) {
+    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
+  } else {
+    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data: budgets, error: budgetError } = await budgetQuery.maybeSingle();
+  if (budgetError) throw budgetError;
+
+  const storedToBeBudgeted = budgets ? Number(budgets.to_be_budgeted) : 0;
+  const calculatedToBeBudgeted = totalIncomes - totalAllocations;
+  const discrepancy = Math.abs(storedToBeBudgeted - calculatedToBeBudgeted);
+
+  const isValid = discrepancy < 0.005; // Allow tiny floating point differences
+
+  let message = '';
+  if (isValid) {
+    message = 'Budget intègre ✓';
+  } else {
+    message = `Incohérence détectée : ${discrepancy.toFixed(2)}€ de différence`;
+  }
+
+  return {
+    isValid,
+    totalIncomes,
+    totalAllocations,
+    storedToBeBudgeted,
+    calculatedToBeBudgeted,
+    discrepancy,
+    message,
+  };
+}
+
+/**
+ * Corrects budget integrity by recalculating to_be_budgeted
+ * from actual incomes and allocations
+ */
+export async function fixBudgetIntegrity(
+  ctx: QueryContext,
+  monthKey: string
+): Promise<IntegrityCheckResult> {
+  // Run integrity check to get calculated value
+  const checkResult = await checkBudgetIntegrity(ctx, monthKey);
+
+  if (!checkResult.isValid) {
+    // Update the to_be_budgeted value
+    let updateQuery = supabase
+      .from('monthly_budgets')
+      .update({ to_be_budgeted: checkResult.calculatedToBeBudgeted })
+      .eq('month_key', monthKey);
+
+    if (ctx.householdId) {
+      updateQuery = updateQuery.eq('household_id', ctx.householdId);
+    } else {
+      updateQuery = updateQuery.eq('user_id', ctx.userId).is('household_id', null);
+    }
+
+    const { error } = await updateQuery;
+    if (error) throw error;
+
+    console.log(
+      `✓ Budget corrected for ${monthKey}: ${checkResult.storedToBeBudgeted}€ → ${checkResult.calculatedToBeBudgeted}€`
+    );
+  }
+
+  return checkResult;
+}
+
 // Export context type for use in other files
 export type { QueryContext };

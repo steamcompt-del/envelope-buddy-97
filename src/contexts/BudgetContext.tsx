@@ -25,6 +25,9 @@ import {
   copyEnvelopesToMonthDb,
   deleteMonthDataDb,
   deleteAllUserDataDb,
+  checkBudgetIntegrity,
+  fixBudgetIntegrity,
+  type IntegrityCheckResult,
   QueryContext,
 } from '@/lib/budgetDb';
 import { logActivity } from '@/lib/activityDb';
@@ -131,6 +134,10 @@ interface BudgetContextType {
   
   // Refresh data
   refreshData: () => Promise<void>;
+  
+  // Integrity checks
+  checkBudgetIntegrity: (monthKey?: string) => Promise<IntegrityCheckResult>;
+  fixBudgetIntegrity: (monthKey?: string) => Promise<IntegrityCheckResult>;
   
   // Delete data
   deleteMonthData: (monthKey: string) => Promise<void>;
@@ -627,6 +634,24 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 
+  // Integrity checks
+  const checkBudgetIntegrityFn = useCallback(async (monthKey?: string): Promise<IntegrityCheckResult> => {
+    const ctx = getQueryContext();
+    if (!ctx) throw new Error('No user context');
+    return await checkBudgetIntegrity(ctx, monthKey || currentMonthKey);
+  }, [getQueryContext, currentMonthKey]);
+
+  const fixBudgetIntegrityFn = useCallback(async (monthKey?: string): Promise<IntegrityCheckResult> => {
+    const ctx = getQueryContext();
+    if (!ctx) throw new Error('No user context');
+    const result = await fixBudgetIntegrity(ctx, monthKey || currentMonthKey);
+    if (!result.isValid) {
+      await loadMonthData();
+      toast.success('Budget corrigé ✓');
+    }
+    return result;
+  }, [getQueryContext, currentMonthKey, loadMonthData]);
+
   // Legacy reset
   const resetMonth = useCallback(() => {
     console.warn('resetMonth is deprecated');
@@ -703,6 +728,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     resetMonth,
     deleteMonthData,
     deleteAllUserData,
+    checkBudgetIntegrity: checkBudgetIntegrityFn,
+    fixBudgetIntegrity: fixBudgetIntegrityFn,
     refreshData,
   };
 
