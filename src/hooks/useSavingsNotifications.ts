@@ -21,7 +21,7 @@ export function useSavingsNotifications() {
       const envelope = envelopeMap.get(goal.envelope_id);
       if (!envelope) continue;
 
-      const currentAmount = envelope.allocated;
+      const currentAmount = envelope.allocated - envelope.spent;
       const progress = goal.target_amount > 0
         ? (currentAmount / goal.target_amount) * 100
         : 0;

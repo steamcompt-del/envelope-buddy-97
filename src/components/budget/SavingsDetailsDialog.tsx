@@ -99,11 +99,12 @@ export function SavingsDetailsDialog({
   if (!envelope) return null;
   
   const targetAmount = savingsGoal?.target_amount || 0;
+  const netSavings = envelope.allocated - envelope.spent;
   const percentComplete = targetAmount > 0 
-    ? Math.min((envelope.allocated / targetAmount) * 100, 100)
+    ? Math.min((netSavings / targetAmount) * 100, 100)
     : 0;
-  const isComplete = envelope.allocated >= targetAmount && targetAmount > 0;
-  const remaining = Math.max(0, targetAmount - envelope.allocated);
+  const isComplete = netSavings >= targetAmount && targetAmount > 0;
+  const remaining = Math.max(0, targetAmount - netSavings);
   
   // Calculate days remaining
   let daysRemaining: number | null = null;
@@ -148,7 +149,7 @@ export function SavingsDetailsDialog({
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     
     // Capture before-allocation percentage for celebration check
-    const beforePercent = targetAmount > 0 ? (envelope.allocated / targetAmount) * 100 : 0;
+    const beforePercent = targetAmount > 0 ? (netSavings / targetAmount) * 100 : 0;
     
     if (allocateMode === 'add') {
       // Use cents comparison to avoid floating point precision issues
@@ -157,7 +158,7 @@ export function SavingsDetailsDialog({
         
         // Check if a celebration threshold was crossed
         if (savingsGoal && targetAmount > 0) {
-          const afterPercent = ((envelope.allocated + parsedAmount) / targetAmount) * 100;
+          const afterPercent = ((netSavings + parsedAmount) / targetAmount) * 100;
           const thresholds = savingsGoal.celebration_threshold || [100];
           
           for (const threshold of thresholds.sort((a, b) => a - b)) {
@@ -302,7 +303,7 @@ export function SavingsDetailsDialog({
             
             <div className="mt-4 text-center">
               <p className="text-2xl font-bold text-foreground">
-                {envelope.allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                {netSavings.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </p>
               {targetAmount > 0 && (
                 <p className="text-sm text-muted-foreground">
@@ -394,9 +395,9 @@ export function SavingsDetailsDialog({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setShowAllocate(true); setAllocateMode('remove'); }}
-              className="rounded-xl flex-col h-auto py-3"
-              disabled={envelope.allocated <= 0}
+               onClick={() => { setShowAllocate(true); setAllocateMode('remove'); }}
+               className="rounded-xl flex-col h-auto py-3"
+               disabled={netSavings <= 0}
             >
               <Minus className="w-4 h-4 mb-1" />
               <span className="text-xs">Retirer</span>
@@ -414,12 +415,12 @@ export function SavingsDetailsDialog({
           
           {showAllocate && (
             <div className="p-3 bg-muted rounded-xl space-y-3">
-              <Label>
-                {allocateMode === 'add' 
-                  ? `Ajouter (max: ${toBeBudgeted.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })})`
-                  : `Retirer (max: ${envelope.allocated.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })})`
-                }
-              </Label>
+               <Label>
+                 {allocateMode === 'add' 
+                   ? `Ajouter (max: ${toBeBudgeted.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })})`
+                   : `Retirer (max: ${netSavings.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })})`
+                 }
+               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input

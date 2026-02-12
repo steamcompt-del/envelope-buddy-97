@@ -101,7 +101,10 @@ export function SavingsGoalDialog({
   // Projection calculation
   const projection = useMemo(() => {
     if (!parsedAmount || parsedAmount <= 0 || !autoContribute) return null;
-    // Use envelope.allocated if available via existingGoal context, otherwise 0
+    
+    // Calculate remaining amount needed (target minus current savings)
+    // Note: We assume currentAmount = 0 since this is a dialog for creation/editing, 
+    // and the actual current amount is managed in the parent context
     const remaining = parsedAmount;
     if (remaining <= 0) return null;
 
