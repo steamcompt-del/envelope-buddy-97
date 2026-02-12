@@ -75,6 +75,18 @@ export default function Index() {
       });
     }
   }, [dueCount, loading]);
+
+  // Handle pending actions after dialogs close
+  useEffect(() => {
+    if (!detailsOpen && !savingsDetailsOpen && pendingAction) {
+      if (pendingAction === 'transfer') {
+        setTransferOpen(true);
+      } else if (pendingAction === 'expense') {
+        setExpenseOpen(true);
+      }
+      setPendingAction(null);
+    }
+  }, [detailsOpen, savingsDetailsOpen, pendingAction]);
   
   const handleEnvelopeClick = (envelopeId: string) => {
     const envelope = envelopes.find(e => e.id === envelopeId);
@@ -98,21 +110,17 @@ export default function Index() {
   };
   
   const handleTransferFromDetails = useCallback(() => {
-    // Close details dialog first to avoid Radix portal conflict (removeChild crash)
+    // Close details dialog first; pendingAction + useEffect will open transfer dialog
     setDetailsOpen(false);
     setSavingsDetailsOpen(false);
-    // Wait for Radix Dialog unmount animation to fully complete before opening new dialog
-    setTimeout(() => {
-      setTransferOpen(true);
-    }, 350);
+    setPendingAction('transfer');
   }, []);
 
   const handleAddExpenseFromDetails = useCallback(() => {
+    // Close details dialog first; pendingAction + useEffect will open expense drawer
     setDetailsOpen(false);
     setSavingsDetailsOpen(false);
-    setTimeout(() => {
-      setExpenseOpen(true);
-    }, 350);
+    setPendingAction('expense');
   }, []);
   
   const handleRefresh = useCallback(async () => {
@@ -204,11 +212,13 @@ export default function Index() {
         onOpenChange={setAllocateOpen}
         preselectedEnvelopeId={selectedEnvelopeId || (envelopes.length === 1 ? envelopes[0].id : undefined)}
       />
-      <TransferFundsDialog 
-        open={transferOpen} 
-        onOpenChange={setTransferOpen}
-        fromEnvelopeId={selectedEnvelopeId}
-      />
+      {transferOpen && (
+        <TransferFundsDialog 
+          open={transferOpen} 
+          onOpenChange={setTransferOpen}
+          fromEnvelopeId={selectedEnvelopeId}
+        />
+      )}
       <AddExpenseDrawer 
         open={expenseOpen} 
         onOpenChange={handleExpenseDrawerClose}
@@ -233,7 +243,7 @@ export default function Index() {
         onJoinHousehold={joinHousehold}
       />
       
-      {selectedEnvelopeId && (
+      {selectedEnvelopeId && !transferOpen && !expenseOpen && (
         <>
           <EnvelopeDetailsDialog
             open={detailsOpen}
