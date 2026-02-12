@@ -101,20 +101,53 @@ Deno.serve(async (req: Request) => {
         budgetQuery = budgetQuery.is("household_id", null);
       }
 
-      const { data: budgets } = await budgetQuery;
-      if (!budgets || budgets.length === 0) continue;
+      const { data: budgets, error: budgetError } = await budgetQuery;
+      if (budgetError) {
+        console.error(`Error fetching budget for user ${userId}:`, budgetError);
+        results.push({
+          goalName: "—",
+          amount: 0,
+          priority: "error",
+          error: `Impossible de récupérer le budget : ${budgetError.message}`,
+        });
+        continue;
+      }
+      if (!budgets || budgets.length === 0) {
+        console.warn(`No budget found for user ${userId}, month ${monthKey}`);
+        continue;
+      }
 
       let availableBudget = Number(budgets[0].to_be_budgeted);
-      if (availableBudget <= 0) continue;
+      if (availableBudget <= 0) {
+        results.push({
+          goalName: "—",
+          amount: 0,
+          priority: "info",
+          skipped: true,
+          reason: `Budget insuffisant (${availableBudget.toFixed(2)}€)`,
+        });
+        continue;
+      }
 
       for (const goal of userGoals) {
         if (availableBudget <= 0) break;
 
         // Calculate current saved amount from envelope allocations (source of truth)
-        const { data: allocs } = await supabase
+        const { data: allocs, error: allocError } = await supabase
           .from("envelope_allocations")
           .select("allocated, spent")
           .eq("envelope_id", goal.envelope_id);
+
+        if (allocError) {
+          console.error(`Error fetching allocations for envelope ${goal.envelope_id}:`, allocError);
+          results.push({
+            goalName: goal.name || (goal.envelopes as any)?.name || "Objectif",
+            amount: 0,
+            priority: goal.priority,
+            error: `Échec lecture allocations : ${allocError.message}`,
+          });
+          continue;
+        }
 
         const currentSaved = (allocs || []).reduce(
           (sum: number, a: any) => sum + (Number(a.allocated) - Number(a.spent)),
@@ -150,31 +183,87 @@ Deno.serve(async (req: Request) => {
           allocQuery = allocQuery.is("household_id", null);
         }
 
-        const { data: monthAllocs } = await allocQuery;
+        const { data: monthAllocs, error: monthAllocError } = await allocQuery;
 
-        if (monthAllocs && monthAllocs.length > 0) {
-          await supabase
-            .from("envelope_allocations")
-            .update({ allocated: Number(monthAllocs[0].allocated) + contribution })
-            .eq("id", monthAllocs[0].id);
-        } else {
-          await supabase
-            .from("envelope_allocations")
-            .insert({
-              envelope_id: goal.envelope_id,
-              month_key: monthKey,
-              user_id: userId,
-              household_id: hId,
-              allocated: contribution,
-              spent: 0,
-            });
+        if (monthAllocError) {
+          console.error(`Error fetching month allocations for ${goal.envelope_id}:`, monthAllocError);
+          results.push({
+            goalName: goal.name || (goal.envelopes as any)?.name || "Objectif",
+            amount: 0,
+            priority: goal.priority,
+            error: `Échec lecture allocations mensuelles : ${monthAllocError.message}`,
+          });
+          continue;
         }
 
-        // Update budget
-        await supabase
-          .from("monthly_budgets")
-          .update({ to_be_budgeted: availableBudget - contribution })
-          .eq("id", budgets[0].id);
+        // Use atomic RPC for allocation to prevent race conditions
+        const { error: rpcAllocError } = await supabase.rpc("adjust_allocation_atomic", {
+          p_envelope_id: goal.envelope_id,
+          p_month_key: monthKey,
+          p_amount: contribution,
+        });
+
+        if (rpcAllocError) {
+          // Fallback to direct update if RPC not available
+          console.warn("RPC adjust_allocation_atomic failed, using fallback:", rpcAllocError);
+          if (monthAllocs && monthAllocs.length > 0) {
+            const { error: updateError } = await supabase
+              .from("envelope_allocations")
+              .update({ allocated: Number(monthAllocs[0].allocated) + contribution })
+              .eq("id", monthAllocs[0].id);
+            if (updateError) {
+              console.error(`Failed to allocate to ${goal.envelope_id}:`, updateError);
+              results.push({
+                goalName: goal.name || (goal.envelopes as any)?.name || "Objectif",
+                amount: 0,
+                priority: goal.priority,
+                error: `Échec allocation : ${updateError.message}`,
+              });
+              continue;
+            }
+          } else {
+            const { error: insertError } = await supabase
+              .from("envelope_allocations")
+              .insert({
+                envelope_id: goal.envelope_id,
+                month_key: monthKey,
+                user_id: userId,
+                household_id: hId,
+                allocated: contribution,
+                spent: 0,
+              });
+            if (insertError) {
+              console.error(`Failed to create allocation for ${goal.envelope_id}:`, insertError);
+              results.push({
+                goalName: goal.name || (goal.envelopes as any)?.name || "Objectif",
+                amount: 0,
+                priority: goal.priority,
+                error: `Échec création allocation : ${insertError.message}`,
+              });
+              continue;
+            }
+          }
+        }
+
+        // Update budget atomically
+        const { error: rpcBudgetError } = await supabase.rpc("adjust_to_be_budgeted", {
+          p_month_key: monthKey,
+          p_household_id: hId || null,
+          p_user_id: userId,
+          p_amount: -contribution,
+        });
+
+        if (rpcBudgetError) {
+          // Fallback to direct update
+          console.warn("RPC adjust_to_be_budgeted failed, using fallback:", rpcBudgetError);
+          const { error: budgetUpdateError } = await supabase
+            .from("monthly_budgets")
+            .update({ to_be_budgeted: availableBudget - contribution })
+            .eq("id", budgets[0].id);
+          if (budgetUpdateError) {
+            console.error(`Failed to update budget:`, budgetUpdateError);
+          }
+        }
 
         availableBudget -= contribution;
         totalAllocated += contribution;

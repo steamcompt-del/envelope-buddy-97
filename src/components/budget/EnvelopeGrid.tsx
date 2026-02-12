@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useMemo } from 'react';
+import { useCallback, useRef, useState, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DndContext,

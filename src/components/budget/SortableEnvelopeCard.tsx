@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Envelope } from '@/contexts/BudgetContext';
@@ -13,7 +14,7 @@ interface SortableEnvelopeCardProps extends EnvelopeQuickActionHandlers {
   savingsGoal?: SavingsGoal;
 }
 
-export function SortableEnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: SortableEnvelopeCardProps) {
+export const SortableEnvelopeCard = memo(function SortableEnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: SortableEnvelopeCardProps) {
   const {
     attributes,
     listeners,
@@ -71,4 +72,4 @@ export function SortableEnvelopeCard({ envelope, onClick, savingsGoal, onQuickAd
       />
     </div>
   );
-}
+});

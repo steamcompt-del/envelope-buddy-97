@@ -72,6 +72,11 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
                   <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
                 )}
               </div>
+              {toBeBudgeted < 0 && (
+                <p className="text-[9px] text-destructive font-medium leading-tight mt-0.5">
+                  ⚠️ Déficit
+                </p>
+              )}
             </button>
 
             <Separator orientation="vertical" className="h-8 mx-1" />
@@ -140,6 +145,11 @@ export function BudgetHeader({ onAllocate, onAddIncome, onOpenSettings, onOpenIn
                 <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse-glow flex-shrink-0" />
               )}
             </div>
+            {toBeBudgeted < 0 && (
+              <p className="text-xs text-destructive font-medium mt-1">
+                ⚠️ Budget en déficit — désallouez ou ajoutez un revenu
+              </p>
+            )}
           </button>
           
           <Link to="/expenses" className="bg-muted/30 rounded-xl p-3 hover:bg-muted/50 transition-colors cursor-pointer">
