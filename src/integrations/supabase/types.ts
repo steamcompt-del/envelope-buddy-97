@@ -55,6 +55,63 @@ export type Database = {
           },
         ]
       }
+      auto_allocation_history: {
+        Row: {
+          amount: number
+          created_at: string
+          envelope_id: string | null
+          error_message: string | null
+          goal_name: string
+          household_id: string | null
+          id: string
+          month_key: string
+          priority: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          envelope_id?: string | null
+          error_message?: string | null
+          goal_name: string
+          household_id?: string | null
+          id?: string
+          month_key: string
+          priority?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          envelope_id?: string | null
+          error_message?: string | null
+          goal_name?: string
+          household_id?: string | null
+          id?: string
+          month_key?: string
+          priority?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_allocation_history_envelope_id_fkey"
+            columns: ["envelope_id"]
+            isOneToOne: false
+            referencedRelation: "envelopes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_allocation_history_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       envelope_allocations: {
         Row: {
           allocated: number
