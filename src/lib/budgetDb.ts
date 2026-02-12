@@ -259,36 +259,13 @@ export async function addIncomeDb(ctx: QueryContext, monthKey: string, amount: n
 
   if (incomeError) throw incomeError;
 
-  // Update toBeBudgeted - now we're sure the entry exists
-  let budgetQuery = supabase
-    .from('monthly_budgets')
-    .select('to_be_budgeted, id')
-    .eq('month_key', monthKey);
-
-  if (ctx.householdId) {
-    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
-  } else {
-    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
-  }
-
-  const { data: current, error: selectError } = await budgetQuery.single();
-
-  if (selectError) {
-    console.error('Error fetching monthly_budgets:', selectError);
-    throw selectError;
-  }
-
-  if (current) {
-    const { error: updateError } = await supabase
-      .from('monthly_budgets')
-      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + amount })
-      .eq('id', current.id);
-    
-    if (updateError) {
-      console.error('Error updating to_be_budgeted:', updateError);
-      throw updateError;
-    }
-  }
+  // Update toBeBudgeted atomically (prevents race conditions with multiple household members)
+  await supabase.rpc('adjust_to_be_budgeted', {
+    p_month_key: monthKey,
+    p_household_id: ctx.householdId || null,
+    p_user_id: ctx.userId,
+    p_amount: amount,
+  });
 
   return income.id;
 }
@@ -305,50 +282,24 @@ export async function updateIncomeDb(ctx: QueryContext, monthKey: string, income
 
   const diff = newAmount - oldAmount;
   if (diff !== 0) {
-    let budgetQuery = supabase
-      .from('monthly_budgets')
-      .select('to_be_budgeted, id')
-      .eq('month_key', monthKey);
-
-    if (ctx.householdId) {
-      budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
-    } else {
-      budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-
-    const { data: current } = await budgetQuery.single();
-
-    if (current) {
-      await supabase
-        .from('monthly_budgets')
-        .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + diff })
-        .eq('id', current.id);
-    }
+    await supabase.rpc('adjust_to_be_budgeted', {
+      p_month_key: monthKey,
+      p_household_id: ctx.householdId || null,
+      p_user_id: ctx.userId,
+      p_amount: diff,
+    });
   }
 }
 
 export async function deleteIncomeDb(ctx: QueryContext, monthKey: string, incomeId: string, amount: number): Promise<void> {
   await supabase.from('incomes').delete().eq('id', incomeId);
 
-  let budgetQuery = supabase
-    .from('monthly_budgets')
-    .select('to_be_budgeted, id')
-    .eq('month_key', monthKey);
-
-  if (ctx.householdId) {
-    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
-  } else {
-    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
-  }
-
-  const { data: current } = await budgetQuery.single();
-
-  if (current) {
-    await supabase
-      .from('monthly_budgets')
-      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) - amount })
-      .eq('id', current.id);
-  }
+  await supabase.rpc('adjust_to_be_budgeted', {
+    p_month_key: monthKey,
+    p_household_id: ctx.householdId || null,
+    p_user_id: ctx.userId,
+    p_amount: -amount,
+  });
 }
 
 // Envelope operations
@@ -457,67 +408,42 @@ export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, enve
     );
   }
 
-  // Refund allocated amount
+  // Refund allocated amount atomically
   if (allocated > 0) {
-    let budgetQuery = supabase
-      .from('monthly_budgets')
-      .select('to_be_budgeted, id')
-      .eq('month_key', monthKey);
-
-    if (ctx.householdId) {
-      budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
-    } else {
-      budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-
-    const { data: current } = await budgetQuery.single();
-
-    if (current) {
-      await supabase
-        .from('monthly_budgets')
-        .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + allocated })
-        .eq('id', current.id);
-    }
+    await supabase.rpc('adjust_to_be_budgeted', {
+      p_month_key: monthKey,
+      p_household_id: ctx.householdId || null,
+      p_user_id: ctx.userId,
+      p_amount: allocated,
+    });
   }
 
   await supabase.from('envelopes').delete().eq('id', envelopeId);
 }
 
 export async function allocateToEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
-  // Deduct from toBeBudgeted
-  let budgetQuery = supabase
-    .from('monthly_budgets')
-    .select('to_be_budgeted, id')
-    .eq('month_key', monthKey);
+  // Deduct from toBeBudgeted atomically
+  await supabase.rpc('adjust_to_be_budgeted', {
+    p_month_key: monthKey,
+    p_household_id: ctx.householdId || null,
+    p_user_id: ctx.userId,
+    p_amount: -amount,
+  });
 
-  if (ctx.householdId) {
-    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
-  } else {
-    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
-  }
-
-  const { data: current } = await budgetQuery.single();
-
-  if (current) {
-    await supabase
-      .from('monthly_budgets')
-      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) - amount })
-      .eq('id', current.id);
-  }
-
-  // Add to envelope allocation
+  // Add to envelope allocation atomically
   const { data: allocation } = await supabase
     .from('envelope_allocations')
-    .select('id, allocated')
+    .select('id')
     .eq('envelope_id', envelopeId)
     .eq('month_key', monthKey)
-    .single();
+    .maybeSingle();
 
   if (allocation) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ allocated: Number(allocation.allocated) + amount })
-      .eq('id', allocation.id);
+    await supabase.rpc('adjust_allocation_atomic', {
+      p_envelope_id: envelopeId,
+      p_month_key: monthKey,
+      p_amount: amount,
+    });
   } else {
     await supabase.from('envelope_allocations').insert({
       user_id: ctx.userId,
@@ -533,23 +459,22 @@ export async function allocateToEnvelopeDb(ctx: QueryContext, monthKey: string, 
 // Allocate to an envelope WITHOUT impacting toBeBudgeted (for existing savings / initial balances)
 export async function allocateInitialBalanceDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
   if (amount <= 0) return;
-
-  // Ensure month record exists
   await ensureMonthExists(ctx, monthKey);
 
-  // Only update envelope allocation, do NOT touch to_be_budgeted
+  // Only update envelope allocation atomically, do NOT touch to_be_budgeted
   const { data: allocation } = await supabase
     .from('envelope_allocations')
-    .select('id, allocated')
+    .select('id')
     .eq('envelope_id', envelopeId)
     .eq('month_key', monthKey)
-    .single();
+    .maybeSingle();
 
   if (allocation) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ allocated: Number(allocation.allocated) + amount })
-      .eq('id', allocation.id);
+    await supabase.rpc('adjust_allocation_atomic', {
+      p_envelope_id: envelopeId,
+      p_month_key: monthKey,
+      p_amount: amount,
+    });
   } else {
     await supabase.from('envelope_allocations').insert({
       user_id: ctx.userId,
@@ -563,69 +488,44 @@ export async function allocateInitialBalanceDb(ctx: QueryContext, monthKey: stri
 }
 
 export async function deallocateFromEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
-  // Add back to toBeBudgeted
-  let budgetQuery = supabase
-    .from('monthly_budgets')
-    .select('to_be_budgeted, id')
-    .eq('month_key', monthKey);
+  // Add back to toBeBudgeted atomically
+  await supabase.rpc('adjust_to_be_budgeted', {
+    p_month_key: monthKey,
+    p_household_id: ctx.householdId || null,
+    p_user_id: ctx.userId,
+    p_amount: amount,
+  });
 
-  if (ctx.householdId) {
-    budgetQuery = budgetQuery.eq('household_id', ctx.householdId);
-  } else {
-    budgetQuery = budgetQuery.eq('user_id', ctx.userId).is('household_id', null);
-  }
-
-  const { data: current } = await budgetQuery.single();
-
-  if (current) {
-    await supabase
-      .from('monthly_budgets')
-      .update({ to_be_budgeted: (Number(current.to_be_budgeted) || 0) + amount })
-      .eq('id', current.id);
-  }
-
-  const { data: allocation } = await supabase
-    .from('envelope_allocations')
-    .select('id, allocated')
-    .eq('envelope_id', envelopeId)
-    .eq('month_key', monthKey)
-    .single();
-
-  if (allocation) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ allocated: Math.max(0, Number(allocation.allocated) - amount) })
-      .eq('id', allocation.id);
-  }
+  // Decrease envelope allocation atomically
+  await supabase.rpc('adjust_allocation_atomic', {
+    p_envelope_id: envelopeId,
+    p_month_key: monthKey,
+    p_amount: -amount,
+  });
 }
 
 export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: string, fromId: string, toId: string, amount: number): Promise<void> {
-  const { data: fromAlloc } = await supabase
-    .from('envelope_allocations')
-    .select('id, allocated')
-    .eq('envelope_id', fromId)
-    .eq('month_key', monthKey)
-    .single();
+  // Decrease source atomically
+  await supabase.rpc('adjust_allocation_atomic', {
+    p_envelope_id: fromId,
+    p_month_key: monthKey,
+    p_amount: -amount,
+  });
 
+  // Increase target atomically (or create if missing)
   const { data: toAlloc } = await supabase
     .from('envelope_allocations')
-    .select('id, allocated')
+    .select('id')
     .eq('envelope_id', toId)
     .eq('month_key', monthKey)
-    .single();
-
-  if (fromAlloc) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ allocated: Math.max(0, Number(fromAlloc.allocated) - amount) })
-      .eq('id', fromAlloc.id);
-  }
+    .maybeSingle();
 
   if (toAlloc) {
-    await supabase
-      .from('envelope_allocations')
-      .update({ allocated: Number(toAlloc.allocated) + amount })
-      .eq('id', toAlloc.id);
+    await supabase.rpc('adjust_allocation_atomic', {
+      p_envelope_id: toId,
+      p_month_key: monthKey,
+      p_amount: amount,
+    });
   } else {
     await supabase.from('envelope_allocations').insert({
       user_id: ctx.userId,

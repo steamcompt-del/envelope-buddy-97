@@ -432,7 +432,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       toast.success('Enveloppe supprimée');
     } catch (error: any) {
       console.error('Error deleting envelope:', error);
-      if (error.message && error.message.includes('objectif')) {
+      if (error.message && (error.message.includes('objectif') || error.message.includes('Impossible'))) {
         toast.error(error.message, { duration: 8000 });
       } else {
         toast.error('Erreur lors de la suppression');
