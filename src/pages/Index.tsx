@@ -57,6 +57,7 @@ export default function Index() {
   
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>('');
   const [scannedExpenseData, setScannedExpenseData] = useState<ScannedExpenseData | null>(null);
+  const [pendingAction, setPendingAction] = useState<'transfer' | 'expense' | null>(null);
   
   const { isScanning } = useReceiptScanner();
   const savingsGoals = useSavingsGoals();
@@ -96,13 +97,23 @@ export default function Index() {
     }
   };
   
-  const handleTransferFromDetails = () => {
-    setTransferOpen(true);
-  };
-  
-  const handleAddExpenseFromDetails = () => {
-    setExpenseOpen(true);
-  };
+  const handleTransferFromDetails = useCallback(() => {
+    // Close details dialog first to avoid Radix portal conflict (removeChild crash)
+    setDetailsOpen(false);
+    setSavingsDetailsOpen(false);
+    // Wait for Radix Dialog unmount animation to fully complete before opening new dialog
+    setTimeout(() => {
+      setTransferOpen(true);
+    }, 350);
+  }, []);
+
+  const handleAddExpenseFromDetails = useCallback(() => {
+    setDetailsOpen(false);
+    setSavingsDetailsOpen(false);
+    setTimeout(() => {
+      setExpenseOpen(true);
+    }, 350);
+  }, []);
   
   const handleRefresh = useCallback(async () => {
     await refreshData();
