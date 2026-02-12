@@ -139,6 +139,8 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnve
           return;
         }
         updateEnvelope(draggedEnvelope.id, { category: targetEnvelope.category } as any);
+        triggerHaptic('medium');
+        return;
       }
       
       const newOrder = arrayMove(envelopes, oldIndex, newIndex);
