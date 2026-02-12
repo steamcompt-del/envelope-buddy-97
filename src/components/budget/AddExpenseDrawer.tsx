@@ -9,6 +9,7 @@ import { addReceiptDb } from '@/lib/receiptsDb';
 import { addReceiptItems } from '@/lib/receiptItemsDb';
 import { createTransactionSplits, adjustSpentForSplits, SplitInput } from '@/lib/transactionSplitsDb';
 import { ReceiptValidationDialog } from './ReceiptValidationDialog';
+import { DuplicateExpenseDialog } from './DuplicateExpenseDialog';
 import {
   Drawer,
   DrawerContent,
@@ -97,6 +98,10 @@ export function AddExpenseDrawer({
   const [showValidation, setShowValidation] = useState(false);
   const [pendingScanResult, setPendingScanResult] = useState<ScanResult | null>(null);
   const [pendingScanFile, setPendingScanFile] = useState<File | null>(null);
+
+  // Duplicate expense dialog state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [shouldContinueAfterDuplicate, setShouldContinueAfterDuplicate] = useState(false);
   
   // Split state
   const [isSplit, setIsSplit] = useState(false);
@@ -189,51 +194,18 @@ export function AddExpenseDrawer({
     })));
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performSubmit = async () => {
     if (!user) return;
     if (parsedAmount <= 0) return;
     
-    // Scénario 1: Protection double-clic avec verrou
-    if (submitLockRef.current || isSubmitting) return;
-    submitLockRef.current = true;
-    setIsSubmitting(true);
-    
     if (isSplit) {
-      if (!splitValid) { submitLockRef.current = false; setIsSubmitting(false); return; }
+      if (!splitValid) return;
     } else {
-      if (!selectedEnvelope) { submitLockRef.current = false; setIsSubmitting(false); return; }
+      if (!selectedEnvelope) return;
     }
     
     try {
       const dateString = selectedDate ? selectedDate.toISOString().split('T')[0] : undefined;
-      
-      // Scénario 2: Détection de doublon (même montant + enveloppe + date dans les 5 dernières minutes)
-      const targetEnvelopeId = isSplit ? splitLines[0]?.envelopeId : selectedEnvelope;
-      if (targetEnvelopeId && dateString) {
-        const { getBackendClient } = await import('@/lib/backendClient');
-        const sb = getBackendClient();
-        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        const { data: dupes } = await sb
-          .from('transactions')
-          .select('id')
-          .eq('envelope_id', targetEnvelopeId)
-          .eq('amount', parsedAmount)
-          .eq('date', dateString)
-          .gte('created_at', fiveMinAgo)
-          .limit(1);
-        
-        if (dupes && dupes.length > 0) {
-          const confirmed = confirm(
-            `⚠️ Une dépense similaire (${parsedAmount.toFixed(2)}€) a été enregistrée il y a moins de 5 minutes. Continuer ?`
-          );
-          if (!confirmed) {
-            submitLockRef.current = false;
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      }
       
       if (isSplit) {
         const splits: SplitInput[] = splitLines.map(l => ({
@@ -321,6 +293,57 @@ export function AddExpenseDrawer({
       console.error('Failed to add expense:', error);
       toast.error('Erreur lors de l\'ajout de la dépense');
     } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (parsedAmount <= 0) return;
+    
+    // Scénario 1: Protection double-clic avec verrou
+    if (submitLockRef.current || isSubmitting) return;
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    
+    if (isSplit) {
+      if (!splitValid) { submitLockRef.current = false; setIsSubmitting(false); return; }
+    } else {
+      if (!selectedEnvelope) { submitLockRef.current = false; setIsSubmitting(false); return; }
+    }
+    
+    try {
+      const dateString = selectedDate ? selectedDate.toISOString().split('T')[0] : undefined;
+       
+       // Scénario 2: Détection de doublon (même montant + enveloppe + date dans les 5 dernières minutes)
+       const targetEnvelopeId = isSplit ? splitLines[0]?.envelopeId : selectedEnvelope;
+       if (targetEnvelopeId && dateString) {
+         const { getBackendClient } = await import('@/lib/backendClient');
+         const sb = getBackendClient();
+         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+         const { data: dupes } = await sb
+           .from('transactions')
+           .select('id')
+           .eq('envelope_id', targetEnvelopeId)
+           .eq('amount', parsedAmount)
+           .eq('date', dateString)
+           .gte('created_at', fiveMinAgo)
+           .limit(1);
+         
+         if (dupes && dupes.length > 0) {
+           submitLockRef.current = false;
+           setIsSubmitting(false);
+           setShowDuplicateDialog(true);
+           return;
+         }
+       }
+       
+       await performSubmit();
+    } catch (error) {
+      console.error('Failed to add expense:', error);
+      toast.error('Erreur lors de l\'ajout de la dépense');
       submitLockRef.current = false;
       setIsSubmitting(false);
     }
@@ -780,6 +803,19 @@ export function AddExpenseDrawer({
         onReject={handleValidationReject}
       />
     )}
+
+    {/* Duplicate expense dialog */}
+    <DuplicateExpenseDialog
+      open={showDuplicateDialog}
+      onOpenChange={setShowDuplicateDialog}
+      amount={parsedAmount}
+      onConfirm={performSubmit}
+      onCancel={() => {
+        submitLockRef.current = false;
+        setIsSubmitting(false);
+      }}
+      isLoading={isSubmitting}
+    />
     </>
   );
 }
