@@ -38,6 +38,7 @@ export function TransferFundsDialog({
   const [fromId, setFromId] = useState(fromEnvelopeId || '');
   const [toId, setToId] = useState('');
   const [amount, setAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync fromEnvelopeId when dialog opens via quick action
   useEffect(() => {
@@ -47,6 +48,7 @@ export function TransferFundsDialog({
     }
     if (!open) {
       setAmount('');
+      setIsSubmitting(false);
     }
   }, [open, fromEnvelopeId]);
   
@@ -55,6 +57,7 @@ export function TransferFundsDialog({
   const maxTransfer = fromEnvelope ? fromEnvelope.allocated - fromEnvelope.spent : 0;
   const parsedAmount = useMemo(() => parseFloat(amount.replace(',', '.')) || 0, [amount]);
   const exceeds = parsedAmount > maxTransfer && fromEnvelope !== undefined;
+  const sameEnvelope = fromId !== '' && fromId === toId;
 
   // Post-transfer balances
   const fromRemainingAfter = fromEnvelope ? (fromEnvelope.allocated - fromEnvelope.spent) - parsedAmount : 0;
@@ -62,13 +65,18 @@ export function TransferFundsDialog({
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (parsedAmount <= 0 || !fromId || !toId || exceeds) return;
+    if (parsedAmount <= 0 || !fromId || !toId || exceeds || sameEnvelope || isSubmitting) return;
     
-    await transferBetweenEnvelopes(fromId, toId, parsedAmount);
-    setAmount('');
-    setFromId('');
-    setToId('');
-    onOpenChange(false);
+    setIsSubmitting(true);
+    try {
+      await transferBetweenEnvelopes(fromId, toId, parsedAmount);
+      setAmount('');
+      setFromId('');
+      setToId('');
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   return (
@@ -147,8 +155,18 @@ export function TransferFundsDialog({
             </div>
           </div>
 
+          {/* Same envelope alert */}
+          {sameEnvelope && (
+            <Alert variant="destructive" className="rounded-xl">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Impossible de transférer vers la même enveloppe
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Insufficient balance alert */}
-          {exceeds && (
+          {exceeds && !sameEnvelope && (
             <Alert variant="destructive" className="rounded-xl">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -191,10 +209,10 @@ export function TransferFundsDialog({
             </Button>
             <Button
               type="submit"
-              disabled={!fromId || !toId || parsedAmount <= 0 || exceeds}
+              disabled={!fromId || !toId || parsedAmount <= 0 || exceeds || sameEnvelope || isSubmitting}
               className="flex-1 rounded-xl"
             >
-              Transférer
+              {isSubmitting ? 'Transfert...' : 'Transférer'}
             </Button>
           </div>
         </form>
