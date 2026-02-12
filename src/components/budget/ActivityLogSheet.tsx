@@ -143,9 +143,11 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
         activity,
         currentMonthKey,
       );
-      toast.success('Action annulée ✓');
+      // Wait a moment for database to be updated before refreshing
+      await new Promise(resolve => setTimeout(resolve, 300));
       await refreshActivities();
       await refreshData();
+      toast.success('Action annulée ✓');
     } catch (error: any) {
       console.error('Undo error:', error);
       toast.error(error?.message || 'Impossible d\'annuler cette action');
@@ -323,15 +325,17 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
                       {date}
                     </h3>
                     <div className="space-y-2">
-                      {dayActivities.map((activity, idx) => {
-                        const cat = actionCategory[activity.action];
-                        const colorClass = categoryColors[cat];
-                        const details = getActivityDetails(activity);
-                        const isDelete = activity.action.endsWith('_deleted');
-                        const isAdd = activity.action.endsWith('_added') || activity.action.endsWith('_created') || activity.action === 'member_joined';
-                        const canUndo = isUndoable(activity);
-                        const isUndone = !!(activity.details as any)?.undone;
-                        const isThisUndoing = undoingId === activity.id;
+                       {dayActivities.map((activity, idx) => {
+                         const cat = actionCategory[activity.action];
+                         const colorClass = categoryColors[cat];
+                         const details = getActivityDetails(activity);
+                         const isDelete = activity.action.endsWith('_deleted');
+                         const isAdd = activity.action.endsWith('_added') || activity.action.endsWith('_created') || activity.action === 'member_joined';
+                         const canUndo = isUndoable(activity);
+                         // Check if action has been undone
+                         const activityDetails = activity.details as Record<string, unknown> | undefined;
+                         const isUndone = !!(activityDetails?.undone === true);
+                         const isThisUndoing = undoingId === activity.id;
 
                         return (
                           <motion.div
