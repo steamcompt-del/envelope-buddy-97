@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useBudget, Envelope } from '@/contexts/BudgetContext';
 import { useSavingsGoals } from '@/hooks/useSavingsGoals';
+import { getBackendClient } from '@/lib/backendClient';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,8 @@ import {
   AlertTriangle,
   Check,
   TrendingUp,
+  Clock,
+  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,10 +63,14 @@ interface RolloverPreview {
 }
 
 export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagementDialogProps) {
-  const { currentMonthKey, copyEnvelopesToMonth, setCurrentMonth, envelopes } = useBudget();
+  const { currentMonthKey, copyEnvelopesToMonth, setCurrentMonth, envelopes, household } = useBudget();
+  const { user } = useAuth();
   const { goals, getGoalForEnvelope } = useSavingsGoals();
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [alreadyRolledOver, setAlreadyRolledOver] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [pendingRecurring, setPendingRecurring] = useState<Array<{ envelopeId: string; envelopeName: string; pendingAmount: number; pendingCount: number }>>([]);
   
   // Target month input state
   const { year: currentYear, month: currentMonth } = parseMonthKey(currentMonthKey);
@@ -82,11 +90,35 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
       setTargetMonth(nextMonth);
       setTargetYear(nextYear);
       setShowConfirmation(false);
+      setAlreadyRolledOver(false);
+      setPendingRecurring([]);
     }
   }, [open, currentMonth, currentYear]);
 
   const targetMonthKey = formatMonthKey(targetYear, targetMonth);
   const isSameMonth = targetMonthKey === currentMonthKey;
+
+  // Check for existing rollover when target changes
+  useEffect(() => {
+    if (!open || isSameMonth || !user) return;
+    setCheckingDuplicate(true);
+    const supabase = getBackendClient();
+    let query = supabase
+      .from('rollover_history')
+      .select('id')
+      .eq('source_month_key', currentMonthKey)
+      .eq('target_month_key', targetMonthKey)
+      .limit(1);
+    if (household?.id) {
+      query = query.eq('household_id', household.id);
+    } else {
+      query = query.eq('user_id', user.id);
+    }
+    query.then(({ data }) => {
+      setAlreadyRolledOver((data && data.length > 0) || false);
+      setCheckingDuplicate(false);
+    });
+  }, [open, targetMonthKey, currentMonthKey, isSameMonth, user, household?.id]);
 
   // Filter envelopes with rollover enabled
   const rolloverEnvelopes = useMemo(() => {
@@ -150,10 +182,21 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
     setShowConfirmation(true);
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (force = false) => {
     setLoading(true);
     try {
-      const result = await copyEnvelopesToMonth(targetMonthKey);
+      const result = await copyEnvelopesToMonth(targetMonthKey, force);
+      
+      // Handle already rolled over (idempotency)
+      if (result.alreadyRolledOver) {
+        toast.error('Ce report a déjà été effectué', {
+          description: `Un report ${formatMonthDisplay(currentMonthKey)} → ${formatMonthDisplay(targetMonthKey)} existe déjà.`,
+          duration: 6000,
+        });
+        setLoading(false);
+        return;
+      }
+      
       const formatCurrencyVal = (amount: number) => amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
       toast.success(`Enveloppes transférées vers ${formatMonthDisplay(targetMonthKey)}`, {
         description: result.count > 0 
@@ -180,6 +223,17 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
             { duration: 5000 }
           );
         }
+      }
+
+      // Show pending recurring warning
+      if (result.pendingRecurring && result.pendingRecurring.length > 0) {
+        const pendingList = result.pendingRecurring
+          .map(p => `${p.envelopeName}: ${p.pendingCount} dépense(s), ${p.pendingAmount.toFixed(2)}€`)
+          .join('\n');
+        toast.warning(
+          `⏰ Dépenses récurrentes non encore débitées`,
+          { description: pendingList, duration: 8000 }
+        );
       }
       
       setCurrentMonth(targetMonthKey);
@@ -260,6 +314,20 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
                 </p>
               )}
 
+              {/* Double rollover warning */}
+              {alreadyRolledOver && !isSameMonth && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <ShieldAlert className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      Report déjà effectué
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Un report a déjà été fait pour ce mois source → cible. Si vous continuez, les montants seront ajoutés à nouveau.
+                    </p>
+                  </div>
+                </div>
+              )}
               {/* Summary of what will happen */}
               <div className="space-y-3 pt-2">
                 <h4 className="text-sm font-medium flex items-center gap-2">
@@ -302,9 +370,10 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
               </Button>
               <Button 
                 onClick={handleProceed} 
-                disabled={isSameMonth || rolloverEnvelopes.length === 0}
+                disabled={isSameMonth || rolloverEnvelopes.length === 0 || checkingDuplicate}
+                variant={alreadyRolledOver ? 'destructive' : 'default'}
               >
-                Continuer
+                {alreadyRolledOver ? 'Forcer le re-report' : 'Continuer'}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </DialogFooter>
@@ -388,7 +457,7 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
                 Retour
               </Button>
               <Button 
-                onClick={handleConfirm} 
+                onClick={() => handleConfirm(alreadyRolledOver)} 
                 disabled={loading}
                 className="gap-2"
               >

@@ -112,7 +112,7 @@ interface BudgetContextType {
   setCurrentMonth: (monthKey: string) => void;
   getAvailableMonths: () => string[];
   createNewMonth: (monthKey: string) => void;
-  copyEnvelopesToMonth: (targetMonthKey: string) => Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: Array<{ envelopeName: string; goalName: string | null; threshold: number }> }>;
+  copyEnvelopesToMonth: (targetMonthKey: string, forceOverwrite?: boolean) => Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: Array<{ envelopeName: string; goalName: string | null; threshold: number }>; alreadyRolledOver?: boolean; pendingRecurring?: Array<{ envelopeId: string; envelopeName: string; pendingAmount: number; pendingCount: number }> }>;
   startNewMonth: () => void;
   
   // Income actions
@@ -646,7 +646,14 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     if (!ctx) return;
     const result = await startNewMonthDb(ctx, currentMonthKey);
     
-    // Show overdraft warnings (Amélioration #2)
+    // Handle already rolled over
+    if (result.alreadyRolledOver) {
+      toast.info('Report déjà effectué pour ce mois, navigation directe.');
+      setCurrentMonthKey(result.nextMonthKey);
+      return;
+    }
+    
+    // Show overdraft warnings
     if (result.overdrafts && result.overdrafts.length > 0) {
       const overdraftList = result.overdrafts
         .map(o => `${o.envelopeName}: -${o.overdraftAmount.toFixed(2)}€`)
@@ -670,16 +677,29 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
         );
       }
     }
+
+    // Show pending recurring warning
+    if (result.pendingRecurring && result.pendingRecurring.length > 0) {
+      const list = result.pendingRecurring
+        .map(p => `${p.envelopeName}: ${p.pendingCount} dépense(s), ${p.pendingAmount.toFixed(2)}€`)
+        .join('\n');
+      toast.warning('⏰ Dépenses récurrentes non encore débitées', {
+        description: list,
+        duration: 8000,
+      });
+    }
     
     setCurrentMonthKey(result.nextMonthKey);
   }, [getQueryContext, currentMonthKey]);
 
   // Copy envelopes to any target month
-  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: Array<{ envelopeName: string; goalName: string | null; threshold: number }> }> => {
+  const copyEnvelopesToMonth = useCallback(async (targetMonthKey: string, forceOverwrite = false): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: Array<{ envelopeName: string; goalName: string | null; threshold: number }>; alreadyRolledOver?: boolean; pendingRecurring?: Array<{ envelopeId: string; envelopeName: string; pendingAmount: number; pendingCount: number }> }> => {
     const ctx = getQueryContext();
     if (!ctx) return { count: 0, total: 0 };
-    const result = await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey);
-    await loadMonthData(false);
+    const result = await copyEnvelopesToMonthDb(ctx, currentMonthKey, targetMonthKey, forceOverwrite);
+    if (!result.alreadyRolledOver) {
+      await loadMonthData(false);
+    }
     return result;
   }, [getQueryContext, currentMonthKey, loadMonthData]);
 

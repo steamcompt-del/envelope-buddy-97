@@ -757,17 +757,107 @@ export interface RolloverCelebration {
   threshold: number;
 }
 
+export interface PendingRecurringInfo {
+  envelopeId: string;
+  envelopeName: string;
+  pendingAmount: number;
+  pendingCount: number;
+}
+
 export interface StartNewMonthResult {
   nextMonthKey: string;
   overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>;
   celebrations?: RolloverCelebration[];
+  alreadyRolledOver?: boolean;
+  pendingRecurring?: PendingRecurringInfo[];
 }
 
-export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string): Promise<StartNewMonthResult> {
+// Check if a rollover has already been performed for a given source→target
+async function checkExistingRollover(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<boolean> {
+  let query = supabase
+    .from('rollover_history')
+    .select('id')
+    .eq('source_month_key', sourceMonthKey)
+    .eq('target_month_key', targetMonthKey)
+    .limit(1);
+
+  if (ctx.householdId) {
+    query = query.eq('household_id', ctx.householdId);
+  } else {
+    query = query.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data } = await query;
+  return (data && data.length > 0) || false;
+}
+
+// Fetch pending recurring transactions for envelopes in a given month
+async function fetchPendingRecurring(ctx: QueryContext, sourceMonthKey: string, envelopeIds: string[]): Promise<PendingRecurringInfo[]> {
+  if (envelopeIds.length === 0) return [];
+
+  // Get the end of the source month
+  const [year, month] = sourceMonthKey.split('-').map(Number);
+  const endOfMonth = new Date(year, month, 0); // last day of month
+  const today = new Date();
+  
+  // Only look at recurring transactions due between now and end of month
+  if (today > endOfMonth) return [];
+
+  let query = supabase
+    .from('recurring_transactions')
+    .select('id, envelope_id, amount, description, next_due_date')
+    .eq('is_active', true)
+    .in('envelope_id', envelopeIds)
+    .lte('next_due_date', endOfMonth.toISOString().split('T')[0])
+    .gte('next_due_date', today.toISOString().split('T')[0]);
+
+  if (ctx.householdId) {
+    query = query.eq('household_id', ctx.householdId);
+  } else {
+    query = query.eq('user_id', ctx.userId).is('household_id', null);
+  }
+
+  const { data } = await query;
+  if (!data || data.length === 0) return [];
+
+  // Group by envelope
+  const grouped = new Map<string, { amount: number; count: number }>();
+  for (const rec of data) {
+    const existing = grouped.get(rec.envelope_id) || { amount: 0, count: 0 };
+    existing.amount += Number(rec.amount);
+    existing.count += 1;
+    grouped.set(rec.envelope_id, existing);
+  }
+
+  // We need envelope names - fetch from envelopes table
+  const { data: envelopes } = await supabase
+    .from('envelopes')
+    .select('id, name')
+    .in('id', Array.from(grouped.keys()));
+
+  const nameMap = new Map((envelopes || []).map(e => [e.id, e.name]));
+
+  return Array.from(grouped.entries()).map(([envId, info]) => ({
+    envelopeId: envId,
+    envelopeName: nameMap.get(envId) || 'Inconnu',
+    pendingAmount: info.amount,
+    pendingCount: info.count,
+  }));
+}
+
+export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string, forceOverwrite = false): Promise<StartNewMonthResult> {
   const [year, month] = currentMonthKey.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
   const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+
+  // 0) Idempotency check: prevent double rollover (Bug #1)
+  if (!forceOverwrite) {
+    const alreadyDone = await checkExistingRollover(ctx, currentMonthKey, nextMonthKey);
+    if (alreadyDone) {
+      return { nextMonthKey, alreadyRolledOver: true };
+    }
+  }
 
   // 1) Ensure monthly budget row exists
   let existsQuery = supabase
@@ -939,38 +1029,13 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     await supabase.from('envelope_allocations').insert(allocationsToInsert);
   }
 
-  // Update existing allocations by ADDING rollover amounts (Bug #1 fix)
+  // Update existing allocations atomically using RPC (Bug #2: concurrency fix)
   for (const { envelopeId, carryOverAmount } of allocationsToUpdate) {
-    // Fetch current allocation to ADD to it
-    let fetchQuery = supabase
-      .from('envelope_allocations')
-      .select('allocated')
-      .eq('envelope_id', envelopeId)
-      .eq('month_key', nextMonthKey);
-
-    if (ctx.householdId) {
-      fetchQuery = fetchQuery.eq('household_id', ctx.householdId);
-    } else {
-      fetchQuery = fetchQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-
-    const { data: current } = await fetchQuery.single();
-    const currentAllocated = current ? Number(current.allocated) : 0;
-    const newAllocated = currentAllocated + carryOverAmount;
-
-    let updateQuery = supabase
-      .from('envelope_allocations')
-      .update({ allocated: newAllocated })
-      .eq('envelope_id', envelopeId)
-      .eq('month_key', nextMonthKey);
-    
-    if (ctx.householdId) {
-      updateQuery = updateQuery.eq('household_id', ctx.householdId);
-    } else {
-      updateQuery = updateQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-    
-    await updateQuery;
+    await supabase.rpc('adjust_allocation_atomic', {
+      p_envelope_id: envelopeId,
+      p_month_key: nextMonthKey,
+      p_amount: carryOverAmount,
+    });
   }
 
   // Log rollover history (Amélioration #4)
@@ -1025,10 +1090,18 @@ export async function startNewMonthDb(ctx: QueryContext, currentMonthKey: string
     }
   }
 
+  // Fetch pending recurring transactions (Bug #5)
+  const rolloverEnvelopeIds = currentMonthEnvelopeIds.filter(id => {
+    const env = envelopeMap.get(id);
+    return env?.rollover;
+  });
+  const pendingRecurring = await fetchPendingRecurring(ctx, currentMonthKey, rolloverEnvelopeIds);
+
   return { 
     nextMonthKey, 
     overdrafts: overdrafts.length > 0 ? overdrafts : undefined,
     celebrations: celebrations.length > 0 ? celebrations : undefined,
+    pendingRecurring: pendingRecurring.length > 0 ? pendingRecurring : undefined,
   };
 }
 
@@ -1138,7 +1211,15 @@ function applyRolloverStrategy(
 
 // Copy envelopes to a specific target month
 // ONLY envelopes with rollover=true are copied
-export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: RolloverCelebration[] }> {
+export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: string, targetMonthKey: string, forceOverwrite = false): Promise<{ count: number; total: number; overdrafts?: Array<{ envelopeId: string; envelopeName: string; overdraftAmount: number }>; celebrations?: RolloverCelebration[]; alreadyRolledOver?: boolean; pendingRecurring?: PendingRecurringInfo[] }> {
+  // 0) Idempotency check (Bug #1: double rollover)
+  if (!forceOverwrite) {
+    const alreadyDone = await checkExistingRollover(ctx, sourceMonthKey, targetMonthKey);
+    if (alreadyDone) {
+      return { count: 0, total: 0, alreadyRolledOver: true };
+    }
+  }
+
   // 1) Ensure target monthly budget row exists
   let existsQuery = supabase
     .from('monthly_budgets')
@@ -1295,37 +1376,13 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     await supabase.from('envelope_allocations').insert(allocationsToInsert);
   }
 
-  // Update existing allocations by ADDING rollover amounts (Bug #1 fix)
+  // Update existing allocations atomically using RPC (Bug #2: concurrency fix)
   for (const { envelopeId, carryOverAmount } of allocationsToUpdate) {
-    let fetchQuery = supabase
-      .from('envelope_allocations')
-      .select('allocated')
-      .eq('envelope_id', envelopeId)
-      .eq('month_key', targetMonthKey);
-
-    if (ctx.householdId) {
-      fetchQuery = fetchQuery.eq('household_id', ctx.householdId);
-    } else {
-      fetchQuery = fetchQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-
-    const { data: current } = await fetchQuery.single();
-    const currentAllocated = current ? Number(current.allocated) : 0;
-    const newAllocated = currentAllocated + carryOverAmount;
-
-    let updateQuery = supabase
-      .from('envelope_allocations')
-      .update({ allocated: newAllocated })
-      .eq('envelope_id', envelopeId)
-      .eq('month_key', targetMonthKey);
-    
-    if (ctx.householdId) {
-      updateQuery = updateQuery.eq('household_id', ctx.householdId);
-    } else {
-      updateQuery = updateQuery.eq('user_id', ctx.userId).is('household_id', null);
-    }
-    
-    await updateQuery;
+    await supabase.rpc('adjust_allocation_atomic', {
+      p_envelope_id: envelopeId,
+      p_month_key: targetMonthKey,
+      p_amount: carryOverAmount,
+    });
   }
 
   // Log rollover history
@@ -1390,7 +1447,11 @@ export async function copyEnvelopesToMonthDb(ctx: QueryContext, sourceMonthKey: 
     }
   }
 
-  return { count: rolloverCount, total: totalCarryOver, overdrafts: overdrafts.length > 0 ? overdrafts : undefined, celebrations: celebrations2.length > 0 ? celebrations2 : undefined };
+  // Fetch pending recurring transactions (Bug #5)
+  const rolloverEnvelopeIds = envelopes.map(e => e.id);
+  const pendingRecurring = await fetchPendingRecurring(ctx, sourceMonthKey, rolloverEnvelopeIds);
+
+  return { count: rolloverCount, total: totalCarryOver, overdrafts: overdrafts.length > 0 ? overdrafts : undefined, celebrations: celebrations2.length > 0 ? celebrations2 : undefined, pendingRecurring: pendingRecurring.length > 0 ? pendingRecurring : undefined };
 }
 
 // Helper
