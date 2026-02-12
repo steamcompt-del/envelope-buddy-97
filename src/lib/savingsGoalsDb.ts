@@ -151,3 +151,28 @@ export async function deleteSavingsGoal(goalId: string): Promise<void> {
 
   if (error) throw error;
 }
+
+/**
+ * Check if a savings goal milestone was crossed and return celebration message if so
+ * Returns {threshold, previousPercent, newPercent} if a celebration threshold was crossed
+ */
+export function checkCelebrationThreshold(
+  previousAmount: number,
+  newAmount: number,
+  targetAmount: number,
+  thresholds: number[]
+): { threshold: number; previousPercent: number; newPercent: number } | null {
+  if (targetAmount <= 0) return null;
+
+  const prevPercent = Math.min((previousAmount / targetAmount) * 100, 100);
+  const newPercent = Math.min((newAmount / targetAmount) * 100, 100);
+
+  // Check if any celebration threshold was crossed
+  for (const threshold of thresholds.sort((a, b) => a - b)) {
+    if (prevPercent < threshold && newPercent >= threshold) {
+      return { threshold, previousPercent: prevPercent, newPercent };
+    }
+  }
+
+  return null;
+}

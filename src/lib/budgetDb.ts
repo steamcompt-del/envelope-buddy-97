@@ -428,6 +428,20 @@ export async function updateEnvelopeDb(envelopeId: string, updates: { name?: str
 }
 
 export async function deleteEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, allocated: number): Promise<void> {
+  // Check if there are active recurring transactions
+  const { data: activeRecurring } = await supabase
+    .from('recurring_transactions')
+    .select('id, description, is_active')
+    .eq('envelope_id', envelopeId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (activeRecurring) {
+    throw new Error(
+      `Impossible de supprimer : l'enveloppe a une dépense récurrente active (${activeRecurring.description}). Désactivez-la d'abord.`
+    );
+  }
+
   // Check if there's a savings goal with funds
   const { data: savingsGoal } = await supabase
     .from('savings_goals')
