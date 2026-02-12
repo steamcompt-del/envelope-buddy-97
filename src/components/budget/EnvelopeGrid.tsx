@@ -132,14 +132,7 @@ export function EnvelopeGrid({ onEnvelopeClick, onCreateEnvelope, getGoalForEnve
       const draggedEnvelope = envelopes.find(e => e.id === active.id);
       const targetEnvelope = envelopes.find(e => e.id === over.id);
       if (draggedEnvelope && targetEnvelope && draggedEnvelope.category !== targetEnvelope.category) {
-        // Block category change for savings envelopes with active goals
-        const hasSavingsGoal = draggedEnvelope.icon === 'PiggyBank' && getGoalForEnvelope(draggedEnvelope.id);
-        if (hasSavingsGoal && targetEnvelope.category !== 'epargne') {
-          toast.error('Impossible de changer la catégorie : objectif d\'épargne actif');
-          return;
-        }
-        updateEnvelope(draggedEnvelope.id, { category: targetEnvelope.category } as any);
-        triggerHaptic('medium');
+        toast.error('Changement de catégorie interdit par glissement. Utilisez les détails de l\'enveloppe.');
         return;
       }
       
