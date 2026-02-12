@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Envelope } from '@/contexts/BudgetContext';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
@@ -79,7 +80,7 @@ const PRIORITY_BADGE: Record<SavingsPriority, { emoji: string; label: string; cl
   low: { emoji: '🟢', label: 'Basse', className: 'bg-green-500/15 text-green-400 border-green-500/30' },
 };
 
-export function EnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: EnvelopeCardProps) {
+export const EnvelopeCard = memo(function EnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense, onQuickAllocate, onQuickTransfer, onQuickDelete }: EnvelopeCardProps) {
   const { name, allocated, spent, icon, color } = envelope;
   
   const isSavings = icon === 'PiggyBank';
@@ -291,4 +292,4 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense
     </div>
     </EnvelopeQuickActions>
   );
-}
+});
