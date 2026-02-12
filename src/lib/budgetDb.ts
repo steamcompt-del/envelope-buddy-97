@@ -505,6 +505,11 @@ export async function deallocateFromEnvelopeDb(ctx: QueryContext, monthKey: stri
 }
 
 export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: string, fromId: string, toId: string, amount: number): Promise<void> {
+  // Guard: same envelope
+  if (fromId === toId) throw new Error('Cannot transfer to the same envelope');
+  // Guard: invalid amount
+  if (amount <= 0) throw new Error('Transfer amount must be positive');
+
   // Decrease source atomically
   await supabase.rpc('adjust_allocation_atomic', {
     p_envelope_id: fromId,
@@ -512,30 +517,27 @@ export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: st
     p_amount: -amount,
   });
 
-  // Increase target atomically (or create if missing)
-  const { data: toAlloc } = await supabase
+  // Ensure target allocation exists, then increase atomically
+  // Use upsert to avoid race condition on concurrent inserts
+  await supabase
     .from('envelope_allocations')
-    .select('id')
-    .eq('envelope_id', toId)
-    .eq('month_key', monthKey)
-    .maybeSingle();
+    .upsert(
+      {
+        user_id: ctx.userId,
+        household_id: ctx.householdId || null,
+        envelope_id: toId,
+        month_key: monthKey,
+        allocated: 0,
+        spent: 0,
+      },
+      { onConflict: 'envelope_id,month_key', ignoreDuplicates: true }
+    );
 
-  if (toAlloc) {
-    await supabase.rpc('adjust_allocation_atomic', {
-      p_envelope_id: toId,
-      p_month_key: monthKey,
-      p_amount: amount,
-    });
-  } else {
-    await supabase.from('envelope_allocations').insert({
-      user_id: ctx.userId,
-      household_id: ctx.householdId || null,
-      envelope_id: toId,
-      month_key: monthKey,
-      allocated: amount,
-      spent: 0,
-    });
-  }
+  await supabase.rpc('adjust_allocation_atomic', {
+    p_envelope_id: toId,
+    p_month_key: monthKey,
+    p_amount: amount,
+  });
 }
 
 // Transaction operations

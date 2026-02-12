@@ -522,11 +522,22 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const transferBetweenEnvelopes = useCallback(async (fromId: string, toId: string, amount: number) => {
     const ctx = getQueryContext();
     if (!ctx) return;
+    if (fromId === toId) {
+      toast.error('Impossible de transférer vers la même enveloppe');
+      return;
+    }
+    if (amount <= 0) {
+      toast.error('Le montant du transfert doit être positif');
+      return;
+    }
     const fromEnvelope = currentMonth.envelopes.find(e => e.id === fromId);
     const toEnvelope = currentMonth.envelopes.find(e => e.id === toId);
     if (!fromEnvelope) return;
     const available = fromEnvelope.allocated - fromEnvelope.spent;
-    if (amount > available) return;
+    if (amount > available) {
+      toast.error(`Solde insuffisant : ${available.toFixed(2)}€ disponibles`);
+      return;
+    }
     await transferBetweenEnvelopesDb(ctx, currentMonthKey, fromId, toId, amount);
     
     // Check if the transfer triggered any savings goal celebration
