@@ -292,14 +292,27 @@ export async function updateIncomeDb(ctx: QueryContext, monthKey: string, income
 }
 
 export async function deleteIncomeDb(ctx: QueryContext, monthKey: string, incomeId: string, amount: number): Promise<void> {
-  await supabase.from('incomes').delete().eq('id', incomeId);
-
-  await supabase.rpc('adjust_to_be_budgeted', {
+  // Step 1: Adjust balance FIRST (reversible if delete fails since income still exists)
+  const { error: rpcError } = await supabase.rpc('adjust_to_be_budgeted', {
     p_month_key: monthKey,
     p_household_id: ctx.householdId || null,
     p_user_id: ctx.userId,
     p_amount: -amount,
   });
+  if (rpcError) throw new Error(`Failed to adjust balance: ${rpcError.message}`);
+
+  // Step 2: Delete income record
+  const { error: deleteError } = await supabase.from('incomes').delete().eq('id', incomeId);
+  if (deleteError) {
+    // Rollback: restore the balance we just decremented
+    await supabase.rpc('adjust_to_be_budgeted', {
+      p_month_key: monthKey,
+      p_household_id: ctx.householdId || null,
+      p_user_id: ctx.userId,
+      p_amount: amount,
+    });
+    throw new Error(`Failed to delete income: ${deleteError.message}`);
+  }
 }
 
 // Envelope operations
@@ -488,20 +501,30 @@ export async function allocateInitialBalanceDb(ctx: QueryContext, monthKey: stri
 }
 
 export async function deallocateFromEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
-  // Add back to toBeBudgeted atomically
-  await supabase.rpc('adjust_to_be_budgeted', {
+  // Step 1: Decrease envelope allocation first
+  const { error: allocError } = await supabase.rpc('adjust_allocation_atomic', {
+    p_envelope_id: envelopeId,
+    p_month_key: monthKey,
+    p_amount: -amount,
+  });
+  if (allocError) throw new Error(`Failed to deallocate from envelope: ${allocError.message}`);
+
+  // Step 2: Add back to toBeBudgeted
+  const { error: budgetError } = await supabase.rpc('adjust_to_be_budgeted', {
     p_month_key: monthKey,
     p_household_id: ctx.householdId || null,
     p_user_id: ctx.userId,
     p_amount: amount,
   });
-
-  // Decrease envelope allocation atomically
-  await supabase.rpc('adjust_allocation_atomic', {
-    p_envelope_id: envelopeId,
-    p_month_key: monthKey,
-    p_amount: -amount,
-  });
+  if (budgetError) {
+    // Rollback: restore the envelope allocation
+    await supabase.rpc('adjust_allocation_atomic', {
+      p_envelope_id: envelopeId,
+      p_month_key: monthKey,
+      p_amount: amount,
+    });
+    throw new Error(`Failed to adjust budget balance: ${budgetError.message}`);
+  }
 }
 
 export async function transferBetweenEnvelopesDb(ctx: QueryContext, monthKey: string, fromId: string, toId: string, amount: number): Promise<void> {
