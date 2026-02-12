@@ -93,7 +93,7 @@ export default function Index() {
     setSelectedEnvelopeId(envelopeId);
     
     // Open different dialog based on envelope type
-    if (envelope?.icon === 'PiggyBank') {
+    if (envelope?.category === 'epargne') {
       setSavingsDetailsOpen(true);
     } else {
       setDetailsOpen(true);

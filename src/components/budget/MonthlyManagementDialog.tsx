@@ -402,7 +402,7 @@ export function MonthlyManagementDialog({ open, onOpenChange }: MonthlyManagemen
                         className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
                       >
                         <div className="flex items-center gap-2">
-                          {preview.envelope.icon === 'PiggyBank' && (
+                          {preview.envelope.category === 'epargne' && (
                             <PiggyBank className="h-4 w-4 text-primary" />
                           )}
                           <span className="text-sm font-medium">{preview.envelope.name}</span>

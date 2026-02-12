@@ -37,7 +37,7 @@ export function EnvelopeQuickActions({
   const touchMoved = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const isSavings = envelope.icon === 'PiggyBank';
+  const isSavings = envelope.category === 'epargne';
   const remaining = envelope.allocated - envelope.spent;
 
   const vibrate = useCallback(() => {
