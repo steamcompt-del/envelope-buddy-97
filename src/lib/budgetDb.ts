@@ -515,6 +515,38 @@ export async function allocateToEnvelopeDb(ctx: QueryContext, monthKey: string, 
   }
 }
 
+// Allocate to an envelope WITHOUT impacting toBeBudgeted (for existing savings / initial balances)
+export async function allocateInitialBalanceDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
+  if (amount <= 0) return;
+
+  // Ensure month record exists
+  await ensureMonthExists(ctx, monthKey);
+
+  // Only update envelope allocation, do NOT touch to_be_budgeted
+  const { data: allocation } = await supabase
+    .from('envelope_allocations')
+    .select('id, allocated')
+    .eq('envelope_id', envelopeId)
+    .eq('month_key', monthKey)
+    .single();
+
+  if (allocation) {
+    await supabase
+      .from('envelope_allocations')
+      .update({ allocated: Number(allocation.allocated) + amount })
+      .eq('id', allocation.id);
+  } else {
+    await supabase.from('envelope_allocations').insert({
+      user_id: ctx.userId,
+      household_id: ctx.householdId || null,
+      envelope_id: envelopeId,
+      month_key: monthKey,
+      allocated: amount,
+      spent: 0,
+    });
+  }
+}
+
 export async function deallocateFromEnvelopeDb(ctx: QueryContext, monthKey: string, envelopeId: string, amount: number): Promise<void> {
   // Add back to toBeBudgeted
   let budgetQuery = supabase
