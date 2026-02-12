@@ -33,8 +33,10 @@ const UNDOABLE_ACTIONS: Set<ActivityAction> = new Set([
 
 export function isUndoable(activity: ActivityLogEntry): boolean {
   if (!UNDOABLE_ACTIONS.has(activity.action)) return false;
-  // Must have undo_data
   const details = activity.details as Record<string, unknown> | undefined;
+  // Already undone
+  if (details?.undone) return false;
+  // Must have undo_data
   return !!details?.undo_data;
 }
 
