@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
+import { getBackendClient } from '@/lib/backendClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBudget } from '@/contexts/BudgetContext';
 import { format } from 'date-fns';
@@ -51,6 +51,7 @@ export function AutoAllocationHistoryDialog({ open, onOpenChange }: AutoAllocati
 
     const fetchHistory = async () => {
       setLoading(true);
+      const supabase = getBackendClient();
       let query = supabase
         .from('auto_allocation_history')
         .select('*')
