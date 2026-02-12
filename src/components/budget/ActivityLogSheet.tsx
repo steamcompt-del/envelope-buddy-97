@@ -340,30 +340,59 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
                             animate={{ opacity: isUndone ? 0.5 : 1, x: 0 }}
                             transition={{ delay: idx * 0.02 }}
                             className={cn(
-                              'flex items-start gap-3 p-3 rounded-xl border transition-colors',
+                              'flex items-start gap-2.5 p-3 rounded-xl border transition-colors',
                               isUndone ? 'bg-muted/30 border-dashed' : 'bg-card hover:bg-muted/30'
                             )}
                           >
                             {/* Icon */}
                             <div className={cn(
-                              'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
+                              'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
                               isUndone ? 'bg-muted text-muted-foreground' : colorClass
                             )}>
-                              {isUndone ? <Undo2 className="w-4 h-4" /> : renderIcon(activity.action)}
+                              {isUndone ? <Undo2 className="w-3.5 h-3.5" /> : renderIcon(activity.action)}
                             </div>
 
                             {/* Content */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className={cn("text-sm leading-snug", isUndone && "line-through")}>
-                                  <span className="font-semibold">
-                                    {activity.userDisplayName || 'Utilisateur'}
-                                  </span>{' '}
-                                  <span className="text-muted-foreground">
-                                    {actionLabels[activity.action]}
-                                  </span>
+                              <p className={cn("text-sm leading-snug break-words", isUndone && "line-through")}>
+                                <span className="font-semibold">
+                                  {activity.userDisplayName || 'Utilisateur'}
+                                </span>{' '}
+                                <span className="text-muted-foreground">
+                                  {actionLabels[activity.action]}
+                                </span>
+                              </p>
+
+                              {/* Details */}
+                              {details && (
+                                <p className="text-xs mt-1 text-foreground/80 break-words">
+                                  {details}
                                 </p>
-                                {/* Undo button */}
+                              )}
+
+                              {/* Amount badge + Undo row */}
+                              <div className="flex items-center justify-between gap-2 mt-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {activity.details?.amount !== undefined && !isUndone && (
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        'text-xs font-semibold',
+                                        isDelete && 'border-red-500/30 text-red-500',
+                                        isAdd && 'border-emerald-500/30 text-emerald-500',
+                                        !isDelete && !isAdd && 'border-amber-500/30 text-amber-500'
+                                      )}
+                                    >
+                                      {isDelete ? '-' : isAdd ? '+' : ''}
+                                      {formatAmount(activity.details.amount as number)}
+                                    </Badge>
+                                  )}
+                                  {isUndone && (
+                                    <Badge variant="outline" className="text-[10px] border-muted-foreground/30">
+                                      Annulée
+                                    </Badge>
+                                  )}
+                                </div>
                                 {canUndo && !isUndone && (
                                   <Button
                                     variant="ghost"
@@ -380,38 +409,10 @@ export function ActivityLogSheet({ open, onOpenChange }: ActivityLogSheetProps) 
                                     )}
                                   </Button>
                                 )}
-                                {isUndone && (
-                                  <Badge variant="outline" className="text-[10px] shrink-0 border-muted-foreground/30">
-                                    Annulée
-                                  </Badge>
-                                )}
                               </div>
 
-                              {/* Details */}
-                              {details && (
-                                <p className="text-sm mt-1 text-foreground/80 truncate">
-                                  {details}
-                                </p>
-                              )}
-
-                              {/* Amount badge */}
-                              {activity.details?.amount !== undefined && !isUndone && (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    'mt-1.5 text-xs font-semibold',
-                                    isDelete && 'border-red-500/30 text-red-500',
-                                    isAdd && 'border-emerald-500/30 text-emerald-500',
-                                    !isDelete && !isAdd && 'border-amber-500/30 text-amber-500'
-                                  )}
-                                >
-                                  {isDelete ? '-' : isAdd ? '+' : ''}
-                                  {formatAmount(activity.details.amount as number)}
-                                </Badge>
-                              )}
-
                               {/* Timestamp */}
-                              <p className="text-xs text-muted-foreground/70 mt-1.5">
+                              <p className="text-xs text-muted-foreground/70 mt-1">
                                 {formatDate(activity.createdAt)}
                               </p>
                             </div>
