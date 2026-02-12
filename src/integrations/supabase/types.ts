@@ -825,6 +825,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_allocation_atomic: {
+        Args: { p_amount: number; p_envelope_id: string; p_month_key: string }
+        Returns: undefined
+      }
+      adjust_to_be_budgeted: {
+        Args: {
+          p_amount: number
+          p_household_id: string
+          p_month_key: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       decrement_spent_atomic: {
         Args: { p_amount: number; p_envelope_id: string; p_month_key: string }
         Returns: undefined
