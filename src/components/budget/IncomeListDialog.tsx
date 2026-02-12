@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useBudget, Income } from '@/contexts/BudgetContext';
+import { DeleteIncomeConfirmDialog } from './DeleteIncomeConfirmDialog';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
   const [editDescription, setEditDescription] = useState('');
   const [editDate, setEditDate] = useState<Date | undefined>(undefined);
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Income | null>(null);
   
   const sortedIncomes = [...incomes].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -57,10 +59,8 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
     cancelEdit();
   };
   
-  const handleDelete = async (id: string) => {
-    if (confirm('Supprimer ce revenu ? Le montant sera déduit de "À budgétiser".')) {
-      await deleteIncome(id);
-    }
+  const handleDelete = (income: Income) => {
+    setDeleteTarget(income);
   };
   
   return (
@@ -196,7 +196,7 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleDelete(income.id)}
+                          onClick={() => handleDelete(income)}
                           className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -209,6 +209,12 @@ export function IncomeListDialog({ open, onOpenChange }: IncomeListDialogProps) 
             </div>
           </ScrollArea>
         )}
+
+        <DeleteIncomeConfirmDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          income={deleteTarget}
+        />
       </DialogContent>
     </Dialog>
   );
