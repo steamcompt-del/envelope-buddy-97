@@ -86,8 +86,8 @@ export function EnvelopeCard({ envelope, onClick, savingsGoal, onQuickAddExpense
   const colorStyle = colorClasses[color] || colorClasses.blue;
   
   // For savings envelopes: allocated is the total saved, spent represents withdrawals
-  // Net savings = what's actually available (allocated - spent)
-  const netSavings = allocated - spent;
+  // Net savings = what's actually available (allocated - spent), clamped to 0 minimum
+  const netSavings = Math.max(0, allocated - spent);
   
   // For regular envelopes: standard spent/allocated behavior
   const remaining = allocated - spent;

@@ -99,7 +99,7 @@ export function SavingsDetailsDialog({
   if (!envelope) return null;
   
   const targetAmount = savingsGoal?.target_amount || 0;
-  const netSavings = envelope.allocated - envelope.spent;
+  const netSavings = Math.max(0, envelope.allocated - envelope.spent);
   const percentComplete = targetAmount > 0 
     ? Math.min((netSavings / targetAmount) * 100, 100)
     : 0;

@@ -32,6 +32,7 @@ import {
   QueryContext,
 } from '@/lib/budgetDb';
 import { logActivity } from '@/lib/activityDb';
+import { fetchSavingsGoalByEnvelope, checkCelebrationThreshold } from '@/lib/savingsGoalsDb';
 
 // Types
 export type RolloverStrategy = 'full' | 'percentage' | 'capped' | 'none';
@@ -514,6 +515,33 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     const available = fromEnvelope.allocated - fromEnvelope.spent;
     if (amount > available) return;
     await transferBetweenEnvelopesDb(ctx, currentMonthKey, fromId, toId, amount);
+    
+    // Check if the transfer triggered any savings goal celebration
+    if (toEnvelope) {
+      try {
+        const savingsGoal = await fetchSavingsGoalByEnvelope(ctx, toId);
+        if (savingsGoal) {
+          const previousAmount = Math.max(0, toEnvelope.allocated - toEnvelope.spent);
+          const newAmount = previousAmount + amount;
+          const celebration = checkCelebrationThreshold(
+            previousAmount,
+            newAmount,
+            savingsGoal.target_amount,
+            savingsGoal.celebration_threshold
+          );
+          
+          if (celebration) {
+            toast.success(
+              `🎉 Bravo ! ${savingsGoal.name || toEnvelope.name} atteint ${celebration.threshold}% !`,
+              { duration: 5000 }
+            );
+          }
+        }
+      } catch (err) {
+        // Silently ignore celebration check errors
+      }
+    }
+    
     await logActivity(ctx, 'transfer_made', 'envelope', undefined, { 
       amount, 
       from_envelope: fromEnvelope.name, 
