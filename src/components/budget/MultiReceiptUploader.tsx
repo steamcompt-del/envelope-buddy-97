@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Camera, Plus, X, Loader2, ImageIcon, Expand, CheckCircle2, AlertCircle, FileSearch, Shrink, Upload, Sparkles } from 'lucide-react';
+import { Camera, Plus, X, Loader2, ImageIcon, Expand, CheckCircle2, AlertCircle, FileSearch, Shrink, Upload, Sparkles, Image as ImageLucide } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ReceiptLightbox, ReceiptImage } from './ReceiptLightbox';
 import type { ScanProgress, ScanStep } from '@/hooks/useReceiptScanner';
@@ -41,7 +41,8 @@ export function MultiReceiptUploader({
   scanProgress,
   disabled = false,
 }: MultiReceiptUploaderProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -57,9 +58,7 @@ export function MultiReceiptUploader({
     }
 
     // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    e.target.value = '';
   };
 
   const handleOpenLightbox = (index: number) => {
@@ -75,43 +74,63 @@ export function MultiReceiptUploader({
 
   return (
     <div className="space-y-3">
-      {/* Hidden file input */}
+      {/* Hidden file inputs: one for gallery (no capture), one for camera */}
       <input
-        ref={fileInputRef}
+        ref={galleryInputRef}
         type="file"
-        accept="image/*"
-        capture="environment"
+        accept="image/jpeg,image/png,image/webp,image/*"
         multiple
         onChange={handleFileChange}
         className="hidden"
         disabled={disabled}
       />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+        disabled={disabled}
+      />
 
-      {/* Upload button when no receipts */}
+      {/* Upload buttons when no receipts */}
       {pendingReceipts.length === 0 ? (
         <div className="space-y-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isScanning || disabled}
-            className={cn(
-              "w-full rounded-xl h-14 border-dashed",
-              isScanning && "bg-muted"
-            )}
-          >
-            {isScanning ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Analyse IA en cours...
-              </>
-            ) : (
-              <>
-                <Camera className="w-5 h-5 mr-2" />
-                Scanner un ticket (Image)
-              </>
-            )}
-          </Button>
+          {isScanning ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled
+              className="w-full rounded-xl h-14 bg-muted"
+            >
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Analyse IA en cours...
+            </Button>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={disabled}
+                className="rounded-xl h-14 border-dashed flex flex-col gap-1"
+              >
+                <Camera className="w-5 h-5" />
+                <span className="text-xs">Prendre une photo</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={disabled}
+                className="rounded-xl h-14 border-dashed flex flex-col gap-1"
+              >
+                <ImageLucide className="w-5 h-5" />
+                <span className="text-xs">Depuis la galerie</span>
+              </Button>
+            </div>
+          )}
           {/* Progress indicator during scan */}
           {isScanning && scanProgress && scanProgress.step !== "idle" && (
             <ScanProgressIndicator progress={scanProgress} />
@@ -166,21 +185,28 @@ export function MultiReceiptUploader({
               </div>
             ))}
 
-            {/* Add more button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isScanning || disabled}
-              className={cn(
-                "aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30",
-                "flex flex-col items-center justify-center gap-1",
-                "hover:border-primary hover:bg-primary/5 transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              <Plus className="w-5 h-5 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">Ajouter</span>
-            </button>
+            {/* Add more buttons */}
+            <div className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={isScanning || disabled}
+                className="p-1.5 rounded-md hover:bg-primary/10 transition-colors disabled:opacity-50"
+                title="Prendre une photo"
+              >
+                <Camera className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={isScanning || disabled}
+                className="p-1.5 rounded-md hover:bg-primary/10 transition-colors disabled:opacity-50"
+                title="Depuis la galerie"
+              >
+                <ImageLucide className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <span className="text-[9px] text-muted-foreground">Ajouter</span>
+            </div>
           </div>
 
           {/* Count indicator */}
