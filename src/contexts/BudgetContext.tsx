@@ -15,6 +15,7 @@ import {
   deleteEnvelopeDb,
   reorderEnvelopesDb,
   allocateToEnvelopeDb,
+  allocateInitialBalanceDb,
   deallocateFromEnvelopeDb,
   transferBetweenEnvelopesDb,
   addTransactionDb,
@@ -123,8 +124,9 @@ interface BudgetContextType {
   updateEnvelope: (id: string, updates: Partial<Omit<Envelope, 'id'>>) => Promise<void>;
   deleteEnvelope: (id: string) => Promise<void>;
   reorderEnvelopes: (orderedIds: string[]) => Promise<void>;
-  allocateToEnvelope: (envelopeId: string, amount: number) => Promise<void>;
-  deallocateFromEnvelope: (envelopeId: string, amount: number) => Promise<void>;
+   allocateToEnvelope: (envelopeId: string, amount: number) => Promise<void>;
+   allocateInitialBalance: (envelopeId: string, amount: number) => Promise<void>;
+   deallocateFromEnvelope: (envelopeId: string, amount: number) => Promise<void>;
   transferBetweenEnvelopes: (fromId: string, toId: string, amount: number) => Promise<void>;
   
   // Transaction actions
@@ -472,6 +474,15 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     await loadMonthData();
   }, [getQueryContext, currentMonthKey, currentMonth.toBeBudgeted, currentMonth.envelopes, loadMonthData]);
 
+  const allocateInitialBalance = useCallback(async (envelopeId: string, amount: number) => {
+    const ctx = getQueryContext();
+    if (!ctx || amount <= 0) return;
+    const envelope = currentMonth.envelopes.find(e => e.id === envelopeId);
+    await allocateInitialBalanceDb(ctx, currentMonthKey, envelopeId, amount);
+    await logActivity(ctx, 'allocation_made', 'envelope', envelopeId, { amount, envelope_name: envelope?.name, kind: 'initial_balance' });
+    await loadMonthData();
+  }, [getQueryContext, currentMonthKey, currentMonth.envelopes, loadMonthData]);
+
   const deallocateFromEnvelope = useCallback(async (envelopeId: string, amount: number) => {
     const ctx = getQueryContext();
     if (!ctx) return;
@@ -720,6 +731,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     deleteEnvelope,
     reorderEnvelopes,
     allocateToEnvelope,
+    allocateInitialBalance,
     deallocateFromEnvelope,
     transferBetweenEnvelopes,
     addTransaction,
